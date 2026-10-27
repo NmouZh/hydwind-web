@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hydwind - 生存服官网</title>
+  <meta name="description" content="Hydwind，一个慢节奏的 Minecraft Java 生存服务器">
+  <link rel="stylesheet" href="./styles/site.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header" data-header>
+      <a class="brand" href="#top" aria-label="返回首页">
+        <span class="brand-mark">H</span>
+        <span>
+          <strong data-site-name>Hydwind</strong>
+          <small>生存服官网</small>
+        </span>
+      </a>
+
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="打开导航" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="site-nav" data-nav>
+        <a href="./index.html" aria-current="page">首页</a>
+        <a href="./pages/features.html">玩法</a>
+        <a href="./pages/scenery.html">风景</a>
+        <a href="./pages/news.html">公告</a>
+        <a href="./pages/join.html">加入</a>
+        <a href="./pages/community.html">社群</a>
+        <a href="./pages/faq.html">问答</a>
+        <a href="./pages/rules.html">规则</a>
+        <a href="./pages/world.html">地图</a>
+        <a href="./pages/support.html">支持</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero section-reveal">
+        <div class="hero-media" aria-hidden="true">
+          <img src="./assets/images/hero-spawn.png" alt="">
+          <div class="hero-shade"></div>
+        </div>
+
+        <div class="hero-layout">
+          <div class="hero-content">
+            <p class="eyebrow">Minecraft Java 生存服务器</p>
+            <h1><span class="brand-hyd">Hyd</span><span class="brand-wind">wind</span></h1>
+            <p class="hero-lead" data-hero-lead>
+              一个慢节奏的 Minecraft Java 生存服务器，建家、开店、跑活动，欢迎新人加入。
+            </p>
+
+            <div class="hero-actions">
+              <button class="primary-action" type="button" data-copy-server>
+                <span>复制服务器地址</span>
+                <strong data-server-address>play.hydwind.com</strong>
+              </button>
+              <a class="ghost-action" href="./pages/join.html">查看加入步骤</a>
+            </div>
+          </div>
+
+          <aside class="server-ticket" aria-label="服务器状态">
+            <div class="ticket-topline">
+              <span class="live-dot"></span>
+              <strong data-server-state>服务器开放中</strong>
+            </div>
+            <div class="ticket-count">
+              <span>当前在线</span>
+              <strong><b data-online-count>0</b><small>/</small><b data-max-count>300</b></strong>
+            </div>
+            <dl class="ticket-meta">
+              <div>
+                <dt>服务器版本</dt>
+                <dd data-server-version>1.21.x</dd>
+              </div>
+              <div>
+                <dt>服务器地址</dt>
+                <dd data-server-address-text>play.hydwind.com</dd>
+              </div>
+            </dl>
+            <div class="ticket-tags">
+              <span>半公益</span>
+              <span>小镇建筑</span>
+              <span>周末活动</span>
+            </div>
+          </aside>
+
+          <div class="hero-note" aria-label="近期提醒">
+            <span>最近提醒</span>
+            <strong>资源世界周六刷新，主世界建筑不受影响</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-block overview texture-section section-reveal" aria-label="服务器概览">
+        <div class="section-heading">
+          <p class="eyebrow">服务器概览</p>
+          <h2>进服前先看这几件事</h2>
+        </div>
+
+        <div class="overview-grid" data-overview-list></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong data-site-name-footer>Hydwind</strong>
+        <span>中文 Minecraft 服务器</span>
+      </div>
+      <a href="./pages/join.html">加入服务器</a>
+    </footer>
+  </div>
+
+  <div class="toast" data-toast role="status" aria-live="polite"></div>
+
+  <script src="./scripts/site-data.js"></script>
+  <script src="./scripts/main.js"></script>
+</body>
+</html>

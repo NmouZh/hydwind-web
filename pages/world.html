@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>世界地图 - Hydwind</title>
+  <meta name="description" content="服务器地标、交通路线、资源世界和活动区域">
+  <link rel="stylesheet" href="../styles/site.css">
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header subpage-header" data-header>
+      <a class="brand" href="../index.html" aria-label="返回首页">
+        <span class="brand-mark">H</span>
+        <span>
+          <strong data-site-name>Hydwind</strong>
+          <small>生存服官网</small>
+        </span>
+      </a>
+
+      <button class="nav-toggle" type="button" data-nav-toggle aria-label="打开导航" aria-expanded="false">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <nav class="site-nav" data-nav>
+        <a href="../index.html">首页</a>
+        <a href="features.html">玩法</a>
+        <a href="scenery.html">风景</a>
+        <a href="news.html">公告</a>
+        <a href="join.html">加入</a>
+        <a href="community.html">社群</a>
+        <a href="faq.html">问答</a>
+        <a href="rules.html">规则</a>
+        <a href="world.html" aria-current="page">地图</a>
+        <a href="support.html">支持</a>
+      </nav>
+    </header>
+
+    <main class="subpage-main">
+      <section class="page-hero section-reveal">
+        <a class="crumb-link" href="../index.html#top">返回首页</a>
+        <p class="eyebrow">世界地图</p>
+        <h1>世界地图</h1>
+        <p>这里展示主城、市场、交通点、资源世界门和玩家建家区域。</p>
+      </section>
+
+      <section class="section-block world-layout section-reveal">
+        <div class="map-stage">
+          <img src="../assets/images/scenery-lake.png" alt="服务器地图展示图">
+          <div class="map-pin pin-spawn"><span>主城</span></div>
+          <div class="map-pin pin-market"><span>市场</span></div>
+          <div class="map-pin pin-harbor"><span>湖港</span></div>
+        </div>
+
+        <aside class="content-panel map-note">
+          <span class="panel-kicker">坐标速览</span>
+          <h2>常用地点</h2>
+          <dl class="coordinate-list">
+            <div><dt>主城广场</dt><dd>X 0 / Z 0</dd></div>
+            <div><dt>玩家市场</dt><dd>X 128 / Z -64</dd></div>
+            <div><dt>资源世界门</dt><dd>X -96 / Z 48</dd></div>
+            <div><dt>活动场</dt><dd>X 220 / Z 180</dd></div>
+          </dl>
+        </aside>
+      </section>
+
+      <section class="section-block route-grid section-reveal">
+        <article class="route-card">
+          <span>01</span>
+          <h2>新人路线</h2>
+          <p>主城、公告板、公共农场、市场和传送大厅。</p>
+        </article>
+        <article class="route-card">
+          <span>02</span>
+          <h2>建家区域</h2>
+          <p>主城外圈保留公共空间，玩家可以从北侧森林、南侧平原或湖边区域开始寻找地块。</p>
+        </article>
+        <article class="route-card">
+          <span>03</span>
+          <h2>资源采集</h2>
+          <p>资源世界刷新周期、采集范围和结构探索规则。</p>
+        </article>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong data-site-name-footer>Hydwind</strong>
+        <span>中文 Minecraft 服务器</span>
+      </div>
+      <a href="rules.html">查看规则</a>
+    </footer>
+  </div>
+
+  <script src="../scripts/site-data.js"></script>
+  <script src="../scripts/main.js"></script>
+</body>
+</html>
