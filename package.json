@@ -16,5 +16,12 @@
   },
   "engines": {
     "node": ">=22.23.4"
-  }
+  },
+  "overrides": {
+    "magic-string": "1.4.4",
+    "mdast-util-to-markdown": "2.2.0"
+  },
+  "trustedDependencies": [
+    "sharp"
+  ]
 }
