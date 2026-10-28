@@ -1,0 +1,9 @@
+# pnpm 11 起，设置项从 package.json 的 "pnpm" 字段迁移到这里
+onlyBuiltDependencies:
+  - sharp
+  - esbuild
+
+# 固定到发布满 24 小时的版本，避免 CI 的 minimumReleaseAge 供应链策略拦截
+overrides:
+  magic-string: 1.4.4
+  mdast-util-to-markdown: 2.2.0
