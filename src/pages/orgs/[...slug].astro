@@ -1,0 +1,90 @@
+---
+import { getCollection, render } from 'astro:content';
+import PortalLayout from '../../layouts/PortalLayout.astro';
+
+export async function getStaticPaths() {
+  const [orgs, players] = await Promise.all([getCollection('orgs'), getCollection('players')]);
+
+  return orgs.map((org) => ({
+    params: { slug: org.id },
+    props: {
+      org,
+      members: players.filter((player) => player.data.org === org.id),
+    },
+  }));
+}
+
+const { org, members } = Astro.props;
+const { Content } = await render(org);
+const { data } = org;
+---
+
+<PortalLayout
+  title={`${data.name} · 公开组织 · Hydwind`}
+  description={data.summary}
+  current="orgs"
+  solidHeader
+>
+  <section class="page-head">
+    <a class="crumb" href="/orgs/">← 公开组织</a>
+    <span class="eyebrow">{data.type} · {data.status}</span>
+    <h1>{data.name}</h1>
+    <p class="lead">{data.summary}</p>
+  </section>
+
+  <div class="detail">
+    <article class="detail-body">
+      <Content />
+    </article>
+
+    <aside class="detail-aside">
+      <dl class="meta-table">
+        <div><dt>类型</dt><dd>{data.type}</dd></div>
+        <div><dt>负责人</dt><dd>{data.leader}</dd></div>
+        <div><dt>状态</dt><dd>{data.status}</dd></div>
+        {data.founded && <div><dt>成立</dt><dd>{data.founded}</dd></div>}
+        {data.coords && <div><dt>坐标</dt><dd>{data.coords}</dd></div>}
+        <div><dt>成员</dt><dd>{data.members.length} 人</dd></div>
+        {data.contact && <div><dt>联系</dt><dd>{data.contact}</dd></div>}
+      </dl>
+
+      {
+        data.tags.length > 0 && (
+          <div class="aside-block">
+            <h2>标签</h2>
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              {data.tags.map((tag) => <span class="tag">{tag}</span>)}
+            </div>
+          </div>
+        )
+      }
+
+      <div class="aside-block">
+        <h2>成员 {members.length > 0 && `· ${members.length}`}</h2>
+        <div class="aside-list">
+          {
+            members.length > 0 ? (
+              members.map((player) => (
+                <a href={`/players/${player.id}/`}>
+                  <span>{player.data.ign}</span>
+                  <span style="color: var(--hw-dim)">{player.data.role ?? '成员'}</span>
+                </a>
+              ))
+            ) : (
+              <p style="font-size: 12.5px; color: var(--hw-dim); margin: 0">
+                暂无已公开的成员档案。
+              </p>
+            )
+          }
+        </div>
+      </div>
+
+      <div class="aside-block">
+        <h2>其他组织</h2>
+        <div class="aside-list">
+          <a href="/orgs/">浏览全部组织<span>→</span></a>
+        </div>
+      </div>
+    </aside>
+  </div>
+</PortalLayout>

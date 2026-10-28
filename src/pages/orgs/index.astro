@@ -1,0 +1,99 @@
+---
+import { getCollection } from 'astro:content';
+import PortalLayout from '../../layouts/PortalLayout.astro';
+
+const orgs = (await getCollection('orgs')).sort(
+  (a, b) => a.data.order - b.data.order || a.data.name.localeCompare(b.data.name),
+);
+
+const types = ['全部', '城镇', '公会', '工作室', '其他'];
+---
+
+<PortalLayout
+  title="公开组织 · Hydwind"
+  description="Hydwind 服务器内的城镇、公会与建设团体名录。"
+  current="orgs"
+  solidHeader
+>
+  <section class="page-head">
+    <a class="crumb" href="/">← 门户</a>
+    <span class="eyebrow">Organizations</span>
+    <h1>公开组织</h1>
+    <p class="lead">
+      服务器内的城镇、公会、工作室与建设团体。每个组织一个 Markdown 文件，
+      成员、坐标与招募状态都在 frontmatter 里维护；档案页会自动聚合所属玩家。
+    </p>
+    <p class="count">共 {orgs.length} 个组织 · 数据来自 src/content/orgs</p>
+  </section>
+
+  <section class="section" style="padding-top: 0">
+    <div class="filter-bar">
+      {
+        types.map((type) => (
+          <button class="chip is-active" type="button" data-filter={type}>
+            {type}
+          </button>
+        ))
+      }
+      <input class="search-input" type="search" placeholder="搜索组织 / 负责人 / 标签" data-search aria-label="搜索组织" />
+    </div>
+
+    <div class="org-grid" data-org-grid>
+      {
+        orgs.map((org) => (
+          <a
+            class="org-card"
+            href={`/orgs/${org.id}/`}
+            data-type={org.data.type}
+            data-search={`${org.data.name} ${org.data.leader} ${org.data.tags.join(' ')}`.toLowerCase()}
+          >
+            <div class="org-top">
+              <span class="org-type">{org.data.type}</span>
+              <span class="org-state" data-status={org.data.status}>
+                <i></i>
+                {org.data.status}
+              </span>
+            </div>
+            <h3>{org.data.name}</h3>
+            <p>{org.data.summary}</p>
+            <div class="org-meta">
+              <span>负责人 {org.data.leader}</span>
+              {org.data.coords && <span>{org.data.coords}</span>}
+              <span>{org.data.members.length} 名成员</span>
+            </div>
+            <div class="org-meta" style="border: 0; padding-top: 0; margin-top: 0">
+              {org.data.tags.map((tag) => <span class="tag">{tag}</span>)}
+            </div>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+</PortalLayout>
+
+<script>
+  const chips = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('[data-type]'));
+  const search = document.querySelector<HTMLInputElement>('[data-search]');
+
+  let activeType = '全部';
+
+  const apply = () => {
+    const keyword = (search?.value ?? '').trim().toLowerCase();
+    cards.forEach((card) => {
+      const typeOk = activeType === '全部' || card.dataset.type === activeType;
+      const textOk = !keyword || (card.dataset.search ?? '').includes(keyword);
+      card.style.display = typeOk && textOk ? '' : 'none';
+    });
+  };
+
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      activeType = chip.dataset.filter ?? '全部';
+      chips.forEach((item) => item.classList.toggle('is-active', item === chip));
+      apply();
+    });
+  });
+
+  search?.addEventListener('input', apply);
+</script>

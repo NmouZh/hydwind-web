@@ -1,0 +1,46 @@
+---
+import { getCollection, render } from 'astro:content';
+import PortalLayout from '../../layouts/PortalLayout.astro';
+
+export async function getStaticPaths() {
+  const news = await getCollection('news');
+  return news.map((item) => ({ params: { slug: item.id }, props: { item } }));
+}
+
+const { item } = Astro.props;
+const { Content } = await render(item);
+---
+
+<PortalLayout
+  title={`${item.data.title} · 公告 · Hydwind`}
+  description={item.data.summary}
+  current="wiki"
+  solidHeader
+>
+  <section class="page-head">
+    <a class="crumb" href="/news/">← 全部公告</a>
+    <span class="eyebrow">{item.data.tag} · {item.data.date}</span>
+    <h1>{item.data.title}</h1>
+    <p class="lead">{item.data.summary}</p>
+  </section>
+
+  <div class="detail">
+    <article class="detail-body">
+      <Content />
+    </article>
+
+    <aside class="detail-aside">
+      <dl class="meta-table">
+        <div><dt>日期</dt><dd>{item.data.date}</dd></div>
+        <div><dt>分类</dt><dd>{item.data.tag}</dd></div>
+      </dl>
+      <div class="aside-block">
+        <h2>相关</h2>
+        <div class="aside-list">
+          <a href="/news/">全部公告<span>→</span></a>
+          <a href="/wiki/rules/">服务器规则<span>→</span></a>
+        </div>
+      </div>
+    </aside>
+  </div>
+</PortalLayout>

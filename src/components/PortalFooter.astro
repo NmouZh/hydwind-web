@@ -1,0 +1,47 @@
+---
+import Logo from './Logo.astro';
+---
+
+<footer class="p-footer">
+  <div class="p-footer-inner">
+    <div>
+      <div class="p-footer-brand">
+        <Logo size={24} />
+        <span>HYDWIND</span>
+      </div>
+      <p>
+        Hydwind 是一个以城市、建筑与长期生存为核心的 Minecraft Java 服务器。
+        本站用于沉淀官方 Wiki、公开组织名录与玩家自传。
+      </p>
+    </div>
+
+    <div>
+      <h4>内容</h4>
+      <div class="p-footer-links">
+        <a href="/wiki/">官方 Wiki</a>
+        <a href="/wiki/start/join/">加入服务器</a>
+        <a href="/wiki/rules/">服务器规则</a>
+        <a href="/orgs/">公开组织</a>
+        <a href="/players/">玩家自传</a>
+      </div>
+    </div>
+
+    <div>
+      <h4>其他</h4>
+      <div class="p-footer-links">
+        <a href="/wiki/server/news/">最新公告</a>
+        <a href="/wiki/server/support/">支持服务器</a>
+        <a href="https://github.com/NmouZh/hydwind-web" target="_blank" rel="noopener">GitHub 仓库</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="p-footer-bottom">
+    <p style="margin:0 0 6px">
+      © 2018 — 2026 Hydwind. 本站内容以 Markdown 维护，构建于 Astro + Starlight，托管于 EdgeOne Pages。
+    </p>
+    <p style="margin:0">
+      Minecraft 是 Mojang Studios 的商标，Hydwind 与其无隶属或授权关系。站内提及的城市、组织与设定除特别说明外均为虚构内容。
+    </p>
+  </div>
+</footer>

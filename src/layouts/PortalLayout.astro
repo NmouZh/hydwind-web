@@ -1,0 +1,44 @@
+---
+import '../styles/portal.css';
+import PortalHeader from '../components/PortalHeader.astro';
+import PortalFooter from '../components/PortalFooter.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  current?: 'home' | 'wiki' | 'orgs' | 'players';
+  solidHeader?: boolean;
+}
+
+const {
+  title,
+  description = 'Hydwind 生存服官方门户：Wiki、公开组织与玩家自传。',
+  current,
+  solidHeader = false,
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site);
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <meta name="theme-color" content="#0a0b0d" />
+  </head>
+  <body>
+    <div class="p-shell">
+      <PortalHeader current={current} solid={solidHeader} />
+      <slot />
+      <PortalFooter />
+    </div>
+  </body>
+</html>

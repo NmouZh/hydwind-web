@@ -1,0 +1,72 @@
+---
+import Logo from './Logo.astro';
+
+interface Props {
+  current?: 'home' | 'wiki' | 'orgs' | 'players';
+  solid?: boolean;
+}
+
+const { current, solid = false } = Astro.props;
+
+const nav = [
+  { key: 'home', label: '门户', href: '/' },
+  { key: 'wiki', label: '官方 Wiki', href: '/wiki/' },
+  { key: 'orgs', label: '公开组织', href: '/orgs/' },
+  { key: 'players', label: '玩家自传', href: '/players/' },
+] as const;
+---
+
+<header class:list={['p-header', { 'is-solid': solid }]} data-header>
+  <a class="p-brand" href="/" aria-label="Hydwind 门户首页">
+    <Logo />
+    <span>HYDWIND</span>
+  </a>
+
+  <nav class="p-nav" data-nav aria-label="主导航">
+    {
+      nav.map((item) => (
+        <a
+          href={item.href}
+          aria-current={current === item.key ? 'page' : undefined}
+        >
+          {item.label}
+        </a>
+      ))
+    }
+  </nav>
+
+  <div class="p-header-right">
+    <span class="p-status"><i class="p-dot"></i>在线 0 / 300</span>
+    <button class="p-menu-btn" type="button" data-nav-toggle aria-label="打开菜单" aria-expanded="false">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<script>
+  const header = document.querySelector<HTMLElement>('[data-header]');
+  const nav = document.querySelector<HTMLElement>('[data-nav]');
+  const toggle = document.querySelector<HTMLElement>('[data-nav-toggle]');
+
+  const onScroll = () => {
+    if (!header) return;
+    header.classList.toggle('is-scrolled', window.scrollY > 16);
+  };
+
+  onScroll();
+  window.addEventListener('scroll', onScroll, { passive: true });
+
+  toggle?.addEventListener('click', () => {
+    const open = nav?.classList.toggle('is-open') ?? false;
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+
+  nav?.addEventListener('click', (event) => {
+    if ((event.target as HTMLElement).closest('a')) {
+      nav.classList.remove('is-open');
+      toggle?.setAttribute('aria-expanded', 'false');
+    }
+  });
+</script>

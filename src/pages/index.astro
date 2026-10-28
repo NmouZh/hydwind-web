@@ -1,0 +1,187 @@
+---
+import { getCollection } from 'astro:content';
+import PortalLayout from '../layouts/PortalLayout.astro';
+
+const [orgs, players, news, docs] = await Promise.all([
+  getCollection('orgs'),
+  getCollection('players'),
+  getCollection('news'),
+  getCollection('docs'),
+]);
+
+const latestNews = news
+  .sort((a, b) => (a.data.date < b.data.date ? 1 : -1))
+  .slice(0, 4);
+
+const docCount = docs.length;
+const orgCount = orgs.length;
+const playerCount = players.length;
+
+const entries = [
+  {
+    idx: '01',
+    href: '/wiki/',
+    title: '官方 Wiki',
+    desc: '规则、加入流程、世界地图与服务器机制。所有条目以 Markdown 维护，改动即发布。',
+    meta: `${docCount} 篇文档`,
+  },
+  {
+    idx: '02',
+    href: '/orgs/',
+    title: '公开组织',
+    desc: '服务器内的城镇、公会与建设团体。含负责人、成员、坐标与招募状态。',
+    meta: `${orgCount} 个组织`,
+  },
+  {
+    idx: '03',
+    href: '/players/',
+    title: '玩家自传',
+    desc: '玩家自己写的档案：加入时间、所属组织、擅长方向与想说的话。',
+    meta: `${playerCount} 位玩家`,
+  },
+];
+---
+
+<PortalLayout title="Hydwind · 生存服门户" current="home">
+  <section class="hero">
+    <div class="hero-media">
+      <img src="/images/hero-spawn.webp" alt="Hydwind 出生点" width="1920" height="1080" />
+    </div>
+
+    <div class="hero-inner">
+      <p class="hero-kicker">Minecraft Java 生存服务器 · 第八周目</p>
+      <h1 class="hero-title">
+        <span class="thin">这里是</span>
+        Hyd<em>wind</em>
+      </h1>
+      <p class="hero-lead">
+        修楼、铺轨、造城、养老。一个不追求一天毕业的生存服务器——可以建家、开店、跑活动，
+        也可以只是安静挖矿。世界会一直留着，进度由你自己决定。
+      </p>
+
+      <div class="hero-actions">
+        <button class="btn btn-primary" type="button" data-copy-address>
+          复制服务器地址
+          <span style="font-family: var(--hw-font-mono); font-size: 12px; opacity: .7">play.hydwind.com</span>
+        </button>
+        <a class="btn" href="/wiki/start/join/">加入步骤</a>
+        <a class="btn btn-ghost" href="/wiki/rules/">先看规则 →</a>
+      </div>
+
+      <div class="hero-foot">
+        <span class="scroll-hint"><i></i>下滑以继续</span>
+        <span class="hero-stat"><i class="p-dot"></i>在线 <b>0</b> / 300</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Site Index</span>
+        <h2>三种内容，一套来源</h2>
+      </div>
+      <p>所有页面都由仓库里的 Markdown 生成：Wiki 用 Starlight，组织与玩家档案用内容集合（Content Collections），字段缺失会在构建时报错。</p>
+    </div>
+
+    <div class="entry-grid">
+      {
+        entries.map((item) => (
+          <a class="entry-card" href={item.href}>
+            <span class="idx">{item.idx}</span>
+            <h3>{item.title}</h3>
+            <p>{item.desc}</p>
+            <span class="arrow">{item.meta} ↗</span>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section section-tight">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Dispatch</span>
+        <h2>最近公告</h2>
+      </div>
+      <a class="more-link" href="/news/">全部公告 →</a>
+    </div>
+
+    <div class="dispatch">
+      {
+        latestNews.map((item) => (
+          <a class="dispatch-row" href={`/news/${item.id}/`}>
+            <time>{item.data.date}</time>
+            <strong>{item.data.title}</strong>
+            <span>{item.data.tag}</span>
+          </a>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section section-tight">
+    <div class="section-head">
+      <div>
+        <span class="eyebrow">Server</span>
+        <h2>服务器信息</h2>
+      </div>
+      <p>版本、地址与周目信息。状态数字为示意位，接上查询接口后可实时显示。</p>
+    </div>
+
+    <dl class="spec-grid">
+      <div class="spec"><dt>版本</dt><dd>1.21.x Java</dd></div>
+      <div class="spec"><dt>地址</dt><dd>play.hydwind.com</dd></div>
+      <div class="spec"><dt>周目</dt><dd>第八周目</dd></div>
+      <div class="spec"><dt>开服</dt><dd>2024.03</dd></div>
+    </dl>
+  </section>
+</PortalLayout>
+
+<div class="toast" data-toast role="status" aria-live="polite"></div>
+
+<style>
+  .toast {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    z-index: 90;
+    padding: 10px 18px;
+    border: 1px solid var(--hw-line-strong);
+    border-radius: 3px;
+    background: #14171b;
+    font-size: 12.5px;
+    color: var(--hw-ink);
+    opacity: 0;
+    transform: translate(-50%, 12px);
+    transition: opacity 0.22s ease, transform 0.22s ease;
+    pointer-events: none;
+  }
+
+  .toast.is-visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+</style>
+
+<script>
+  const button = document.querySelector<HTMLButtonElement>('[data-copy-address]');
+  const toast = document.querySelector<HTMLElement>('[data-toast]');
+  const address = 'play.hydwind.com';
+
+  const show = (message: string) => {
+    if (!toast) return;
+    toast.textContent = message;
+    toast.classList.add('is-visible');
+    window.setTimeout(() => toast.classList.remove('is-visible'), 1800);
+  };
+
+  button?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(address);
+      show('服务器地址已复制');
+    } catch {
+      show(`请手动复制：${address}`);
+    }
+  });
+</script>
