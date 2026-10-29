@@ -52,15 +52,15 @@ export const site = {
 ## 开发与构建
 
 ```bash
-pnpm install
-pnpm dev        # http://localhost:4321
-pnpm build      # 输出到 dist/
-pnpm preview
+bun install
+bun dev         # http://localhost:4321
+bun run build   # 输出到 dist/
+bun run preview
 ```
 
 ## 部署
 
-上传 `dist/` 即可，无服务端依赖。若沿用 EdgeOne Pages，构建命令 `pnpm build`、输出目录 `dist`，Node 版本按 `.node-version` 设置。
+上传 `dist/` 即可，无服务端依赖。若沿用 EdgeOne Pages，构建命令 `bun run build`、输出目录 `dist`，Node 版本按 `.node-version` 设置。
 
 ## 说明
 
