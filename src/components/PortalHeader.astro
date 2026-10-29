@@ -1,25 +1,41 @@
 ---
 import Logo from './Logo.astro';
+import { site } from '../data/site';
 
 interface Props {
-  current?: 'home' | 'wiki' | 'orgs' | 'players';
+  current?:
+    | 'home'
+    | 'features'
+    | 'scenery'
+    | 'news'
+    | 'join'
+    | 'rules'
+    | 'world'
+    | 'support'
+    | 'wiki'
+    | 'orgs'
+    | 'players';
   solid?: boolean;
 }
 
 const { current, solid = false } = Astro.props;
 
 const nav = [
-  { key: 'home', label: '门户', href: '/' },
-  { key: 'wiki', label: '官方 Wiki', href: '/wiki/' },
-  { key: 'orgs', label: '公开组织', href: '/orgs/' },
-  { key: 'players', label: '玩家自传', href: '/players/' },
+  { key: 'home', label: '首页', href: '/' },
+  { key: 'features', label: '玩法', href: '/#features' },
+  { key: 'scenery', label: '风景', href: '/#scenery' },
+  { key: 'news', label: '公告', href: '/#news' },
+  { key: 'join', label: '加入', href: '/#join' },
+  { key: 'rules', label: '规则', href: '/rules/' },
+  { key: 'world', label: '地图', href: '/world/' },
+  { key: 'support', label: '支持', href: '/support/' },
 ] as const;
 ---
 
 <header class:list={['p-header', { 'is-solid': solid }]} data-header>
-  <a class="p-brand" href="/" aria-label="Hydwind 门户首页">
+  <a class="p-brand" href="/" aria-label={`${site.siteName} 首页`}>
     <Logo />
-    <span>HYDWIND</span>
+    <span>{site.siteName}</span>
   </a>
 
   <nav class="p-nav" data-nav aria-label="主导航">
@@ -36,7 +52,7 @@ const nav = [
   </nav>
 
   <div class="p-header-right">
-    <span class="p-status"><i class="p-dot"></i>在线 0 / 300</span>
+    <span class="p-status"><i class="p-dot"></i>在线 {site.onlineCount} / {site.maxCount}</span>
     <button class="p-menu-btn" type="button" data-nav-toggle aria-label="打开菜单" aria-expanded="false">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
         <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.4"></path>

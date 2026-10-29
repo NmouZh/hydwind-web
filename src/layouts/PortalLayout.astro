@@ -6,13 +6,24 @@ import PortalFooter from '../components/PortalFooter.astro';
 interface Props {
   title: string;
   description?: string;
-  current?: 'home' | 'wiki' | 'orgs' | 'players';
+  current?:
+    | 'home'
+    | 'features'
+    | 'scenery'
+    | 'news'
+    | 'join'
+    | 'rules'
+    | 'world'
+    | 'support'
+    | 'wiki'
+    | 'orgs'
+    | 'players';
   solidHeader?: boolean;
 }
 
 const {
   title,
-  description = 'Hydwind 生存服官方门户：Wiki、公开组织与玩家自传。',
+  description = 'Minecraft 中文服务器官网：玩法、规则、地图与加入方式。',
   current,
   solidHeader = false,
 } = Astro.props;
@@ -40,5 +51,26 @@ const canonical = new URL(Astro.url.pathname, Astro.site);
       <slot />
       <PortalFooter />
     </div>
+
+    <script>
+      const revealItems = document.querySelectorAll('.section-reveal');
+
+      if (!('IntersectionObserver' in window)) {
+        revealItems.forEach((item) => item.classList.add('is-visible'));
+      } else {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add('is-visible');
+              observer.unobserve(entry.target);
+            });
+          },
+          { threshold: 0.1, rootMargin: '0px 0px -8% 0px' }
+        );
+
+        revealItems.forEach((item) => observer.observe(item));
+      }
+    </script>
   </body>
 </html>

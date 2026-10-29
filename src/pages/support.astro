@@ -1,0 +1,61 @@
+---
+import PortalLayout from '../layouts/PortalLayout.astro';
+import { site } from '../data/site';
+import '../styles/survival.css';
+---
+
+<PortalLayout title={`支持服务器 - ${site.siteName}`} description="服务器支持说明、开销和感谢权益" current="support" solidHeader>
+  <main class="subpage-main">
+    <section class="page-hero section-reveal">
+      <a class="crumb-link" href="/">返回首页</a>
+      <p class="eyebrow">支持服务器</p>
+      <h1>支持服务器</h1>
+      <p>这里展示服务器开销、支持方式和感谢权益。</p>
+    </section>
+
+    <section class="section-block section-reveal">
+      <div class="support-layout">
+      <article class="support-card support-card-main">
+        <span class="panel-kicker">开销</span>
+        <h2>服务器开销</h2>
+        <p>主机、备份、带宽、活动奖品和素材制作。</p>
+        <div class="support-meter" aria-label="本月开销进度">
+          <span style="width: 68%"></span>
+        </div>
+        <strong>本月开销进度 68%</strong>
+      </article>
+
+      <article class="support-tier">
+        <h2>基础支持</h2>
+        <strong>名字出现在感谢墙</strong>
+        <p>感谢墙、称号或纪念展示，不提供资源优势。</p>
+      </article>
+
+      <article class="support-tier">
+        <h2>活动支持</h2>
+        <strong>用于周末活动和建筑赛</strong>
+        <p>活动奖品、小游戏地图和公共区域装饰。</p>
+      </article>
+
+      <article class="support-tier">
+        <h2>建设支持</h2>
+        <strong>建设支持</strong>
+        <p>主城扩建、官网素材、宣传图和服务器备份。</p>
+      </article>
+    </div>
+    </section>
+
+    <section class="section-band section-reveal">
+      <div class="band-copy">
+        <p class="eyebrow">公平原则</p>
+        <h2>不卖资源，不卖权限，不卖压制优势</h2>
+        <p>感谢权益不包含数值强度、稀缺资源和管理权限。</p>
+      </div>
+      <div class="band-stats">
+        <div class="band-stat"><strong>不破坏</strong><span>生存平衡</span></div>
+        <div class="band-stat"><strong>可公开</strong><span>开销去向</span></div>
+        <div class="band-stat"><strong>可自愿</strong><span>不强制参与</span></div>
+      </div>
+    </section>
+  </main>
+</PortalLayout>

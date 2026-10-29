@@ -1,187 +1,265 @@
 ---
-import { getCollection } from 'astro:content';
 import PortalLayout from '../layouts/PortalLayout.astro';
-
-const [orgs, players, news, docs] = await Promise.all([
-  getCollection('orgs'),
-  getCollection('players'),
-  getCollection('news'),
-  getCollection('docs'),
-]);
-
-const latestNews = news
-  .sort((a, b) => (a.data.date < b.data.date ? 1 : -1))
-  .slice(0, 4);
-
-const docCount = docs.length;
-const orgCount = orgs.length;
-const playerCount = players.length;
-
-const entries = [
-  {
-    idx: '01',
-    href: '/wiki/',
-    title: '官方 Wiki',
-    desc: '规则、加入流程、世界地图与服务器机制。所有条目以 Markdown 维护，改动即发布。',
-    meta: `${docCount} 篇文档`,
-  },
-  {
-    idx: '02',
-    href: '/orgs/',
-    title: '公开组织',
-    desc: '服务器内的城镇、公会与建设团体。含负责人、成员、坐标与招募状态。',
-    meta: `${orgCount} 个组织`,
-  },
-  {
-    idx: '03',
-    href: '/players/',
-    title: '玩家自传',
-    desc: '玩家自己写的档案：加入时间、所属组织、擅长方向与想说的话。',
-    meta: `${playerCount} 位玩家`,
-  },
-];
+import { site } from '../data/site';
+import '../styles/survival.css';
 ---
 
-<PortalLayout title="Hydwind · 生存服门户" current="home">
-  <section class="hero">
-    <div class="hero-media">
-      <img src="/images/hero-spawn.webp" alt="Hydwind 出生点" width="1920" height="1080" />
+<PortalLayout title={`${site.siteName} - 生存服官网`} current="home">
+  <section class="hero section-reveal">
+    <div class="hero-media" aria-hidden="true">
+      <img src="/images/hero-spawn.webp" alt="" width="1672" height="941" />
+      <div class="hero-shade"></div>
     </div>
 
-    <div class="hero-inner">
-      <p class="hero-kicker">Minecraft Java 生存服务器 · 第八周目</p>
-      <h1 class="hero-title">
-        <span class="thin">这里是</span>
-        Hyd<em>wind</em>
-      </h1>
-      <p class="hero-lead">
-        修楼、铺轨、造城、养老。一个不追求一天毕业的生存服务器——可以建家、开店、跑活动，
-        也可以只是安静挖矿。世界会一直留着，进度由你自己决定。
-      </p>
+    <div class="hero-layout">
+      <div class="hero-content">
+        <p class="eyebrow">Minecraft Java 生存服务器</p>
+        <h1>{site.heroTitle}</h1>
+        <p class="hero-lead">{site.heroLead}</p>
 
-      <div class="hero-actions">
-        <button class="btn btn-primary" type="button" data-copy-address>
-          复制服务器地址
-          <span style="font-family: var(--hw-font-mono); font-size: 12px; opacity: .7">play.hydwind.com</span>
-        </button>
-        <a class="btn" href="/wiki/start/join/">加入步骤</a>
-        <a class="btn btn-ghost" href="/wiki/rules/">先看规则 →</a>
+        <div class="hero-actions">
+          <button class="primary-action" type="button" data-copy-server>
+            <span>复制服务器地址</span>
+            <strong data-server-address>{site.serverAddress}</strong>
+          </button>
+          <a class="ghost-action" href="#join">查看加入步骤</a>
+        </div>
       </div>
 
-      <div class="hero-foot">
-        <span class="scroll-hint"><i></i>下滑以继续</span>
-        <span class="hero-stat"><i class="p-dot"></i>在线 <b>0</b> / 300</span>
+      <aside class="server-ticket" aria-label="服务器状态">
+        <div class="ticket-topline">
+          <span class="live-dot"></span>
+          <strong>{site.serverState}</strong>
+        </div>
+        <div class="ticket-count">
+          <span>当前在线</span>
+          <strong>
+            <b>{site.onlineCount}</b>
+            <small>/</small>
+            <b>{site.maxCount}</b>
+          </strong>
+        </div>
+        <dl class="ticket-meta">
+          <div>
+            <dt>服务器版本</dt>
+            <dd>{site.serverVersion}</dd>
+          </div>
+          <div>
+            <dt>服务器地址</dt>
+            <dd>{site.serverAddress}</dd>
+          </div>
+        </dl>
+        <div class="ticket-tags">
+          {site.ticketTags.map((tag) => <span>{tag}</span>)}
+        </div>
+      </aside>
+
+      <div class="hero-note" aria-label="近期提醒">
+        <span>最近提醒</span>
+        <strong>{site.notice}</strong>
       </div>
     </div>
   </section>
 
-  <section class="section">
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">Site Index</span>
-        <h2>三种内容，一套来源</h2>
-      </div>
-      <p>所有页面都由仓库里的 Markdown 生成：Wiki 用 Starlight，组织与玩家档案用内容集合（Content Collections），字段缺失会在构建时报错。</p>
+  <section class="section-block overview texture-section section-reveal" aria-label="服务器概览">
+    <div class="section-heading">
+      <p class="eyebrow">服务器概览</p>
+      <h2>进服前先看这几件事</h2>
     </div>
 
-    <div class="entry-grid">
+    <div class="overview-grid">
       {
-        entries.map((item) => (
-          <a class="entry-card" href={item.href}>
-            <span class="idx">{item.idx}</span>
+        site.overview.map((item) => (
+          <article class="info-card">
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+            <p>{item.text}</p>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section-block split-section section-reveal" id="features">
+    <div class="section-heading sticky-heading">
+      <p class="eyebrow">玩法展示</p>
+      <h2>生存、建筑和活动都留在一个节奏里</h2>
+      <p>在这里展示服务器玩法、建筑区域、活动内容和玩家社区。</p>
+    </div>
+
+    <div class="feature-list">
+      {
+        site.features.map((item) => (
+          <article class="feature-card">
+            <span class="feature-icon">{item.icon}</span>
+            <div>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section-band section-reveal">
+    <div class="band-copy">
+      <p class="eyebrow">服务器节奏</p>
+      <h2>服务器节奏</h2>
+      <p>不追求一天毕业，也不强推复杂任务。玩家可以建家、开店、跑活动，也可以只是安静挖矿</p>
+    </div>
+    <div class="band-stats">
+      {
+        site.stats.map((item) => (
+          <div class="band-stat">
+            <strong>{item.value}</strong>
+            <span>{item.label}</span>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section-block scenery-section section-reveal" id="scenery">
+    <div class="section-heading scenery-heading">
+      <p class="eyebrow">服务器风景</p>
+      <h2>让玩家先看到这个世界的样子</h2>
+      <p>这里可以展示主城、玩家聚落、活动场和服务器地标。</p>
+    </div>
+
+    <div class="scenery-grid">
+      {
+        site.scenery.map((item, index) => (
+          <article class={`scenery-card scenery-card-${index + 1}`}>
+            <div class="scenery-image">
+              <img src={item.image} alt={item.title} loading={index === 0 ? 'eager' : 'lazy'} />
+            </div>
+            <div class="scenery-body">
+              <span>{`0${index + 1}`}</span>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section class="section-block news-section texture-section section-reveal" id="news">
+    <div class="section-heading">
+      <p class="eyebrow">最新公告</p>
+      <h2>最近需要知道的事</h2>
+    </div>
+
+    <div class="news-grid">
+      {
+        site.news.map((item) => (
+          <article class="news-card">
+            <time>{item.date}</time>
             <h3>{item.title}</h3>
-            <p>{item.desc}</p>
-            <span class="arrow">{item.meta} ↗</span>
-          </a>
+            <p>{item.text}</p>
+          </article>
         ))
       }
     </div>
   </section>
 
-  <section class="section section-tight">
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">Dispatch</span>
-        <h2>最近公告</h2>
-      </div>
-      <a class="more-link" href="/news/">全部公告 →</a>
+  <section class="section-block join-section section-reveal" id="join">
+    <div class="section-heading">
+      <p class="eyebrow">加入服务器</p>
+      <h2>准备好版本后，就可以进来看看</h2>
     </div>
 
-    <div class="dispatch">
+    <div class="join-panel">
+      <div class="join-address">
+        <span>服务器地址</span>
+        <strong data-server-address>{site.serverAddress}</strong>
+        <button type="button" data-copy-server>复制</button>
+      </div>
+
+      <ol class="join-steps">
+        {
+          site.joinSteps.map((step) => (
+            <li>
+              <strong>{step.title}</strong>
+              <p>{step.text}</p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section class="section-block community-section section-reveal" id="community">
+    <div class="community-panel">
+      <div class="community-copy">
+        <p class="eyebrow">社群</p>
+        <h2>{site.community.title}</h2>
+        <p>{site.community.note}</p>
+        <div class="community-links">
+          {site.community.links.map((link) => <a href={link.href}>{link.label}</a>)}
+        </div>
+      </div>
+
+      <div class="qr-card" aria-label="社群二维码">
+        <div class="qr-frame">
+          {
+            site.community.qrImage ? (
+              <img src={site.community.qrImage} alt={site.community.qrLabel} />
+            ) : (
+              <span class="qr-placeholder">{site.community.qrLabel}</span>
+            )
+          }
+        </div>
+        <strong>{site.community.qrLabel}</strong>
+        <p>{site.community.qrNote}</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section-block faq-section section-reveal" id="faq">
+    <div class="section-heading">
+      <p class="eyebrow">常见问题</p>
+      <h2>进服常见问题</h2>
+    </div>
+
+    <div class="faq-list">
       {
-        latestNews.map((item) => (
-          <a class="dispatch-row" href={`/news/${item.id}/`}>
-            <time>{item.data.date}</time>
-            <strong>{item.data.title}</strong>
-            <span>{item.data.tag}</span>
-          </a>
+        site.faq.map((item) => (
+          <article class="faq-item">
+            <h3>{item.question}</h3>
+            <p>{item.answer}</p>
+          </article>
         ))
       }
     </div>
-  </section>
-
-  <section class="section section-tight">
-    <div class="section-head">
-      <div>
-        <span class="eyebrow">Server</span>
-        <h2>服务器信息</h2>
-      </div>
-      <p>版本、地址与周目信息。状态数字为示意位，接上查询接口后可实时显示。</p>
-    </div>
-
-    <dl class="spec-grid">
-      <div class="spec"><dt>版本</dt><dd>1.21.x Java</dd></div>
-      <div class="spec"><dt>地址</dt><dd>play.hydwind.com</dd></div>
-      <div class="spec"><dt>周目</dt><dd>第八周目</dd></div>
-      <div class="spec"><dt>开服</dt><dd>2024.03</dd></div>
-    </dl>
   </section>
 </PortalLayout>
 
 <div class="toast" data-toast role="status" aria-live="polite"></div>
 
-<style>
-  .toast {
-    position: fixed;
-    bottom: 28px;
-    left: 50%;
-    z-index: 90;
-    padding: 10px 18px;
-    border: 1px solid var(--hw-line-strong);
-    border-radius: 3px;
-    background: #14171b;
-    font-size: 12.5px;
-    color: var(--hw-ink);
-    opacity: 0;
-    transform: translate(-50%, 12px);
-    transition: opacity 0.22s ease, transform 0.22s ease;
-    pointer-events: none;
-  }
-
-  .toast.is-visible {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-</style>
-
 <script>
-  const button = document.querySelector<HTMLButtonElement>('[data-copy-address]');
+  import { site } from '../data/site';
+
   const toast = document.querySelector<HTMLElement>('[data-toast]');
-  const address = 'play.hydwind.com';
+  let timer = 0;
 
   const show = (message: string) => {
     if (!toast) return;
     toast.textContent = message;
     toast.classList.add('is-visible');
-    window.setTimeout(() => toast.classList.remove('is-visible'), 1800);
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => toast.classList.remove('is-visible'), 2000);
   };
 
-  button?.addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(address);
-      show('服务器地址已复制');
-    } catch {
-      show(`请手动复制：${address}`);
-    }
+  document.querySelectorAll<HTMLElement>('[data-copy-server]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(site.serverAddress);
+        show('服务器地址已复制');
+      } catch {
+        show(`请手动复制：${site.serverAddress}`);
+      }
+    });
   });
 </script>

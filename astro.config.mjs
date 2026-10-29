@@ -2,11 +2,12 @@ import { defineConfig } from 'astro/config';
 import starlight from '@astrojs/starlight';
 
 export default defineConfig({
-  site: 'https://hydwind.cn',
+  // 改成你自己的域名：canonical、sitemap 都用它
+  site: 'https://your-domain.com',
   integrations: [
     starlight({
-      title: 'Hydwind',
-      description: 'Hydwind 生存服 · 官方 Wiki、公开组织与玩家自传',
+      title: '服务器名称',
+      description: 'Minecraft 中文服务器官网 · Wiki、公告与加入方式',
       favicon: '/favicon.svg',
       customCss: ['./src/styles/theme.css'],
       defaultLocale: 'root',
@@ -23,7 +24,7 @@ export default defineConfig({
         {
           icon: 'github',
           label: 'GitHub',
-          href: 'https://github.com/NmouZh/hydwind-web',
+          href: 'https://github.com/',
         },
       ],
       sidebar: [
