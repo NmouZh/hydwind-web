@@ -1,0 +1,91 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  current?: 'home' | 'people' | 'orgs' | 'wiki';
+}
+
+const { current = 'home' } = Astro.props;
+
+const items = [
+  { key: 'home', href: '/', label: '首页', icon: 'home' },
+  { key: 'people', href: '/#people', label: '人物', icon: 'person' },
+  { key: 'orgs', href: '/#orgs', label: '组织', icon: 'groups' },
+  { key: 'wiki', href: '/#wiki', label: 'Wiki', icon: 'book' },
+];
+---
+
+<nav class="bottom-nav" aria-label="底部导航">
+  {
+    items.map((item) => (
+      <a
+        href={item.href}
+        data-nav-key={item.key}
+        aria-current={current === item.key ? 'page' : undefined}
+        class="state-layer"
+      >
+        <span class="nav-indicator">
+          <Icon name={item.icon} size={22} />
+        </span>
+        <span class="nav-label">{item.label}</span>
+      </a>
+    ))
+  }
+</nav>
+
+<style>
+  .bottom-nav {
+    display: none;
+  }
+
+  @media (max-width: 839px) {
+    .bottom-nav {
+      position: fixed;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 70;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 4px;
+      padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+      background: var(--md-sys-color-surface-container);
+      box-shadow: 0 -1px 0 var(--md-sys-color-outline-variant);
+    }
+
+    .bottom-nav a {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      min-height: 56px;
+      border-radius: var(--md-sys-shape-corner-large);
+      color: var(--md-sys-color-on-surface-variant);
+      font-size: var(--md-sys-typescale-label-small-size);
+      font-weight: 500;
+    }
+
+    .nav-indicator {
+      display: grid;
+      place-items: center;
+      width: 64px;
+      height: 32px;
+      border-radius: var(--md-sys-shape-corner-full);
+      transition:
+        background-color var(--md-sys-motion-duration-short4)
+          var(--md-sys-motion-easing-standard),
+        color var(--md-sys-motion-duration-short4)
+          var(--md-sys-motion-easing-standard);
+    }
+
+    .bottom-nav a[aria-current='page'] {
+      color: var(--md-sys-color-on-surface);
+    }
+
+    .bottom-nav a[aria-current='page'] .nav-indicator {
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+    }
+  }
+</style>

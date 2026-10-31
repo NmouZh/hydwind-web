@@ -1,0 +1,247 @@
+---
+import Icon from './Icon.astro';
+
+interface Props {
+  current?: 'home' | 'people' | 'orgs' | 'wiki';
+}
+
+const { current = 'home' } = Astro.props;
+
+const links = [
+  { key: 'people', href: '/#people', label: '人物传记' },
+  { key: 'orgs', href: '/#orgs', label: '公开组织' },
+  { key: 'wiki', href: '/#wiki', label: '官方 wiki' },
+];
+---
+
+<header class="top-app-bar" data-top-app-bar>
+  <div class="hw-shell app-bar-inner">
+    <a class="brand" href="/" aria-label="氢风首页">
+      <span class="brand-mark" aria-hidden="true">
+        <span style="height: 10px; opacity: 0.6;"></span>
+        <span style="height: 18px;"></span>
+        <span style="height: 14px; opacity: 0.8;"></span>
+        <span style="height: 7px; opacity: 0.55;"></span>
+      </span>
+      <span class="brand-text">
+        <span class="brand-title">氢风</span>
+        <span class="brand-sub">HYDWIND</span>
+      </span>
+    </a>
+
+    <nav class="top-nav" aria-label="主导航">
+      {
+        links.map((link) => (
+          <a
+            href={link.href}
+            data-nav-key={link.key}
+            aria-current={current === link.key ? 'page' : undefined}
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+
+    <div class="top-actions">
+      <button
+        class="icon-button theme-toggle"
+        type="button"
+        data-theme-toggle
+        aria-label="切换到深色模式"
+      >
+        <Icon name="sun" size={22} class="theme-icon theme-icon-light" />
+        <Icon name="moon" size={22} class="theme-icon theme-icon-dark" />
+      </button>
+      <a class="filled-tonal-button join-button" href="/#join">
+        <Icon name="login" size={18} />
+        加入服务器
+      </a>
+    </div>
+  </div>
+</header>
+
+<script>
+  const bar = document.querySelector<HTMLElement>('[data-top-app-bar]');
+  let ticking = false;
+
+  const update = () => {
+    bar?.toggleAttribute('data-scrolled', window.scrollY > 4);
+    ticking = false;
+  };
+
+  if (bar) {
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(update);
+      },
+      { passive: true }
+    );
+    update();
+  }
+</script>
+
+<style>
+  .top-app-bar {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    background: color-mix(in srgb, var(--md-sys-color-surface) 88%, transparent);
+    backdrop-filter: blur(16px) saturate(1.2);
+    transition:
+      background-color var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard),
+      box-shadow var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard);
+  }
+
+  .top-app-bar[data-scrolled] {
+    background: color-mix(in srgb, var(--md-sys-color-surface) 96%, transparent);
+    box-shadow: var(--md-sys-elevation-2);
+  }
+
+  .app-bar-inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-height: 64px;
+  }
+
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px;
+    margin-left: -4px;
+    border-radius: var(--md-sys-shape-corner-medium);
+  }
+
+  .brand-mark {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2px;
+    width: 36px;
+    height: 36px;
+    padding-bottom: 9px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-primary);
+  }
+
+  .brand-mark span {
+    width: 2px;
+    border-radius: 2px;
+    background: var(--md-sys-color-on-primary);
+  }
+
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+  }
+
+  .brand-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .brand-sub {
+    margin-top: 4px;
+    font-size: 0.5rem;
+    font-weight: 500;
+    letter-spacing: 0.3em;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .top-nav {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-left: auto;
+  }
+
+  .top-nav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: var(--md-sys-shape-corner-full);
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-large-size);
+    font-weight: 500;
+    transition:
+      background-color var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard),
+      color var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard);
+  }
+
+  .top-nav a[aria-current='page'] {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .top-nav a:hover {
+      background: var(--md-sys-color-surface-container-high);
+      color: var(--md-sys-color-on-surface);
+    }
+
+    .top-nav a[aria-current='page']:hover {
+      background: var(--md-sys-color-secondary-container);
+      color: var(--md-sys-color-on-secondary-container);
+    }
+  }
+
+  .top-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .theme-toggle {
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  :global(.theme-icon-dark) {
+    display: none;
+  }
+
+  :global([data-theme='dark'] .theme-icon-light) {
+    display: none;
+  }
+
+  :global([data-theme='dark'] .theme-icon-dark) {
+    display: block;
+  }
+
+  .join-button {
+    min-height: 40px;
+    padding: 0 18px;
+    font-size: var(--md-sys-typescale-label-medium-size);
+  }
+
+  @media (max-width: 839px) {
+    .top-nav {
+      display: none;
+    }
+
+    .top-actions {
+      margin-left: auto;
+    }
+  }
+
+  @media (max-width: 599px) {
+    .join-button {
+      display: none;
+    }
+
+    .brand-sub {
+      display: none;
+    }
+  }
+</style>

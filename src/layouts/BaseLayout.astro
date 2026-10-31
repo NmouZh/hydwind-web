@@ -1,0 +1,179 @@
+---
+import '../styles/md3-tokens.css';
+import '../styles/base.css';
+import TopAppBar from '../components/TopAppBar.astro';
+import BottomNav from '../components/BottomNav.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+import Icon from '../components/Icon.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  current?: 'home' | 'people' | 'orgs' | 'wiki';
+}
+
+const {
+  title,
+  description = '氢风 Hydwind 是 Minecraft Java 生存服务器，以城市、建筑和长期生存为核心。',
+  current = 'home',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#fbf8ff" data-theme-color />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+    <script is:inline>
+      (() => {
+        try {
+          const stored = localStorage.getItem('hydwind-theme');
+          const dark = stored
+            ? stored === 'dark'
+            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+        } catch {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+  </head>
+  <body data-page={current}>
+    <a class="skip-link" href="#main">跳到主要内容</a>
+    <TopAppBar current={current} />
+    <main id="main">
+      <slot />
+    </main>
+    <SiteFooter />
+    <BottomNav current={current} />
+
+    <div
+      class="snackbar"
+      data-snackbar
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      aria-hidden="true"
+    >
+      <Icon name="check" size={20} />
+      <span data-snackbar-text></span>
+      <button class="snackbar-action" type="button" data-snackbar-close>关闭</button>
+    </div>
+
+    <script>
+      const root = document.documentElement;
+      const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
+      const themeMeta = document.querySelector<HTMLMetaElement>('[data-theme-color]');
+
+      const syncTheme = (theme: 'light' | 'dark') => {
+        root.dataset.theme = theme;
+        themeMeta?.setAttribute('content', theme === 'dark' ? '#11131b' : '#fbf8ff');
+        toggle?.setAttribute(
+          'aria-label',
+          theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'
+        );
+      };
+
+      const setTheme = (theme: 'light' | 'dark') => {
+        syncTheme(theme);
+        try {
+          localStorage.setItem('hydwind-theme', theme);
+        } catch {
+          /* storage can be unavailable in private modes */
+        }
+      };
+
+      syncTheme(root.dataset.theme === 'dark' ? 'dark' : 'light');
+
+      toggle?.addEventListener('click', () => {
+        setTheme(root.dataset.theme === 'dark' ? 'light' : 'dark');
+      });
+
+      const snackbar = document.querySelector<HTMLElement>('[data-snackbar]');
+      const snackbarText = document.querySelector<HTMLElement>('[data-snackbar-text]');
+      let snackbarTimer = 0;
+
+      const hideSnackbar = () => {
+        snackbar?.classList.remove('is-open');
+        snackbar?.setAttribute('aria-hidden', 'true');
+      };
+
+      const showSnackbar = (message: string) => {
+        if (!snackbar || !snackbarText) return;
+        snackbarText.textContent = message;
+        snackbar.classList.add('is-open');
+        snackbar.setAttribute('aria-hidden', 'false');
+        window.clearTimeout(snackbarTimer);
+        snackbarTimer = window.setTimeout(hideSnackbar, 3200);
+      };
+
+      document
+        .querySelector('[data-snackbar-close]')
+        ?.addEventListener('click', hideSnackbar);
+
+      type ToastHost = Window & { hydwindToast?: (message: string) => void };
+      const toastHost = window as ToastHost;
+
+      document.querySelectorAll<HTMLElement>('[data-copy]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          const value = button.dataset.copy;
+          if (!value) return;
+
+          try {
+            await navigator.clipboard.writeText(value);
+          } catch {
+            const area = document.createElement('textarea');
+            area.value = value;
+            area.style.position = 'fixed';
+            area.style.opacity = '0';
+            document.body.appendChild(area);
+            area.select();
+            document.execCommand('copy');
+            area.remove();
+          }
+
+          toastHost.hydwindToast?.(`已复制 ${value}`);
+        });
+      });
+
+      const navLinks = document.querySelectorAll<HTMLElement>('[data-nav-key]');
+      const sections = ['people', 'orgs', 'wiki']
+        .map((id) => document.getElementById(id))
+        .filter((section): section is HTMLElement => section !== null);
+
+      const setActive = (key: string) => {
+        navLinks.forEach((link) => {
+          if (link.dataset.navKey === key) link.setAttribute('aria-current', 'page');
+          else link.removeAttribute('aria-current');
+        });
+      };
+
+      if (document.body.dataset.page === 'home' && sections.length) {
+        if ('IntersectionObserver' in window) {
+          const observer = new IntersectionObserver(
+            (entries) => {
+              const visible = entries
+                .filter((entry) => entry.isIntersecting)
+                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+
+              if (visible) setActive(visible.target.id);
+              else if (window.scrollY < window.innerHeight * 0.4) setActive('home');
+            },
+            { rootMargin: '-24% 0px -58% 0px', threshold: [0, 0.25, 0.5] }
+          );
+
+          sections.forEach((section) => observer.observe(section));
+        }
+      }
+
+      toastHost.hydwindToast = showSnackbar;
+    </script>
+  </body>
+</html>

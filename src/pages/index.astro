@@ -1,16 +1,1255 @@
 ---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+
+const facts = [
+  { icon: 'globe', label: '主世界', value: '长期不删档' },
+  { icon: 'terminal', label: '客户端', value: 'Java 1.21.x' },
+  { icon: 'refresh', label: '资源世界', value: '每周六刷新' },
+  { icon: 'heart', label: '收费', value: '半公益，无数值付费' },
+];
+
+const profiles = [
+  { initial: 'N', name: 'NmouZh', meta: '服主 · 北岸', tag: '运维', tone: 'a' },
+  { initial: '七', name: '七炫', meta: '北岸 · 城市建设', tag: '建筑', tone: 'b' },
+  { initial: 'Y', name: 'YunQi', meta: '铁道局 · 环线', tag: '铁路', tone: 'c' },
+];
+
+const organizations = [
+  { name: '北岸', meta: '城镇 · 新中式建筑', state: '招募中', open: true },
+  { name: '铁道局', meta: '公会 · 环线与车站', state: '招募中', open: true },
+  { name: '红石工坊', meta: '工作室 · 公共机器', state: '休整', open: false },
+];
+
+const wikiEntries = [
+  {
+    index: 'A',
+    title: '加入服务器',
+    text: '版本、客户端、第一次进服',
+    keywords: '版本 客户端 白名单 新手 加入',
+  },
+  {
+    index: 'B',
+    title: '服务器规则',
+    text: '建筑、交易、红石、聊天',
+    keywords: '规则 建筑 交易 红石 聊天',
+  },
+  {
+    index: 'C',
+    title: '世界与坐标',
+    text: '主城、市场、资源世界',
+    keywords: '地图 坐标 主城 市场 资源世界',
+  },
+  {
+    index: 'D',
+    title: '玩法与机制',
+    text: '插件、活动、资源刷新',
+    keywords: '玩法 插件 活动 资源 刷新',
+  },
+];
+
+const joinSteps = [
+  { index: '01', title: '确认版本', text: 'Java 1.21.x，原版客户端即可。' },
+  {
+    index: '02',
+    title: '添加服务器',
+    text: '把 play.hydwind.com 填进多人游戏列表。',
+  },
+  {
+    index: '03',
+    title: '读完规则再动手',
+    text: '先看建筑和红石边界，再挑地方安家。',
+  },
+];
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout title="氢风 Hydwind · Minecraft 生存服">
+  <section class="hero-wrap hw-shell">
+    <div class="hero-card enter">
+      <div class="hero-orbit hero-orbit-a" aria-hidden="true"></div>
+      <div class="hero-orbit hero-orbit-b" aria-hidden="true"></div>
+
+      <div class="hero-copy">
+        <span class="assist-chip hero-chip">
+          <Icon name="globe" size={16} />
+          Minecraft Java 生存服务器
+        </span>
+
+        <h1>氢风</h1>
+        <p class="hero-en">HYDWIND</p>
+        <p class="hero-lead">
+          一座慢慢长起来的城。主世界不删档，资源世界按周刷新，可以建城、开店、跑活动，也可以只是安静挖矿。
+        </p>
+
+        <div class="hero-actions">
+          <button
+            class="filled-button hero-primary"
+            type="button"
+            data-copy="play.hydwind.com"
+          >
+            <Icon name="copy" size={18} />
+            复制服务器地址
+            <code>play.hydwind.com</code>
+          </button>
+          <a class="outlined-button hero-secondary" href="#join">
+            第一次来
+            <Icon name="arrow_forward" size={18} />
+          </a>
+        </div>
+
+        <div class="hero-tags">
+          <span class="assist-chip hero-chip">Java 1.21.x</span>
+          <span class="assist-chip hero-chip">第八周目</span>
+          <span class="assist-chip hero-chip">半公益</span>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="server-card">
+          <div class="server-top">
+            <span class="server-status">
+              <span class="status-dot" aria-hidden="true"></span>
+              正常开放
+            </span>
+            <span class="server-code">SURVIVAL / JAVA</span>
+          </div>
+
+          <div class="server-address">
+            <span class="server-label">服务器地址</span>
+            <div class="address-row">
+              <code>play.hydwind.com</code>
+              <button
+                class="icon-button server-copy"
+                type="button"
+                data-copy="play.hydwind.com"
+                aria-label="复制服务器地址"
+              >
+                <Icon name="copy" size={20} />
+              </button>
+            </div>
+          </div>
+
+          <dl class="server-meta">
+            <div>
+              <dt>版本</dt>
+              <dd>1.21.4</dd>
+            </div>
+            <div>
+              <dt>周目</dt>
+              <dd>第八周目</dd>
+            </div>
+            <div>
+              <dt>模式</dt>
+              <dd>原版生存</dd>
+            </div>
+          </dl>
+
+          <div class="spectrum" aria-hidden="true">
+            <span class="s1"></span>
+            <span class="s2"></span>
+            <span class="s3"></span>
+            <span class="s4"></span>
+            <span class="s5"></span>
+          </div>
+
+          <p class="server-note">主世界长期保留，资源世界每周六刷新。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="facts hw-shell" aria-label="服务器速览" data-facts>
+    {
+      facts.map((fact, index) => (
+        <article
+          class="fact-card enter"
+          style={`--enter-delay: ${80 + index * 60}ms`}
+        >
+          <span class="fact-icon">
+            <Icon name={fact.icon} size={20} />
+          </span>
+          <div>
+            <span class="fact-label">{fact.label}</span>
+            <strong class="fact-value">{fact.value}</strong>
+          </div>
+        </article>
+      ))
+    }
+  </section>
+
+  <section class="portals hw-shell" aria-labelledby="portals-title">
+    <header class="section-head enter">
+      <p class="hw-eyebrow">三个入口</p>
+      <h2 id="portals-title">先认识人，再认识这个世界</h2>
+      <p>
+        人物传记记录玩家，公开组织记录城镇和团体，官方 wiki
+        记录规则、地图和玩法。三块内容都维护在仓库里，改完推送就更新。
+      </p>
+    </header>
+
+    <div class="portal-grid">
+      <article
+        class="portal portal-people enter"
+        id="people"
+        style="--enter-delay: 80ms"
+      >
+        <header class="portal-head">
+          <span class="portal-icon">
+            <Icon name="person" size={24} />
+          </span>
+          <div>
+            <span class="portal-kicker">人物传记</span>
+            <h3>每个留下来的人，都有一页</h3>
+          </div>
+        </header>
+
+        <p class="portal-lede">
+          出生点、第一栋房子、做过的事。按自己的节奏写，不急着概括成一句话。
+        </p>
+
+        <ul class="people-list">
+          {
+            profiles.map((profile) => (
+              <li class="person-row">
+                <span class={`avatar avatar-${profile.tone}`} aria-hidden="true">
+                  {profile.initial}
+                </span>
+                <span class="person-main">
+                  <strong>{profile.name}</strong>
+                  <span>{profile.meta}</span>
+                </span>
+                <span class="tag-chip">{profile.tag}</span>
+              </li>
+            ))
+          }
+        </ul>
+
+        <p class="portal-note">栏目页稍后补齐</p>
+      </article>
+
+      <article
+        class="portal portal-orgs enter"
+        id="orgs"
+        style="--enter-delay: 140ms"
+      >
+        <header class="portal-head">
+          <span class="portal-icon">
+            <Icon name="groups" size={24} />
+          </span>
+          <div>
+            <span class="portal-kicker">公开组织</span>
+            <h3>城镇、公会和一起干活的人</h3>
+          </div>
+        </header>
+
+        <p class="portal-lede">
+          公开档案会写清负责人、活动范围和招募状态，想加入可以直接找到人。
+        </p>
+
+        <ul class="org-list">
+          {
+            organizations.map((org) => (
+              <li class="org-row">
+                <span
+                  class={`org-dot${org.open ? ' is-open' : ''}`}
+                  aria-hidden="true"
+                />
+                <span class="org-main">
+                  <strong>{org.name}</strong>
+                  <span>{org.meta}</span>
+                </span>
+                <span class="org-state">{org.state}</span>
+              </li>
+            ))
+          }
+        </ul>
+
+        <p class="portal-note">栏目页稍后补齐</p>
+      </article>
+
+      <article
+        class="portal portal-wiki enter"
+        id="wiki"
+        style="--enter-delay: 200ms"
+      >
+        <div class="wiki-copy">
+          <header class="portal-head">
+            <span class="portal-icon">
+              <Icon name="book" size={24} />
+            </span>
+            <div>
+              <span class="portal-kicker">官方 wiki</span>
+              <h3>规则、地图和玩法，都写在同一个地方</h3>
+            </div>
+          </header>
+
+          <p class="portal-lede">
+            从第一次进服到红石机器，条目用 Markdown
+            维护。想改哪段就改哪段，不用进后台。
+          </p>
+
+          <p class="portal-note">栏目页稍后补齐</p>
+        </div>
+
+        <div class="wiki-tools">
+          <label class="search-bar">
+            <Icon name="search" size={20} />
+            <input
+              type="search"
+              placeholder="搜索 wiki 条目"
+              aria-label="搜索 wiki 条目"
+              data-wiki-search
+            />
+          </label>
+
+          <ul class="wiki-grid" data-wiki-list>
+            {
+              wikiEntries.map((entry) => (
+                <li class="wiki-item" data-wiki-item data-keywords={entry.keywords}>
+                  <span class="wiki-index">{entry.index}</span>
+                  <strong>{entry.title}</strong>
+                  <span>{entry.text}</span>
+                </li>
+              ))
+            }
+          </ul>
+
+          <p class="wiki-empty" data-wiki-empty hidden>
+            没有匹配的条目，换个词试试。
+          </p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="join-wrap hw-shell" id="join">
+    <div class="join-card enter" style="--enter-delay: 80ms">
+      <div class="join-orbit" aria-hidden="true"></div>
+
+      <div class="join-copy">
+        <p class="hw-eyebrow join-eyebrow">第一次来</p>
+        <h2>先安家，再决定要建多大的东西</h2>
+        <p>
+          服务器是 Java 1.21.x，半公益，没有数值付费。第一次进服不用准备太多，确认版本、复制地址、读完规则就能进。
+        </p>
+
+        <div class="join-address">
+          <span class="server-label">服务器地址</span>
+          <code>play.hydwind.com</code>
+        </div>
+
+        <div class="join-actions">
+          <button
+            class="filled-button join-primary"
+            type="button"
+            data-copy="play.hydwind.com"
+          >
+            <Icon name="copy" size={18} />
+            复制地址
+          </button>
+          <a class="outlined-button join-secondary" href="#wiki">
+            先读 wiki
+            <Icon name="arrow_forward" size={18} />
+          </a>
+        </div>
+      </div>
+
+      <ol class="join-steps">
+        {
+          joinSteps.map((step) => (
+            <li>
+              <span class="step-number">{step.index}</span>
+              <div>
+                <strong>{step.title}</strong>
+                <p>{step.text}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+</BaseLayout>
+
+<script>
+  const search = document.querySelector<HTMLInputElement>('[data-wiki-search]');
+  const items = Array.from(
+    document.querySelectorAll<HTMLElement>('[data-wiki-item]')
+  );
+  const empty = document.querySelector<HTMLElement>('[data-wiki-empty]');
+
+  search?.addEventListener('input', () => {
+    const query = search.value.trim().toLowerCase();
+    let visible = 0;
+
+    items.forEach((item) => {
+      const haystack = `${item.textContent ?? ''} ${item.dataset.keywords ?? ''}`.toLowerCase();
+      const match = query.length === 0 || haystack.includes(query);
+      item.hidden = !match;
+      if (match) visible += 1;
+    });
+
+    if (empty) empty.hidden = visible !== 0;
+  });
+</script>
+
+<style>
+  .hero-wrap {
+    padding-top: clamp(16px, 2.5vw, 28px);
+  }
+
+  .hero-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
+    gap: clamp(28px, 5vw, 64px);
+    align-items: center;
+    overflow: hidden;
+    padding: clamp(24px, 4.5vw, 56px);
+    border-radius: var(--md-sys-shape-corner-extra-large);
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .hero-copy,
+  .hero-visual {
+    position: relative;
+    z-index: 1;
+  }
+
+  .hero-orbit {
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .hero-orbit-a {
+    top: -38%;
+    right: -8%;
+    width: clamp(280px, 34vw, 460px);
+    aspect-ratio: 1;
+    background: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 7%,
+      transparent
+    );
+  }
+
+  .hero-orbit-b {
+    bottom: -58%;
+    left: 22%;
+    width: clamp(360px, 48vw, 680px);
+    aspect-ratio: 1;
+    border: 1px solid
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) 14%,
+        transparent
+      );
+  }
+
+  .hero-chip {
+    border-color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 32%,
+      transparent
+    );
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .hero-copy h1 {
+    margin-top: 22px;
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .hero-en {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.42em;
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .hero-lead {
+    max-width: 34em;
+    margin-top: 18px;
+    font-size: 1.0625rem;
+    line-height: 1.75;
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-top: 28px;
+  }
+
+  .hero-primary {
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+    box-shadow: var(--md-sys-elevation-1);
+  }
+
+  .hero-primary code {
+    padding: 4px 8px;
+    border-radius: var(--md-sys-shape-corner-extra-small);
+    background: color-mix(in srgb, var(--md-sys-color-primary) 8%, transparent);
+    font-size: 0.75rem;
+  }
+
+  .hero-secondary {
+    border-color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 36%,
+      transparent
+    );
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .hero-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 18px;
+  }
+
+  .server-card {
+    padding: 24px;
+    border-radius: 24px;
+    background: var(--md-sys-color-surface-container-lowest);
+    color: var(--md-sys-color-on-surface);
+    box-shadow: var(--md-sys-elevation-3);
+  }
+
+  .server-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .server-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--md-sys-color-primary);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .server-code {
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .server-address {
+    margin-top: 28px;
+  }
+
+  .server-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .address-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 4px;
+  }
+
+  .address-row code {
+    font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .server-copy {
+    color: var(--md-sys-color-primary);
+  }
+
+  .server-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .server-meta dt {
+    font-size: 0.6875rem;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .server-meta dd {
+    margin-top: 3px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .spectrum {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    height: 38px;
+    margin-top: 18px;
+  }
+
+  .spectrum span {
+    width: 3px;
+    height: var(--h);
+    border-radius: 2px;
+    background: var(--bar);
+  }
+
+  .spectrum .s1 {
+    --h: 32%;
+    --bar: var(--md-sys-color-tertiary);
+  }
+
+  .spectrum .s2 {
+    --h: 58%;
+    --bar: var(--md-sys-color-secondary);
+  }
+
+  .spectrum .s3 {
+    width: 4px;
+    --h: 100%;
+    --bar: var(--md-sys-color-primary);
+  }
+
+  .spectrum .s4 {
+    --h: 72%;
+    --bar: var(--md-sys-color-primary);
+    opacity: 0.6;
+  }
+
+  .spectrum .s5 {
+    --h: 46%;
+    --bar: var(--md-sys-color-secondary);
+    opacity: 0.7;
+  }
+
+  .server-note {
+    margin-top: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.75rem;
+    line-height: 1.6;
+  }
+
+  .facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-top: clamp(16px, 2.5vw, 24px);
+  }
+
+  .fact-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .fact-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .fact-label {
+    display: block;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-weight: 500;
+  }
+
+  .fact-value {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.35;
+  }
+
+  .portals {
+    padding-top: clamp(56px, 8vw, 96px);
+  }
+
+  .section-head {
+    max-width: 720px;
+    margin-bottom: clamp(24px, 3.5vw, 36px);
+  }
+
+  .section-head h2 {
+    margin-top: 10px;
+  }
+
+  .section-head > p:last-child {
+    max-width: 40em;
+    margin-top: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    line-height: 1.7;
+  }
+
+  .portal-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .portal {
+    display: flex;
+    flex-direction: column;
+    padding: clamp(22px, 3vw, 30px);
+    border-radius: var(--md-sys-shape-corner-extra-large);
+  }
+
+  .portal-people {
+    grid-column: span 7;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container-lowest);
+  }
+
+  .portal-orgs {
+    grid-column: span 5;
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .portal-wiki {
+    grid-column: span 12;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: clamp(24px, 4vw, 48px);
+    align-items: center;
+    background: var(--md-sys-color-surface-container-high);
+  }
+
+  .portal-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .portal-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .portal-orgs .portal-icon {
+    background: color-mix(
+      in srgb,
+      var(--md-sys-color-on-secondary-container) 12%,
+      transparent
+    );
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .portal-wiki .portal-icon {
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+  }
+
+  .portal-kicker {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-medium-size);
+    font-weight: 500;
+    letter-spacing: 0.06em;
+  }
+
+  .portal-orgs .portal-kicker {
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .portal-head h3 {
+    margin-top: 4px;
+    font-size: clamp(1.375rem, 2.3vw, 1.75rem);
+    line-height: 1.25;
+  }
+
+  .portal-lede {
+    margin-top: 16px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.9375rem;
+    line-height: 1.7;
+  }
+
+  .portal-orgs .portal-lede {
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .people-list,
+  .org-list {
+    margin-top: 20px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .person-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .avatar {
+    display: grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
+
+  .avatar-a {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .avatar-b {
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+  }
+
+  .avatar-c {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .person-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .person-main strong {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .person-main span {
+    margin-top: 2px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.75rem;
+  }
+
+  .org-list {
+    border-top-color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-secondary-container) 18%,
+      transparent
+    );
+  }
+
+  .org-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 0;
+    border-bottom: 1px solid
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-secondary-container) 18%,
+        transparent
+      );
+  }
+
+  .org-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: color-mix(
+      in srgb,
+      var(--md-sys-color-on-secondary-container) 45%,
+      transparent
+    );
+  }
+
+  .org-dot.is-open {
+    background: var(--md-sys-color-on-secondary-container);
+  }
+
+  .org-main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .org-main strong {
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .org-main span {
+    margin-top: 2px;
+    color: var(--md-sys-color-on-secondary-container);
+    font-size: 0.75rem;
+  }
+
+  .org-state {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border-radius: var(--md-sys-shape-corner-small);
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-secondary-container);
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .portal-note {
+    margin-top: auto;
+    padding-top: 18px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-small-size);
+  }
+
+  .portal-orgs .portal-note {
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .wiki-copy {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .wiki-tools {
+    min-width: 0;
+  }
+
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 52px;
+    padding: 0 18px;
+    border: 1px solid transparent;
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--md-sys-color-surface-container-lowest);
+    color: var(--md-sys-color-on-surface-variant);
+    transition:
+      border-color var(--md-sys-motion-duration-short3)
+        var(--md-sys-motion-easing-standard),
+      box-shadow var(--md-sys-motion-duration-short3)
+        var(--md-sys-motion-easing-standard);
+  }
+
+  .search-bar:focus-within {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 1px var(--md-sys-color-primary);
+  }
+
+  .search-bar input {
+    flex: 1;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--md-sys-color-on-surface);
+    font-size: var(--md-sys-typescale-body-medium-size);
+  }
+
+  .search-bar input::placeholder {
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .wiki-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  .wiki-item {
+    display: flex;
+    flex-direction: column;
+    min-height: 108px;
+    padding: 16px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-surface-container-lowest);
+  }
+
+  .wiki-index {
+    color: var(--md-sys-color-primary);
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+
+  .wiki-item strong {
+    margin-top: 8px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .wiki-item > span:last-child {
+    margin-top: 4px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.75rem;
+    line-height: 1.55;
+  }
+
+  .wiki-empty {
+    margin-top: 12px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.8125rem;
+  }
+
+  .join-wrap {
+    padding-top: clamp(56px, 8vw, 96px);
+  }
+
+  .join-card {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(28px, 5vw, 64px);
+    overflow: hidden;
+    padding: clamp(24px, 4.5vw, 56px);
+    border-radius: var(--md-sys-shape-corner-extra-large);
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .join-orbit {
+    position: absolute;
+    right: -12%;
+    bottom: -55%;
+    width: clamp(320px, 42vw, 560px);
+    aspect-ratio: 1;
+    border: 1px solid
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) 14%,
+        transparent
+      );
+    border-radius: 50%;
+    pointer-events: none;
+  }
+
+  .join-copy,
+  .join-steps {
+    position: relative;
+    z-index: 1;
+  }
+
+  .join-eyebrow {
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .join-copy h2 {
+    max-width: 12em;
+    margin-top: 10px;
+  }
+
+  .join-copy > p:not(.hw-eyebrow) {
+    max-width: 32em;
+    margin-top: 12px;
+    color: var(--md-sys-color-on-primary-container);
+    line-height: 1.75;
+  }
+
+  .join-address {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 22px;
+    padding: 12px 16px;
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+  }
+
+  .join-address .server-label {
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .join-address code {
+    color: var(--md-sys-color-primary);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .join-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+  }
+
+  .join-primary {
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+    box-shadow: var(--md-sys-elevation-1);
+  }
+
+  .join-secondary {
+    border-color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 36%,
+      transparent
+    );
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .join-steps {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .join-steps li {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+    padding: 14px 0;
+    border-top: 1px solid
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) 16%,
+        transparent
+      );
+  }
+
+  .join-steps li:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .step-number {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+    font-size: var(--md-sys-typescale-label-medium-size);
+    font-weight: 700;
+  }
+
+  .join-steps strong {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .join-steps p {
+    margin-top: 3px;
+    color: var(--md-sys-color-on-primary-container);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 960px) {
+    .hero-card {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 32px;
+    }
+
+    .hero-visual {
+      max-width: 560px;
+    }
+
+    .portal-people,
+    .portal-orgs {
+      grid-column: span 12;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .portal-wiki {
+      grid-template-columns: minmax(0, 1fr);
+      align-items: stretch;
+    }
+
+    .join-card {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .join-steps li:first-child {
+      padding-top: 14px;
+      border-top: 1px solid
+        color-mix(
+          in srgb,
+          var(--md-sys-color-on-primary-container) 16%,
+          transparent
+        );
+    }
+  }
+
+  @media (max-width: 599px) {
+    .hero-actions {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .hero-actions .filled-button,
+    .hero-actions .outlined-button {
+      width: 100%;
+    }
+
+    .hero-primary code {
+      display: none;
+    }
+
+    .hero-visual {
+      max-width: none;
+    }
+
+    .server-card {
+      padding: 20px;
+    }
+
+    .wiki-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .wiki-item {
+      min-height: 0;
+    }
+
+    .join-actions {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .join-actions .filled-button,
+    .join-actions .outlined-button {
+      width: 100%;
+    }
+  }
+</style>

@@ -1,0 +1,209 @@
+---
+const columns = [
+  {
+    title: '板块',
+    links: [
+      { label: '人物传记', href: '/#people' },
+      { label: '公开组织', href: '/#orgs' },
+      { label: '官方 wiki', href: '/#wiki' },
+    ],
+  },
+  {
+    title: '参与',
+    links: [
+      { label: '加入服务器', href: '/#join' },
+      { label: '服务器地址', href: '/#join' },
+      { label: '新手指南', href: '/#wiki' },
+    ],
+  },
+];
+---
+
+<footer class="site-footer">
+  <div class="hw-shell footer-inner">
+    <div class="footer-brand">
+      <a class="footer-logo" href="/" aria-label="氢风首页">
+        <span class="footer-mark" aria-hidden="true">
+          <span style="height: 8px; opacity: 0.6;"></span>
+          <span style="height: 14px;"></span>
+          <span style="height: 11px; opacity: 0.8;"></span>
+          <span style="height: 6px; opacity: 0.55;"></span>
+        </span>
+        <span class="footer-name">
+          <strong>氢风</strong>
+          <small>HYDWIND</small>
+        </span>
+      </a>
+      <p>一个以城市、建筑和长期生存为核心的 Minecraft Java 服务器。</p>
+      <span class="assist-chip">当前为设计原型</span>
+    </div>
+
+    <nav class="footer-nav" aria-label="页脚导航">
+      {
+        columns.map((column) => (
+          <div>
+            <h2 class="hw-label">{column.title}</h2>
+            {column.links.map((link) => (
+              <a href={link.href}>{link.label}</a>
+            ))}
+          </div>
+        ))
+      }
+      <div>
+        <h2 class="hw-label">项目</h2>
+        <a href="https://github.com/NmouZh/hydwind-web" target="_blank" rel="noreferrer">
+          GitHub
+        </a>
+        <span>内容以 Markdown 维护</span>
+      </div>
+    </nav>
+  </div>
+
+  <div class="hw-shell footer-bottom">
+    <span>© 2026 氢风 Hydwind</span>
+    <span>人物与组织内容为示例</span>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    margin-top: clamp(64px, 9vw, 112px);
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .footer-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: clamp(32px, 7vw, 80px);
+    padding-top: clamp(40px, 6vw, 64px);
+    padding-bottom: clamp(32px, 5vw, 48px);
+  }
+
+  .footer-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px;
+    margin-left: -4px;
+    border-radius: var(--md-sys-shape-corner-medium);
+  }
+
+  .footer-mark {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 2px;
+    width: 30px;
+    height: 30px;
+    padding-bottom: 7px;
+    border-radius: 10px;
+    background: var(--md-sys-color-primary);
+  }
+
+  .footer-mark span {
+    width: 2px;
+    border-radius: 2px;
+    background: var(--md-sys-color-on-primary);
+  }
+
+  .footer-name {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+  }
+
+  .footer-name strong {
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  .footer-name small {
+    margin-top: 4px;
+    font-size: 0.46rem;
+    font-weight: 500;
+    letter-spacing: 0.28em;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .footer-brand p {
+    max-width: 28em;
+    margin-top: 16px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.7;
+  }
+
+  .footer-brand .assist-chip {
+    margin-top: 16px;
+  }
+
+  .footer-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+  }
+
+  .footer-nav h2 {
+    margin-bottom: 10px;
+    font-family: var(--md-sys-typescale-font);
+    font-size: var(--md-sys-typescale-label-small-size);
+    letter-spacing: 0.08em;
+  }
+
+  .footer-nav a,
+  .footer-nav span {
+    display: flex;
+    align-items: center;
+    min-height: 36px;
+    color: var(--md-sys-color-on-surface);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.6;
+  }
+
+  .footer-nav a {
+    width: fit-content;
+    transition: color var(--md-sys-motion-duration-short4)
+      var(--md-sys-motion-easing-standard);
+  }
+
+  .footer-nav span {
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .footer-nav a:hover {
+      color: var(--md-sys-color-primary);
+    }
+  }
+
+  .footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-top: 16px;
+    padding-bottom: 24px;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-small-size);
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 780px) {
+    .footer-inner {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  @media (max-width: 520px) {
+    .footer-nav {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      row-gap: 24px;
+    }
+
+    .footer-bottom {
+      flex-direction: column;
+      gap: 6px;
+    }
+  }
+</style>
