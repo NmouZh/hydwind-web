@@ -1,0 +1,38 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PersonCard from '../../components/PersonCard.astro';
+import { getPublishedPeople } from '../../lib/content';
+
+const people = await getPublishedPeople();
+---
+
+<BaseLayout
+  title="人物 · 氢风 Hydwind"
+  description="氢风服务器的人物传记，记录已发布玩家的游戏 ID、身份与简介。"
+  current="people"
+>
+  <div class="hw-shell page-shell">
+    <header class="page-header enter">
+      <p class="hw-eyebrow">人物传记</p>
+      <h1>服务器里真实存在的人</h1>
+      <p class="page-lede">
+        这里只收录真实玩家的公开信息。编辑权限由服主授权，
+        内容以 Markdown 维护，可通过 Pages CMS 更新。
+      </p>
+    </header>
+
+    {
+      people.length > 0 && (
+        <div class="content-grid">
+          {people.map((person, index) => (
+            <PersonCard
+              person={person}
+              headingLevel={2}
+              delay={80 + index * 60}
+            />
+          ))}
+        </div>
+      )
+    }
+  </div>
+</BaseLayout>

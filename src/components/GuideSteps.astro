@@ -1,0 +1,125 @@
+---
+interface Step {
+  title: string;
+  text: string;
+}
+
+interface Props {
+  steps: Step[];
+  /** cards：指南详情页的卡片布局；join：首页进服区的情境布局。 */
+  variant?: 'cards' | 'join';
+}
+
+const { steps, variant = 'cards' } = Astro.props;
+---
+
+<ol class:list={['guide-steps', `guide-steps--${variant}`]}>
+  {
+    steps.map((step, index) => (
+      <li>
+        <span class="step-number">{String(index + 1).padStart(2, '0')}</span>
+        <div>
+          <strong>{step.title}</strong>
+          <p>{step.text}</p>
+        </div>
+      </li>
+    ))
+  }
+</ol>
+
+<style>
+  .guide-steps {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .guide-steps li {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .step-number {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: var(--md-sys-typescale-label-medium-size);
+    font-weight: 700;
+  }
+
+  .guide-steps strong {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+
+  .guide-steps p {
+    margin-top: 4px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.65;
+  }
+
+  .guide-steps--cards {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  }
+
+  .guide-steps--cards li {
+    padding: 18px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .guide-steps--cards .step-number {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .guide-steps--join {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 0;
+  }
+
+  .guide-steps--join li {
+    padding: 14px 0;
+    border-top: 1px solid
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) 16%,
+        transparent
+      );
+  }
+
+  .guide-steps--join li:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .guide-steps--join .step-number {
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+  }
+
+  .guide-steps--join p {
+    margin-top: 3px;
+    color: var(--md-sys-color-on-primary-container);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+
+  @media (max-width: 900px) {
+    .guide-steps--join li:first-child {
+      padding-top: 14px;
+      border-top: 1px solid
+        color-mix(
+          in srgb,
+          var(--md-sys-color-on-primary-container) 16%,
+          transparent
+        );
+    }
+  }
+</style>

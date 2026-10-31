@@ -1,0 +1,208 @@
+# Pages CMS 配置：https://pagescms.org
+#
+# 使用方式：用 GitHub 账号登录 app.pagescms.org，选择 NmouZh/hydwind-web。
+# 编辑者必须由服主在 GitHub 仓库中授予写权限（collaborator）。
+# 保存后 Pages CMS 会直接在仓库中提交 Markdown 变更，EdgeOne 按现有链路重新构建。
+
+media:
+  input: public/images
+  output: /images
+  extensions: [png, jpg, jpeg, webp]
+  categories: [image]
+
+content:
+  - name: site
+    label: 服务器信息
+    type: file
+    path: src/content/site/info.md
+    format: yaml-frontmatter
+    fields:
+      - name: name
+        label: 名称
+        type: string
+        required: true
+      - name: tagline
+        label: 一句话介绍
+        type: text
+        required: true
+      - name: statusLabel
+        label: 状态标签
+        type: string
+        required: true
+        description: 例如“测试筹备中”
+      - name: address
+        label: 完整地址（含端口）
+        type: string
+        required: true
+        pattern:
+          regex: "^[^:\\s]+:\\d+$"
+          message: 地址必须包含端口，例如 zzbgp2.coreyun.net:35282
+      - name: host
+        label: 主机
+        type: string
+        required: true
+        description: 用于状态查询，不含端口
+      - name: port
+        label: 端口
+        type: number
+        required: true
+      - name: clientVersions
+        label: 客户端版本范围
+        type: string
+        required: true
+        description: 例如 1.8.9 – 26.3
+      - name: clientRequirement
+        label: 客户端要求
+        type: text
+        required: true
+        description: 例如“原版或插件生存客户端即可，不需要安装模组”
+      - name: versionNote
+        label: 版本备注
+        type: text
+        required: true
+        description: 说明版本以后可能调整
+      - name: authentication
+        label: 验证方式
+        type: string
+        required: true
+        description: 例如“离线服务器，不需要正版验证”
+      - name: pricing
+        label: 收费
+        type: string
+        required: true
+        description: 例如“暂时免费”
+      - name: qqGroup
+        label: QQ 群号
+        type: string
+        required: true
+        pattern: "^\\d+$"
+        description: 只填数字，不加群名
+      - name: joinLimit
+        label: 进服限制
+        type: text
+        required: true
+        description: 例如“没有白名单，服务器在线即可进入”
+      - name: testingNotice
+        label: 测试期提示
+        type: text
+        required: true
+        description: 例如“世界可能重置，重要建筑请自行备份”
+      - name: updated
+        label: 最后更新
+        type: date
+        required: true
+        options:
+          format: yyyy-MM-dd
+
+  - name: people
+    label: 人物传记
+    type: collection
+    path: src/content/people
+    format: yaml-frontmatter
+    filename:
+      template: "{primary}.md"
+      field: create
+    view:
+      primary: gameId
+      sort: order
+      order: asc
+    fields:
+      - name: gameId
+        label: 游戏 ID
+        type: string
+        required: true
+      - name: role
+        label: 身份
+        type: string
+        required: true
+        description: 例如“服主”“玩家”
+      - name: tags
+        label: 标签
+        type: string
+        list: true
+        description: 只写可确认的标签，例如“运维”
+      - name: order
+        label: 排序
+        type: number
+        default: 0
+      - name: published
+        label: 发布
+        type: boolean
+        default: true
+        description: 关闭后不会出现在网站上
+      - name: avatar
+        label: 头像
+        type: image
+        description: 发布前请上传真实头像；已发布人物没有头像会导致构建失败
+        options:
+          extensions: [png, jpg, jpeg, webp]
+          categories: [image]
+      - name: joined
+        label: 加入时间
+        type: date
+        options:
+          format: yyyy-MM-dd
+        description: 不确定就留空
+      - name: updated
+        label: 最后更新
+        type: date
+        required: true
+        options:
+          format: yyyy-MM-dd
+      - name: body
+        label: 正文
+        type: rich-text
+        required: true
+
+  - name: guides
+    label: 指南
+    type: collection
+    path: src/content/guides
+    format: yaml-frontmatter
+    filename:
+      template: "{primary}.md"
+      field: create
+    view:
+      primary: title
+      sort: order
+      order: asc
+    fields:
+      - name: title
+        label: 标题
+        type: string
+        required: true
+      - name: summary
+        label: 摘要
+        type: text
+        required: true
+      - name: order
+        label: 排序
+        type: number
+        default: 0
+      - name: updated
+        label: 更新时间
+        type: date
+        required: true
+        options:
+          format: yyyy-MM-dd
+      - name: steps
+        label: 步骤
+        type: object
+        list:
+          min: 1
+          collapsible:
+            collapsed: false
+            summary: "{title}"
+        fields:
+          - name: title
+            label: 步骤标题
+            type: string
+            required: true
+          - name: text
+            label: 步骤说明
+            type: text
+            required: true
+      - name: body
+        label: 正文
+        type: rich-text
+        required: true

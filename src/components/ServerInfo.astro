@@ -1,0 +1,160 @@
+---
+import Icon from './Icon.astro';
+import type { SiteInfo } from '../lib/content';
+
+interface Props {
+  site: SiteInfo;
+}
+
+const { site } = Astro.props;
+---
+
+<section class="server-info" aria-labelledby="server-info-title">
+  <header class="server-info-heading">
+    <div>
+      <p class="hw-eyebrow">服务器信息</p>
+      <h2 id="server-info-title">进服前先确认这些</h2>
+    </div>
+    <span class="assist-chip">{site.statusLabel}</span>
+  </header>
+
+  <dl class="server-info-grid">
+    <div class="server-info-item">
+      <dt>服务器地址</dt>
+      <dd class="server-info-value">
+        <code>{site.address}</code>
+        <button
+          class="text-button server-info-copy"
+          type="button"
+          data-copy={site.address}
+          aria-label={`复制服务器地址 ${site.address}`}
+        >
+          <Icon name="copy" size={16} />
+          复制
+        </button>
+      </dd>
+    </div>
+    <div class="server-info-item">
+      <dt>客户端版本</dt>
+      <dd class="server-info-value">Java 版 {site.clientVersions}</dd>
+    </div>
+    <div class="server-info-item">
+      <dt>验证方式</dt>
+      <dd class="server-info-value">{site.authentication}</dd>
+    </div>
+    <div class="server-info-item">
+      <dt>收费</dt>
+      <dd class="server-info-value">{site.pricing}</dd>
+    </div>
+    <div class="server-info-item">
+      <dt>QQ 群</dt>
+      <dd class="server-info-value">
+        <code>{site.qqGroup}</code>
+        <button
+          class="text-button server-info-copy"
+          type="button"
+          data-copy={site.qqGroup}
+          aria-label={`复制 QQ 群号 ${site.qqGroup}`}
+        >
+          <Icon name="copy" size={16} />
+          复制
+        </button>
+      </dd>
+    </div>
+  </dl>
+
+  <div class="server-info-notes">
+    <p><strong>客户端要求：</strong>{site.clientRequirement}。</p>
+    <p><strong>进服限制：</strong>{site.joinLimit}。</p>
+    <p class="notice server-info-notice">
+      <span><strong>测试期提示：</strong>{site.testingNotice}。</span>
+    </p>
+    <p class="server-info-version-note">{site.versionNote}</p>
+  </div>
+</section>
+
+<style>
+  .server-info {
+    padding: clamp(20px, 3vw, 32px);
+    border-radius: var(--md-sys-shape-corner-extra-large);
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .server-info-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px 16px;
+  }
+
+  .server-info-heading h2 {
+    margin-top: 6px;
+    font-size: 1.5rem;
+  }
+
+  .server-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+    gap: 12px;
+    margin-top: 20px;
+  }
+
+  .server-info-item {
+    min-width: 0;
+    padding: 14px 16px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-surface-container-lowest);
+  }
+
+  .server-info-item dt {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-weight: 500;
+  }
+
+  .server-info-value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    margin-top: 4px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .server-info-value code {
+    font-size: 1rem;
+    word-break: break-all;
+  }
+
+  .server-info-copy {
+    min-height: 32px;
+    margin-left: auto;
+    padding: 0 8px;
+    color: var(--md-sys-color-primary);
+    font-size: var(--md-sys-typescale-label-medium-size);
+  }
+
+  .server-info-notes {
+    display: grid;
+    gap: 8px;
+    margin-top: 18px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.7;
+  }
+
+  .server-info-notes strong {
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .server-info-notice {
+    margin-top: 4px;
+  }
+
+  .server-info-version-note {
+    font-size: var(--md-sys-typescale-label-small-size);
+  }
+</style>

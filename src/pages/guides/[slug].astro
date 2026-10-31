@@ -1,0 +1,101 @@
+---
+import { render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import ServerInfo from '../../components/ServerInfo.astro';
+import GuideSteps from '../../components/GuideSteps.astro';
+import { formatDate } from '../../lib/format';
+import { JOIN_GUIDE_ID, getAllGuides, getSite } from '../../lib/content';
+
+export async function getStaticPaths() {
+  const guides = await getAllGuides();
+  return guides.map((guide) => ({
+    params: { slug: guide.id },
+    props: { guide },
+  }));
+}
+
+interface Props {
+  guide: CollectionEntry<'guides'>;
+}
+
+const { guide } = Astro.props;
+const { Content } = await render(guide);
+
+const site = await getSite();
+const isJoinGuide = guide.id === JOIN_GUIDE_ID;
+---
+
+<BaseLayout
+  title={`${guide.data.title} · 指南 · 氢风 Hydwind`}
+  description={guide.data.summary}
+  current={isJoinGuide ? 'join' : 'guides'}
+>
+  <div class="hw-shell page-shell">
+    <nav class="breadcrumb" aria-label="面包屑">
+      <a href="/guides/">指南</a>
+      <span aria-hidden="true">/</span>
+      <span>{guide.data.title}</span>
+    </nav>
+
+    <header class="page-header enter">
+      <p class="hw-eyebrow">指南</p>
+      <h1>{guide.data.title}</h1>
+      <p class="page-lede">{guide.data.summary}</p>
+      <p class="guide-updated">更新于 {formatDate(guide.data.updated)}</p>
+    </header>
+
+    {
+      isJoinGuide && (
+        <div class="server-info-wrap">
+          <ServerInfo site={site} />
+        </div>
+      )
+    }
+
+    <section class="steps-section" aria-labelledby="steps-title">
+      <h2 id="steps-title">按顺序完成</h2>
+      <GuideSteps steps={guide.data.steps} />
+    </section>
+
+    <article class="prose">
+      <Content />
+    </article>
+
+    <div class="page-actions">
+      <a class="outlined-button" href="/guides/">
+        <Icon name="arrow_back" size={18} />
+        返回指南
+      </a>
+      <a class="text-button" href="/">
+        回到首页
+        <Icon name="arrow_forward" size={18} />
+      </a>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .guide-updated {
+    margin-top: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-small-size);
+  }
+
+  .server-info-wrap {
+    margin-top: clamp(24px, 4vw, 36px);
+  }
+
+  .steps-section {
+    margin-top: clamp(32px, 5vw, 48px);
+  }
+
+  .steps-section h2 {
+    font-size: 1.25rem;
+  }
+
+  .page-actions {
+    margin-top: clamp(32px, 5vw, 48px);
+  }
+</style>

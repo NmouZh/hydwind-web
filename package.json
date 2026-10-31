@@ -8,6 +8,8 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "check": "astro build && node ./scripts/check-build.mjs",
+    "smoke": "node ./scripts/smoke.mjs",
     "preview": "astro preview",
     "tokens": "bun ./scripts/generate-md3-tokens.mjs",
     "astro": "astro"
@@ -16,6 +18,7 @@
     "astro": "^7.4.4"
   },
   "devDependencies": {
-    "@material/material-color-utilities": "^0.4.0"
+    "@material/material-color-utilities": "^0.4.0",
+    "playwright-core": "1.64.0"
   }
 }

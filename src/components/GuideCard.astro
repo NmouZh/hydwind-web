@@ -1,0 +1,29 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import Icon from './Icon.astro';
+import { formatDate } from '../lib/format';
+
+interface Props {
+  guide: CollectionEntry<'guides'>;
+  delay?: number;
+}
+
+const { guide, delay = 0 } = Astro.props;
+---
+
+<a
+  class="content-card enter"
+  href={`/guides/${guide.id}/`}
+  style={`--enter-delay: ${delay}ms`}
+>
+  <span class="card-kicker">指南</span>
+  <h2 class="card-title">{guide.data.title}</h2>
+  <p class="card-text">{guide.data.summary}</p>
+  <div class="card-footer">
+    <span class="card-date">更新于 {formatDate(guide.data.updated)}</span>
+    <span class="card-arrow">
+      {guide.data.steps.length} 个步骤
+      <Icon name="arrow_forward" size={16} />
+    </span>
+  </div>
+</a>

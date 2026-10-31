@@ -1,0 +1,104 @@
+---
+import { render } from 'astro:content';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import PlayerAvatar from '../../components/PlayerAvatar.astro';
+import { formatDate } from '../../lib/format';
+import {
+  JOIN_GUIDE_ID,
+  getPublishedPeople,
+  type PublishedPerson,
+} from '../../lib/content';
+
+export async function getStaticPaths() {
+  const people = await getPublishedPeople();
+  return people.map((person) => ({
+    params: { slug: person.id },
+    props: { person },
+  }));
+}
+
+interface Props {
+  person: PublishedPerson;
+}
+
+const { person } = Astro.props;
+const { Content } = await render(person);
+
+const description = `${person.data.gameId} 是氢风的${person.data.role}。查看人物简介与更新时间。`;
+---
+
+<BaseLayout
+  title={`${person.data.gameId} · 人物 · 氢风 Hydwind`}
+  description={description}
+  current="people"
+>
+  <div class="hw-shell page-shell">
+    <nav class="breadcrumb" aria-label="面包屑">
+      <a href="/people/">人物</a>
+      <span aria-hidden="true">/</span>
+      <span>{person.data.gameId}</span>
+    </nav>
+
+    <header class="detail-hero enter">
+      <PlayerAvatar
+        gameId={person.data.gameId}
+        src={person.data.avatar}
+        size="detail"
+      />
+      <div class="detail-copy">
+        <p class="hw-eyebrow">人物传记</p>
+        <h1>{person.data.gameId}</h1>
+        <p class="detail-role">{person.data.role}</p>
+        {
+          person.data.tags.length > 0 && (
+            <div class="chip-row">
+              {person.data.tags.map((tag) => (
+                <span class="tag-chip">{tag}</span>
+              ))}
+            </div>
+          )
+        }
+        <dl class="meta-list">
+          <div>
+            <dt>身份</dt>
+            <dd>{person.data.role}</dd>
+          </div>
+          {
+            person.data.joined && (
+              <div>
+                <dt>加入时间</dt>
+                <dd>{formatDate(person.data.joined)}</dd>
+              </div>
+            )
+          }
+          <div>
+            <dt>最后更新</dt>
+            <dd>{formatDate(person.data.updated)}</dd>
+          </div>
+        </dl>
+      </div>
+    </header>
+
+    <article class="prose">
+      <Content />
+    </article>
+
+    <div class="page-actions">
+      <a class="outlined-button" href="/people/">
+        <Icon name="arrow_back" size={18} />
+        返回人物
+      </a>
+      <a class="text-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
+        第一次进服
+        <Icon name="arrow_forward" size={18} />
+      </a>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .page-actions {
+    margin-top: clamp(32px, 5vw, 48px);
+  }
+</style>

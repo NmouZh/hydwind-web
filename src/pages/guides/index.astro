@@ -1,0 +1,41 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+import GuideCard from '../../components/GuideCard.astro';
+import { JOIN_GUIDE_ID, getGuides } from '../../lib/content';
+
+const guides = await getGuides();
+---
+
+<BaseLayout
+  title="指南 · 氢风 Hydwind"
+  description="氢风的进服指南与测试期说明：客户端版本、服务器地址、QQ 群与注意事项。"
+  current="guides"
+>
+  <div class="hw-shell page-shell">
+    <header class="page-header enter">
+      <p class="hw-eyebrow">指南</p>
+      <h1>从第一次进服开始</h1>
+      <p class="page-lede">
+        先确认客户端和服务器地址，再加入 QQ 群获取测试安排。
+        指南内容以 Markdown 维护，可通过 Pages CMS 更新。
+      </p>
+      <div class="page-actions">
+        <a class="filled-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
+          <Icon name="login" size={18} />
+          第一次进服
+        </a>
+      </div>
+    </header>
+
+    {
+      guides.length > 0 && (
+        <div class="content-grid">
+          {guides.map((guide, index) => (
+            <GuideCard guide={guide} delay={80 + index * 60} />
+          ))}
+        </div>
+      )
+    }
+  </div>
+</BaseLayout>

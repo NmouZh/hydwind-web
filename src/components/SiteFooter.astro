@@ -1,19 +1,15 @@
 ---
+import { JOIN_GUIDE_ID, getSite } from '../lib/content';
+
+const site = await getSite();
+
 const columns = [
   {
-    title: '板块',
+    title: '站点',
     links: [
-      { label: '人物传记', href: '/#people' },
-      { label: '公开组织', href: '/#orgs' },
-      { label: '官方 wiki', href: '/#wiki' },
-    ],
-  },
-  {
-    title: '参与',
-    links: [
-      { label: '加入服务器', href: '/#join' },
-      { label: '服务器地址', href: '/#join' },
-      { label: '新手指南', href: '/#wiki' },
+      { label: '首页', href: '/' },
+      { label: '指南', href: '/guides/' },
+      { label: '人物', href: '/people/' },
     ],
   },
 ];
@@ -34,8 +30,8 @@ const columns = [
           <small>HYDWIND</small>
         </span>
       </a>
-      <p>一个以城市、建筑和长期生存为核心的 Minecraft Java 服务器。</p>
-      <span class="assist-chip">当前为设计原型</span>
+      <p>{site.tagline}</p>
+      <span class="assist-chip">{site.statusLabel}</span>
     </div>
 
     <nav class="footer-nav" aria-label="页脚导航">
@@ -50,18 +46,41 @@ const columns = [
         ))
       }
       <div>
-        <h2 class="hw-label">项目</h2>
-        <a href="https://github.com/NmouZh/hydwind-web" target="_blank" rel="noreferrer">
-          GitHub
-        </a>
+        <h2 class="hw-label">进服</h2>
+        <a href={`/guides/${JOIN_GUIDE_ID}/`}>第一次进服</a>
+        <button
+          class="footer-copy"
+          type="button"
+          data-copy={site.address}
+          aria-label={`复制服务器地址 ${site.address}`}
+        >
+          <span>复制服务器地址</span>
+          <code>{site.address}</code>
+        </button>
+        <button
+          class="footer-copy"
+          type="button"
+          data-copy={site.qqGroup}
+          aria-label={`复制 QQ 群号 ${site.qqGroup}`}
+        >
+          <span>复制 QQ 群号</span>
+          <code>{site.qqGroup}</code>
+        </button>
+      </div>
+      <div>
+        <h2 class="hw-label">说明</h2>
+        <span>Java 版 {site.clientVersions}</span>
+        <span>{site.authentication}</span>
+        <span>{site.clientRequirement}</span>
+        <span>{site.pricing}</span>
         <span>内容以 Markdown 维护</span>
       </div>
     </nav>
   </div>
 
   <div class="hw-shell footer-bottom">
-    <span>© 2026 氢风 Hydwind</span>
-    <span>人物与组织内容为示例</span>
+    <span>© {new Date().getFullYear()} 氢风 Hydwind</span>
+    <span>编辑权限由服主授权，通过 GitHub 账号登录 Pages CMS</span>
   </div>
 </footer>
 
@@ -73,7 +92,7 @@ const columns = [
 
   .footer-inner {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
     gap: clamp(32px, 7vw, 80px);
     padding-top: clamp(40px, 6vw, 64px);
     padding-bottom: clamp(32px, 5vw, 48px);
@@ -140,7 +159,7 @@ const columns = [
 
   .footer-nav {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 24px;
   }
 
@@ -152,13 +171,15 @@ const columns = [
   }
 
   .footer-nav a,
-  .footer-nav span {
+  .footer-nav span,
+  .footer-copy {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     min-height: 36px;
     color: var(--md-sys-color-on-surface);
     font-size: var(--md-sys-typescale-body-medium-size);
     line-height: 1.6;
+    text-align: left;
   }
 
   .footer-nav a {
@@ -167,12 +188,28 @@ const columns = [
       var(--md-sys-motion-easing-standard);
   }
 
-  .footer-nav span {
+  .footer-nav > div > span {
     color: var(--md-sys-color-on-surface-variant);
   }
 
+  .footer-copy {
+    flex-direction: column;
+    justify-content: center;
+    width: fit-content;
+    padding: 0;
+    color: var(--md-sys-color-on-surface);
+  }
+
+  .footer-copy code {
+    margin-top: 2px;
+    color: var(--md-sys-color-primary);
+    font-size: 0.75rem;
+    word-break: break-all;
+  }
+
   @media (hover: hover) and (pointer: fine) {
-    .footer-nav a:hover {
+    .footer-nav a:hover,
+    .footer-copy:hover {
       color: var(--md-sys-color-primary);
     }
   }
@@ -189,18 +226,20 @@ const columns = [
     letter-spacing: 0.02em;
   }
 
-  @media (max-width: 780px) {
+  @media (max-width: 980px) {
     .footer-inner {
       grid-template-columns: minmax(0, 1fr);
     }
   }
 
-  @media (max-width: 520px) {
+  @media (max-width: 680px) {
     .footer-nav {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       row-gap: 24px;
     }
+  }
 
+  @media (max-width: 520px) {
     .footer-bottom {
       flex-direction: column;
       gap: 6px;

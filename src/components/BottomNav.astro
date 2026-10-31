@@ -1,17 +1,18 @@
 ---
 import Icon from './Icon.astro';
+import { JOIN_GUIDE_ID } from '../lib/content';
 
 interface Props {
-  current?: 'home' | 'people' | 'orgs' | 'wiki';
+  current?: 'home' | 'people' | 'guides' | 'join';
 }
 
 const { current = 'home' } = Astro.props;
 
 const items = [
   { key: 'home', href: '/', label: '首页', icon: 'home' },
-  { key: 'people', href: '/#people', label: '人物', icon: 'person' },
-  { key: 'orgs', href: '/#orgs', label: '组织', icon: 'groups' },
-  { key: 'wiki', href: '/#wiki', label: 'Wiki', icon: 'book' },
+  { key: 'guides', href: '/guides/', label: '指南', icon: 'book' },
+  { key: 'people', href: '/people/', label: '人物', icon: 'person' },
+  { key: 'join', href: `/guides/${JOIN_GUIDE_ID}/`, label: '进服', icon: 'login' },
 ];
 ---
 

@@ -1,16 +1,18 @@
 ---
 import Icon from './Icon.astro';
+import { JOIN_GUIDE_ID } from '../lib/content';
 
 interface Props {
-  current?: 'home' | 'people' | 'orgs' | 'wiki';
+  current?: 'home' | 'people' | 'guides' | 'join';
 }
 
 const { current = 'home' } = Astro.props;
 
 const links = [
-  { key: 'people', href: '/#people', label: '人物传记' },
-  { key: 'orgs', href: '/#orgs', label: '公开组织' },
-  { key: 'wiki', href: '/#wiki', label: '官方 wiki' },
+  { key: 'home', href: '/', label: '首页' },
+  { key: 'guides', href: '/guides/', label: '指南' },
+  { key: 'people', href: '/people/', label: '人物' },
+  { key: 'join', href: `/guides/${JOIN_GUIDE_ID}/`, label: '进服' },
 ];
 ---
 
@@ -53,9 +55,9 @@ const links = [
         <Icon name="sun" size={22} class="theme-icon theme-icon-light" />
         <Icon name="moon" size={22} class="theme-icon theme-icon-dark" />
       </button>
-      <a class="filled-tonal-button join-button" href="/#join">
+      <a class="filled-tonal-button join-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
         <Icon name="login" size={18} />
-        加入服务器
+        开始进服
       </a>
     </div>
   </div>

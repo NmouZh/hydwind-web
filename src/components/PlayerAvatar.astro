@@ -1,0 +1,19 @@
+---
+interface Props {
+  gameId: string;
+  src: string;
+  size?: 'card' | 'detail';
+}
+
+const { gameId, src, size = 'card' } = Astro.props;
+const isDetail = size === 'detail';
+---
+
+<img
+  class={isDetail ? 'detail-avatar' : 'avatar-img'}
+  src={src}
+  alt={`${gameId} 的 Minecraft 头像`}
+  width={isDetail ? 144 : 64}
+  height={isDetail ? 144 : 64}
+  loading={isDetail ? undefined : 'lazy'}
+/>

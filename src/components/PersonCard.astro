@@ -1,0 +1,44 @@
+---
+import Icon from './Icon.astro';
+import PlayerAvatar from './PlayerAvatar.astro';
+import { formatDate } from '../lib/format';
+import type { PublishedPerson } from '../lib/content';
+
+interface Props {
+  person: PublishedPerson;
+  headingLevel?: 2 | 3;
+  delay?: number;
+}
+
+const { person, headingLevel = 3, delay = 0 } = Astro.props;
+const Heading = headingLevel === 2 ? 'h2' : 'h3';
+---
+
+<a
+  class="content-card person-card enter"
+  href={`/people/${person.id}/`}
+  style={`--enter-delay: ${delay}ms`}
+>
+  <PlayerAvatar gameId={person.data.gameId} src={person.data.avatar} />
+  <div>
+    <span class="card-kicker">人物传记</span>
+    <Heading class="card-title">{person.data.gameId}</Heading>
+    <p class="card-text">{person.data.role}</p>
+    {
+      person.data.tags.length > 0 && (
+        <div class="chip-row">
+          {person.data.tags.map((tag) => (
+            <span class="tag-chip">{tag}</span>
+          ))}
+        </div>
+      )
+    }
+    <div class="card-footer">
+      <span class="card-date">更新于 {formatDate(person.data.updated)}</span>
+      <span class="card-arrow">
+        人物页
+        <Icon name="arrow_forward" size={16} />
+      </span>
+    </div>
+  </div>
+</a>

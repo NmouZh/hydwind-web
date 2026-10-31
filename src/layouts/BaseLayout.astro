@@ -9,14 +9,16 @@ import Icon from '../components/Icon.astro';
 interface Props {
   title: string;
   description?: string;
-  current?: 'home' | 'people' | 'orgs' | 'wiki';
+  current?: 'home' | 'people' | 'guides' | 'join';
 }
 
 const {
   title,
-  description = '氢风 Hydwind 是 Minecraft Java 生存服务器，以城市、建筑和长期生存为核心。',
+  description = '氢风（Hydwind）是 Minecraft Java 生存服务器。',
   current = 'home',
 } = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.lovie.me').href;
 ---
 
 <!doctype html>
@@ -26,11 +28,16 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="theme-color" content="#fbf8ff" data-theme-color />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:site_name" content="氢风 Hydwind" />
+    <meta property="og:locale" content="zh_CN" />
+    <meta name="twitter:card" content="summary" />
     <script is:inline>
       (() => {
         try {
@@ -129,49 +136,25 @@ const {
           try {
             await navigator.clipboard.writeText(value);
           } catch {
-            const area = document.createElement('textarea');
-            area.value = value;
-            area.style.position = 'fixed';
-            area.style.opacity = '0';
-            document.body.appendChild(area);
-            area.select();
-            document.execCommand('copy');
-            area.remove();
+            try {
+              const area = document.createElement('textarea');
+              area.value = value;
+              area.style.position = 'fixed';
+              area.style.opacity = '0';
+              document.body.appendChild(area);
+              area.select();
+              const copied = document.execCommand('copy');
+              area.remove();
+              if (!copied) throw new Error('copy failed');
+            } catch {
+              toastHost.hydwindToast?.(`复制失败，请手动选择 ${value}`);
+              return;
+            }
           }
 
           toastHost.hydwindToast?.(`已复制 ${value}`);
         });
       });
-
-      const navLinks = document.querySelectorAll<HTMLElement>('[data-nav-key]');
-      const sections = ['people', 'orgs', 'wiki']
-        .map((id) => document.getElementById(id))
-        .filter((section): section is HTMLElement => section !== null);
-
-      const setActive = (key: string) => {
-        navLinks.forEach((link) => {
-          if (link.dataset.navKey === key) link.setAttribute('aria-current', 'page');
-          else link.removeAttribute('aria-current');
-        });
-      };
-
-      if (document.body.dataset.page === 'home' && sections.length) {
-        if ('IntersectionObserver' in window) {
-          const observer = new IntersectionObserver(
-            (entries) => {
-              const visible = entries
-                .filter((entry) => entry.isIntersecting)
-                .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-
-              if (visible) setActive(visible.target.id);
-              else if (window.scrollY < window.innerHeight * 0.4) setActive('home');
-            },
-            { rootMargin: '-24% 0px -58% 0px', threshold: [0, 0.25, 0.5] }
-          );
-
-          sections.forEach((section) => observer.observe(section));
-        }
-      }
 
       toastHost.hydwindToast = showSnackbar;
     </script>
