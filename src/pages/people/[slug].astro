@@ -42,25 +42,22 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
       <span>{person.data.gameId}</span>
     </nav>
 
-    <header class="detail-hero enter">
-      <PlayerAvatar
-        gameId={person.data.gameId}
-        src={person.data.avatar}
-        size="detail"
-      />
-      <div class="detail-copy">
-        <p class="hw-eyebrow">人物传记</p>
-        <h1>{person.data.gameId}</h1>
-        <p class="detail-role">{person.data.role}</p>
-        {
-          person.data.tags.length > 0 && (
-            <div class="chip-row">
-              {person.data.tags.map((tag) => (
-                <span class="tag-chip">{tag}</span>
-              ))}
-            </div>
-          )
-        }
+    <header class="page-head person-head enter">
+      <div class="page-head-copy person-head-copy">
+        <PlayerAvatar gameId={person.data.gameId} src={person.data.avatar} />
+        <div>
+          <h1>{person.data.gameId}</h1>
+          <p class="page-head-sub">{person.data.role}</p>
+          {
+            person.data.tags.length > 0 && (
+              <div class="chip-row person-head-tags">
+                {person.data.tags.map((tag) => (
+                  <span class="tag-chip">{tag}</span>
+                ))}
+              </div>
+            )
+          }
+        </div>
       </div>
     </header>
 
@@ -105,6 +102,16 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
 </BaseLayout>
 
 <style>
+  .person-head-copy {
+    display: flex;
+    align-items: center;
+    gap: var(--hw-space-4);
+  }
+
+  .person-head-tags {
+    margin-top: var(--hw-space-2);
+  }
+
   .prose {
     margin-top: 0;
   }
@@ -115,5 +122,16 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     align-items: flex-start;
     gap: var(--hw-space-2);
     margin-top: var(--hw-space-4);
+  }
+
+  @media (max-width: 719px) {
+    .person-head-copy {
+      gap: var(--hw-space-3);
+    }
+
+    .person-head :global(.avatar-img) {
+      width: 52px;
+      height: 52px;
+    }
   }
 </style>

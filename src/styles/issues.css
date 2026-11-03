@@ -1,28 +1,5 @@
 .issues-page {
     padding-top: clamp(24px, 3.4vw, 40px);
-    padding-bottom: var(--hw-space-9);
-  }
-
-  .issues-titlebar {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: var(--hw-space-4);
-  }
-
-  .issues-titlebar h1 {
-    font-size: 24px;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    line-height: 1.2;
-  }
-
-  .issues-sub {
-    margin-top: 6px;
-    max-width: 46ch;
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: 13px;
-    line-height: 1.6;
   }
 
   .issues-primary {
@@ -448,14 +425,6 @@
   }
 
   @media (max-width: 719px) {
-    .issues-titlebar {
-      align-items: center;
-    }
-
-    .issues-titlebar h1 {
-      font-size: 21px;
-    }
-
     .issues-head {
       display: none;
     }

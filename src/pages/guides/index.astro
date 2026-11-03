@@ -15,20 +15,18 @@ const guides = await getGuides();
   current="guides"
 >
   <div class="hw-shell page-shell">
-    <header class="page-header enter">
-      <p class="hw-eyebrow">指南</p>
-      <h1>从第一次进服开始</h1>
-      <div class="page-header-aside">
-        <p class="page-lede">
-          先确认客户端和服务器地址，再加入 QQ 群获取测试安排。
-          指南内容以 Markdown 维护，可通过 Pages CMS 更新。
+    <header class="page-head enter">
+      <div class="page-head-copy">
+        <h1>从第一次进服开始</h1>
+        <p class="page-head-sub">
+          先确认客户端和服务器地址，再加入 QQ 群获取测试安排。指南内容以 Markdown 维护，可通过 Pages CMS 更新。
         </p>
-        <div class="page-actions">
-          <a class="filled-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
-            <Icon name="login" size={18} />
-            第一次进服
-          </a>
-        </div>
+      </div>
+      <div class="page-head-actions">
+        <a class="filled-button is-compact" href={`/guides/${JOIN_GUIDE_ID}/`}>
+          <Icon name="login" size={16} />
+          第一次进服
+        </a>
       </div>
     </header>
 
@@ -46,7 +44,7 @@ const guides = await getGuides();
 
 <style>
   .guides-list {
-    margin-top: var(--hw-space-7);
+    margin-top: var(--hw-space-5);
     border-top: 0;
   }
 </style>

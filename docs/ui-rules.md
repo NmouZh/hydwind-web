@@ -26,12 +26,13 @@
 ```astro
 <BaseLayout title="… · 氢风 Hydwind" description="…" current="guides">
   <div class="hw-shell page-shell">
-    <header class="page-header enter">
-      <p class="hw-eyebrow">指南</p>
-      <h1>一句话说清这页做什么</h1>
-      <div class="page-header-aside">
-        <p class="page-lede">补充说明，1～2 句。</p>
-        <div class="page-actions">…主操作按钮…</div>
+    <header class="page-head enter">
+      <div class="page-head-copy">
+        <h1>一句话说清这页做什么</h1>
+        <p class="page-head-sub">补充说明，1～2 句。</p>
+      </div>
+      <div class="page-head-actions">
+        <a class="filled-button is-compact" href="…">主操作</a>
       </div>
     </header>
 
@@ -43,7 +44,7 @@
 - `hw-shell`：唯一的宽度容器，不要在页面里另写 `max-width` 居中。
 - `hw-grid` + `hw-span-*`：需要并排时用这套 12 栏栅格（移动端自动收成 4 栏），不要每页自己写 `grid-template-columns`。
 - `page-shell`：内容页上下边距。
-- `page-header`：刊头，两栏（标题栏 7 份 / 说明栏 4 份），底部自动带一根通栏发丝线。眉标、`h1` 放在标题栏，`page-lede` 和 `page-actions` 必须包在 `page-header-aside` 里。
+- `page-head`：紧凑刊头。左栏是 `h1` 加一行 `page-head-sub`，右栏 `page-head-actions` 放主操作；手机端按钮和标题同一行，说明自动换到下方。桌面标题 24px、手机 21px，不超过两行。
 - `section`：页面内的分节，自带顶部发丝线和 `padding-block` 节奏；`section-heading` 是「眉标 + 标题 + 右侧轻链接」。
 - 强调区块用 `hero-plate`（底色 primary-container），普通容器用 `panel`；两端对齐的卡片网格已废弃，列表用 `list-rows`。
 - 详情页要有 `breadcrumb`，返回链接放在 `page-actions` 或 `detail-aside` 里。

@@ -11,15 +11,48 @@ const description =
 
 <BaseLayout title="账号 · 氢风 Hydwind" description={description} current="account">
   <section class="hw-shell page-shell account-shell">
+    <header class="page-head enter">
+      <div class="page-head-copy">
+        <h1 data-head-title>登录氢风</h1>
+        <p class="page-head-sub" data-head-sub>
+          账号只在群里发放：@机器人 发「注册 你的游戏ID」，账号和初始密码会私信给你。
+        </p>
+      </div>
+    </header>
+
     <div class="account-layout">
       <div class="account-main enter">
+        <div class="account-view" data-view="guest">
+          <form class="form-stack account-form" data-form novalidate>
+            <label class="field">
+              <span>账号（游戏 ID）</span>
+              <input
+                name="username"
+                type="text"
+                autocomplete="username"
+                maxlength="24"
+                required
+                placeholder="例如 Nz_173"
+              />
+            </label>
+            <label class="field">
+              <span>密码</span>
+              <input
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+                placeholder="私信里给你的密码"
+              />
+            </label>
+            <span class="field-hint">登录状态保留 30 天，公共设备记得退出。</span>
+            <button class="filled-button account-submit" type="submit">登录</button>
+            <p class="form-status" data-status role="status" aria-live="polite"></p>
+          </form>
+        </div>
+
         <div class="account-view" data-view="member" hidden>
-          <p class="hw-eyebrow">账号</p>
-          <h1 data-member-title>你好</h1>
-          <p class="account-lede">
-            你正以 <strong data-member-username></strong> 的身份登录氢风。账号和密码由群内机器人发放，改密码请私信机器人。
-          </p>
-          <dl class="meta-list-compact">
+          <dl class="meta-list-compact account-meta">
             <div>
               <dt>身份</dt>
               <dd data-member-role></dd>
@@ -43,40 +76,6 @@ const description =
             </button>
           </div>
           <p class="form-status" data-member-status role="status" aria-live="polite"></p>
-        </div>
-
-        <div class="account-view" data-view="guest">
-          <p class="hw-eyebrow">账号</p>
-          <h1>登录氢风</h1>
-          <p class="account-lede">
-            账号不开放自助注册：在群里 @机器人 发送「注册 你的游戏ID」，账号和初始密码会私信给你。
-          </p>
-          <form class="form-stack account-form" data-form novalidate>
-            <label class="field">
-              <span>账号（游戏 ID）</span>
-              <input
-                name="username"
-                type="text"
-                autocomplete="username"
-                maxlength="24"
-                required
-                placeholder="例如 Nz_173"
-              />
-            </label>
-            <label class="field">
-              <span>密码</span>
-              <input
-                name="password"
-                type="password"
-                autocomplete="current-password"
-                required
-                placeholder="私信里给你的密码"
-              />
-            </label>
-            <span class="field-hint">登录状态会保留 30 天，公共设备用完记得退出。</span>
-            <button class="filled-button" type="submit">登录</button>
-            <p class="form-status" data-status role="status" aria-live="polite"></p>
-          </form>
         </div>
       </div>
 
@@ -106,64 +105,51 @@ const description =
 
 <style>
   .account-shell {
-    padding-block: clamp(32px, 5vw, 64px) clamp(56px, 8vw, 104px);
+    padding-block: clamp(24px, 3.4vw, 40px) var(--hw-space-9);
   }
 
   .account-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.62fr);
-    gap: clamp(32px, 7vw, 96px);
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 0.55fr);
+    gap: clamp(28px, 6vw, 88px);
     align-items: start;
-  }
-
-  @media (max-width: 839px) {
-    .account-layout {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
-  .account-view h1 {
-    margin-top: var(--hw-space-3);
-    font-size: var(--md-sys-typescale-headline-large-size);
-  }
-
-  .account-lede {
-    max-width: 40ch;
-    margin-top: var(--hw-space-4);
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: 0.9375rem;
-    line-height: 1.8;
+    margin-top: clamp(24px, 3vw, 36px);
   }
 
   .account-form {
-    max-width: 26rem;
-    margin-top: var(--hw-space-6);
+    max-width: 25rem;
+    margin-top: 0;
+    gap: var(--hw-space-3);
   }
 
-  .account-form .filled-button {
+  .account-submit {
     justify-self: start;
+    min-width: 8rem;
+    margin-top: var(--hw-space-2);
+  }
+
+  .account-meta {
+    max-width: 25rem;
+    margin-top: 0;
   }
 
   .account-actions {
-    margin-top: var(--hw-space-6);
-  }
-
-  .account-main .meta-list-compact {
-    max-width: 26rem;
     margin-top: var(--hw-space-5);
   }
 
   .account-aside {
-    padding-top: var(--hw-space-2);
+    padding-top: 0;
   }
 
   .account-notes {
     display: grid;
-    gap: var(--hw-space-5);
-    margin-top: var(--hw-space-4);
+    gap: var(--hw-space-4);
+    margin-top: var(--hw-space-3);
   }
 
   .account-notes li {
+    display: grid;
+    gap: 2px;
     padding-top: var(--hw-space-4);
     border-top: 1px solid var(--md-sys-color-outline-variant);
   }
@@ -181,15 +167,68 @@ const description =
   }
 
   .account-notes h2 {
-    margin-top: var(--hw-space-2);
-    font-size: var(--md-sys-typescale-title-large-size);
+    font-size: var(--md-sys-typescale-title-medium-size);
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
   .account-notes p {
-    margin-top: var(--hw-space-2);
+    margin-top: 2px;
     color: var(--md-sys-color-on-surface-variant);
     font-size: var(--md-sys-typescale-body-medium-size);
-    line-height: 1.75;
+    line-height: 1.65;
+  }
+
+  @media (max-width: 839px) {
+    .account-layout {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--hw-space-6);
+      margin-top: var(--hw-space-5);
+    }
+
+    .account-form,
+    .account-meta {
+      max-width: none;
+    }
+
+    .account-submit {
+      width: 100%;
+      min-height: 46px;
+    }
+
+    /* 手机端说明折成紧凑两列行：序号占窄列，标题与正文并排成一整段 */
+    .account-notes {
+      gap: 0;
+      margin-top: var(--hw-space-2);
+    }
+
+    .account-notes li {
+      grid-template-columns: 1.75rem minmax(0, 1fr);
+      column-gap: var(--hw-space-2);
+      row-gap: 0;
+      padding-block: var(--hw-space-3);
+    }
+
+    .account-notes li:first-child {
+      padding-top: 0;
+    }
+
+    .note-index {
+      grid-column: 1;
+      grid-row: 1;
+      padding-top: 2px;
+    }
+
+    .account-notes h2 {
+      grid-column: 2;
+      grid-row: 1;
+      font-size: var(--md-sys-typescale-title-medium-size);
+    }
+
+    .account-notes p {
+      grid-column: 2;
+      grid-row: 2;
+    }
   }
 </style>
 
@@ -204,8 +243,15 @@ const description =
 
   const memberView = document.querySelector<HTMLElement>('[data-view="member"]');
   const guestView = document.querySelector<HTMLElement>('[data-view="guest"]');
+  const headTitle = document.querySelector<HTMLElement>('[data-head-title]');
+  const headSub = document.querySelector<HTMLElement>('[data-head-sub]');
   const status = document.querySelector<HTMLElement>('[data-status]');
   const memberStatus = document.querySelector<HTMLElement>('[data-member-status]');
+
+  const guestCopy = {
+    title: '登录氢风',
+    sub: '账号只在群里发放：@机器人 发「注册 你的游戏ID」，账号和初始密码会私信给你。',
+  };
 
   const setStatus = (node: HTMLElement | null, text: string) => {
     if (node) node.textContent = text;
@@ -223,10 +269,11 @@ const description =
   };
 
   const showMember = (account: PublicAccount) => {
-    const title = memberView?.querySelector('[data-member-title]');
-    if (title) title.textContent = `你好，${account.nickname}`;
-    const username = memberView?.querySelector('[data-member-username]');
-    if (username) username.textContent = account.username;
+    if (headTitle) headTitle.textContent = `你好，${account.nickname}`;
+    if (headSub) {
+      headSub.textContent = `你正以 ${account.username} 的身份登录氢风。账号和密码由群内机器人发放，改密码请私信机器人。`;
+    }
+
     const role = memberView?.querySelector('[data-member-role]');
     if (role) role.textContent = account.role === 'admin' ? '站务' : '玩家';
     const created = memberView?.querySelector('[data-member-created]');
@@ -239,6 +286,8 @@ const description =
   };
 
   const showGuest = () => {
+    if (headTitle) headTitle.textContent = guestCopy.title;
+    if (headSub) headSub.textContent = guestCopy.sub;
     if (memberView) memberView.hidden = true;
     if (guestView) guestView.hidden = false;
   };

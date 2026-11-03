@@ -41,17 +41,16 @@ const isJoinGuide = guide.id === JOIN_GUIDE_ID;
       <span>{guide.data.title}</span>
     </nav>
 
-    <header class="page-header enter">
-      <p class="hw-eyebrow">指南</p>
-      <h1>{guide.data.title}</h1>
-      <div class="page-header-aside">
-        <p class="page-lede">{guide.data.summary}</p>
-        <div class="page-actions">
-          <a class="outlined-button" href="/guides/">
-            <Icon name="arrow_back" size={18} />
-            返回指南
-          </a>
-        </div>
+    <header class="page-head enter">
+      <div class="page-head-copy">
+        <h1>{guide.data.title}</h1>
+        <p class="page-head-sub">{guide.data.summary}</p>
+      </div>
+      <div class="page-head-actions">
+        <a class="outlined-button is-compact" href="/guides/">
+          <Icon name="arrow_back" size={16} />
+          返回指南
+        </a>
       </div>
     </header>
 

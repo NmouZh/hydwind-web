@@ -10,17 +10,17 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
 ---
 
 <BaseLayout title="议题 · 氢风 Hydwind" description={description} current="issues">
-  <div class="hw-shell issues-page">
-    <div class="issues-titlebar">
-      <div>
+  <div class="hw-shell page-shell issues-page">
+    <header class="page-head">
+      <div class="page-head-copy">
         <h1>议题</h1>
-        <p class="issues-sub">玩家提的 bug 和建议，服主在这里跟进。提交后先进待审，过审才公开。</p>
+        <p class="page-head-sub">玩家提的 bug 和建议，服主在这里跟进。提交后先进待审，过审才公开。</p>
       </div>
-      <button class="issues-primary" type="button" data-open-form>
+      <button class="filled-button is-compact" type="button" data-open-form>
         <Icon name="plus" size={16} />
         提交议题
       </button>
-    </div>
+    </header>
 
     <div class="issues-tabs" role="tablist" aria-label="按状态筛选">
       <button type="button" class="issue-tab is-active" role="tab" aria-selected="true" data-filter="all">
