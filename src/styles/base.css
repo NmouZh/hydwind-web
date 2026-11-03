@@ -14,7 +14,8 @@
 }
 
 :root {
-  --md-sys-typescale-font: "Noto Sans CJK SC", "Noto Sans SC", "PingFang SC",
+  /* 拉丁/数字走 Rubik，中文回落到自托管 MiSans，最后才是系统字体 */
+  --md-sys-typescale-font: "Rubik", "MiSans", "PingFang SC",
     "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
   --md-sys-typescale-font-display: var(--md-sys-typescale-font);
 
@@ -560,6 +561,102 @@ code {
     opacity: 1;
     transform: none;
     transition: none;
+  }
+}
+
+/* —— 视觉动效原语：逻辑在 src/scripts/motion.ts，页面只写 data 属性 —— */
+
+/* GSAP 接管后关掉同名 CSS 过渡，两套动画不叠在一起 */
+html.hw-motion [data-reveal] {
+  transition: none;
+}
+
+/* 逐字升起：字符由 JS 拆出来，这里只负责盒子 */
+[data-split] .hw-char {
+  display: inline-block;
+  white-space: pre;
+}
+
+/* 鼠标跟随的柔光层：铺在容器底下，内容提升一层压在上面 */
+[data-glow] {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-glow]::before {
+  content: '';
+  position: absolute;
+  inset-block: -12%;
+  inset-inline: 0;
+  z-index: -1;
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  background: radial-gradient(
+    32rem circle at var(--glow-x, 50%) var(--glow-y, 0%),
+    color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent),
+    transparent 62%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--md-sys-motion-duration-medium2)
+    var(--md-sys-motion-easing-standard);
+}
+
+[data-glow]:hover::before {
+  opacity: 1;
+}
+
+/* 顶部滚动进度：全站唯一一根进度线，贴在应用栏上沿 */
+.scroll-progress {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 70;
+  height: 2px;
+  background: var(--md-sys-color-primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+/* 跨文档切换：支持的浏览器顺滑淡入，不支持的按原样跳转 */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root) {
+  animation: hw-vt-out var(--md-sys-motion-duration-short4)
+    var(--md-sys-motion-easing-standard) both;
+}
+
+::view-transition-new(root) {
+  animation: hw-vt-in var(--md-sys-motion-duration-medium2)
+    var(--md-sys-motion-easing-emphasized-decelerate) both;
+}
+
+@keyframes hw-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes hw-vt-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-glow]::before {
+    display: none;
+  }
+
+  .scroll-progress {
+    display: none;
+  }
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none;
   }
 }
 

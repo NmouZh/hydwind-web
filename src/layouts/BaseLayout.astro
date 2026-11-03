@@ -1,4 +1,5 @@
 ---
+import '../styles/fonts.css';
 import '../styles/md3-tokens.css';
 import '../styles/base.css';
 import TopAppBar from '../components/TopAppBar.astro';
@@ -55,6 +56,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
   </head>
   <body data-page={current}>
     <a class="skip-link" href="#main">跳到主要内容</a>
+    <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
     <TopAppBar current={current} />
     <main id="main">
       <slot />
@@ -76,6 +78,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
     </div>
 
     <script>
+      import { initMotion } from '../scripts/motion';
+
       const root = document.documentElement;
       const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
       const themeMeta = document.querySelector<HTMLMetaElement>('[data-theme-color]');
@@ -159,25 +163,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
 
       toastHost.hydwindToast = showSnackbar;
 
-      // 滚动进入视口时轻轻升起：统一全站的「出现」节奏
-      const revealTargets = document.querySelectorAll<HTMLElement>('[data-reveal]');
-      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-      if (revealTargets.length > 0 && !reduceMotion && 'IntersectionObserver' in window) {
-        const observer = new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              if (!entry.isIntersecting) return;
-              entry.target.classList.add('is-revealed');
-              observer.unobserve(entry.target);
-            });
-          },
-          { rootMargin: '0px 0px -12% 0px', threshold: 0.08 }
-        );
-        revealTargets.forEach((target) => observer.observe(target));
-      } else {
-        revealTargets.forEach((target) => target.classList.add('is-revealed'));
-      }
+      // 动效统一交给 src/scripts/motion.ts：CSS 过渡是降级方案，GSAP 是主路径
+      void initMotion();
     </script>
   </body>
 </html>

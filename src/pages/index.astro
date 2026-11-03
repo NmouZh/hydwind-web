@@ -46,15 +46,15 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
   description={description}
   current="home"
 >
-  <section class="hw-shell hero">
-    <div class="hero-masthead">
+  <section class="hw-shell hero" data-hero>
+    <div class="hero-masthead" data-glow>
       <div class="hero-main enter">
         <span class="assist-chip hero-badge">
           <span class="hero-dot" aria-hidden="true"></span>
           Minecraft Java 生存服
         </span>
 
-        <h1 class="hero-title">氢风</h1>
+        <h1 class="hero-title" data-split>氢风</h1>
         <p class="hero-en">HYDWIND</p>
         <p class="hero-lead">{site.tagline}</p>
 
@@ -62,6 +62,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
           <button
             class="filled-button"
             type="button"
+            data-magnetic
             data-copy={site.address}
             aria-label={`复制服务器地址 ${site.address}`}
           >
@@ -84,6 +85,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
       <aside
         class="hero-server enter"
         style="--enter-delay: 140ms"
+        data-parallax="0.1"
         aria-label="服务器地址与状态"
       >
         <div class="server-card">
@@ -164,7 +166,9 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
             style={`--reveal-delay: ${index * 80}ms`}
           >
             <div class="fact-head">
-              <span class="fact-index">{String(index + 1).padStart(2, '0')}</span>
+              <span class="fact-index" data-roll={index + 1}>
+                {String(index + 1).padStart(2, '0')}
+              </span>
               <span class="icon-tile">
                 <Icon name={fact.icon} size={20} />
               </span>

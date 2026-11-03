@@ -136,12 +136,20 @@
 
 ## 8. 出现节奏
 
-两套，不要混用，也不要新增第三套：
+逻辑全在 `src/scripts/motion.ts`（GSAP + ScrollTrigger），页面里**只写属性、不写动画代码**：
 
 - `.enter`：首屏元素，加载时一次性淡入上浮，可配 `--enter-delay`。
-- `data-reveal`：滚动进入视口时出现，可配 `--reveal-delay`；监听逻辑在 `BaseLayout` 里统一挂，页面只写属性。
+- `data-reveal`：滚动进入视口时出现，可配 `--reveal-delay`；`BaseLayout` 里统一挂，页面只写属性。
+- `data-split`：首屏大标题逐字升起（只给主视觉 h1 用，别给正文标题用）。
+- `data-parallax="0.1"`：滚动的视差位移，数字是位移比例，取 0.05～0.15，别超过。
+- `data-glow`：鼠标跟随的柔光层，只给主视觉容器；触屏和减弱动效下自动不生效。
+- `data-magnetic`：主操作按钮被指针轻吸，一屏最多一个。
+- `data-roll="3"`：数字从 0 滚到目标值，用于序号、统计。
 
-两套都必须被 `prefers-reduced-motion: reduce` 的全局规则关掉。
+两套主节奏（`.enter` / `data-reveal`）不要混用，也不要新增第三套。上面这些是叠加在节奏上的原语，
+不改变章节结构；新增原语要同时加到 `motion.ts`、`base.css` 和这一节。
+所有动效都必须被 `prefers-reduced-motion: reduce` 关掉：`motion.ts` 在这种情况下直接不加载 GSAP，
+CSS 侧也要有对应的兜底（`.enter` 关动画、`data-reveal` 直接可见）。
 
 ## 9. 改完必须验证
 
