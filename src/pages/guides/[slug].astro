@@ -1,4 +1,6 @@
 ---
+// 内容页在构建期渲染成静态 HTML，只有 /api/* 走服务端
+export const prerender = true;
 import { render } from 'astro:content';
 import type { CollectionEntry } from 'astro:content';
 import BaseLayout from '../../layouts/BaseLayout.astro';

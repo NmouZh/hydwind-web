@@ -3,7 +3,7 @@ import Icon from './Icon.astro';
 import { JOIN_GUIDE_ID } from '../lib/content';
 
 interface Props {
-  current?: 'home' | 'people' | 'guides' | 'join';
+  current?: 'home' | 'people' | 'guides' | 'join' | 'issues';
 }
 
 const { current = 'home' } = Astro.props;
@@ -12,6 +12,7 @@ const items = [
   { key: 'home', href: '/', label: '首页', icon: 'home' },
   { key: 'guides', href: '/guides/', label: '指南', icon: 'book' },
   { key: 'people', href: '/people/', label: '人物', icon: 'person' },
+  { key: 'issues', href: '/issues/', label: '议题', icon: 'message' },
   { key: 'join', href: `/guides/${JOIN_GUIDE_ID}/`, label: '进服', icon: 'login' },
 ];
 ---
@@ -47,7 +48,7 @@ const items = [
       left: 0;
       z-index: 70;
       display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 4px;
       padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
       background: var(--md-sys-color-surface-container);

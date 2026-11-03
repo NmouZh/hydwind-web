@@ -1,0 +1,400 @@
+---
+// 议题列表在构建期出壳，内容由浏览器拉 /api/issues 渲染（所以这里不 prerender）
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
+
+const description = '氢风（Hydwind）议题区：提交 bug、建议与想法，和服主一起把服务器做好。';
+---
+
+<BaseLayout title="议题 · 氢风 Hydwind" description={description} current="issues">
+  <section class="hw-shell issues-hero">
+    <div class="hero-card enter issues-hero-card">
+      <span class="assist-chip">
+        <Icon name="message" size={16} />
+        议题 · Issues
+      </span>
+      <h1>有想法就写下来</h1>
+      <p class="hero-lead">
+        Bug、平衡性建议、想加的功能，都可以在这里提。提交后会先进入待审队列，服主在群里确认后公开出现在下面。
+      </p>
+    </div>
+  </section>
+
+  <section class="hw-shell issues-layout">
+    <div class="issues-main">
+      <header class="issues-heading">
+        <h2>公开议题</h2>
+        <div class="issues-filters" role="group" aria-label="按状态筛选">
+          <button type="button" class="filter-chip is-active" data-filter="all">全部</button>
+          <button type="button" class="filter-chip" data-filter="open">进行中</button>
+          <button type="button" class="filter-chip" data-filter="done">已完成</button>
+          <button type="button" class="filter-chip" data-filter="rejected">已驳回</button>
+        </div>
+      </header>
+
+      <p class="issues-empty" data-empty hidden>还没有公开议题，来做第一个吧。</p>
+      <ul class="issues-list" data-list></ul>
+    </div>
+
+    <aside class="issues-form-card">
+      <h2>提交议题</h2>
+      <form class="issues-form" data-form novalidate>
+        <label>
+          <span>标题</span>
+          <input name="title" type="text" maxlength="80" required placeholder="一句话说清问题" />
+        </label>
+        <label>
+          <span>类型</span>
+          <select name="category">
+            <option value="bug">Bug</option>
+            <option value="suggestion">建议</option>
+            <option value="other">其他</option>
+          </select>
+        </label>
+        <label>
+          <span>游戏 ID（可不填）</span>
+          <input name="author" type="text" maxlength="32" placeholder="方便我们找到你" />
+        </label>
+        <label>
+          <span>详细描述</span>
+          <textarea name="body" rows="5" maxlength="2000" required placeholder="发生了什么、什么时候、能不能复现"></textarea>
+        </label>
+        <button class="filled-button" type="submit">提交议题</button>
+        <p class="issues-form-status" data-status role="status" aria-live="polite"></p>
+      </form>
+    </aside>
+  </section>
+</BaseLayout>
+
+<script>
+  type IssueStatus = 'pending' | 'open' | 'rejected' | 'done';
+  type Issue = {
+    id: number;
+    title: string;
+    author: string;
+    category: string;
+    status: IssueStatus;
+    createdAt: string;
+    replyCount: number;
+  };
+
+  const STATUS_TEXT: Record<IssueStatus, string> = {
+    pending: '待审核',
+    open: '进行中',
+    rejected: '已驳回',
+    done: '已完成',
+  };
+  const CATEGORY_TEXT: Record<string, string> = {
+    bug: 'Bug',
+    suggestion: '建议',
+    other: '其他',
+  };
+
+  const listEl = document.querySelector<HTMLUListElement>('[data-list]');
+  const emptyEl = document.querySelector<HTMLElement>('[data-empty]');
+  const form = document.querySelector<HTMLFormElement>('[data-form]');
+  const statusEl = document.querySelector<HTMLElement>('[data-status]');
+  const chips = document.querySelectorAll<HTMLButtonElement>('[data-filter]');
+
+  let issues: Issue[] = [];
+  let filter = 'all';
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+
+  const render = () => {
+    if (!listEl || !emptyEl) return;
+    const visible = issues.filter((issue) => filter === 'all' || issue.status === filter);
+    listEl.replaceChildren(
+      ...visible.map((issue) => {
+        const item = document.createElement('li');
+        item.className = `issue-item status-${issue.status}`;
+
+        const head = document.createElement('div');
+        head.className = 'issue-item-head';
+
+        const id = document.createElement('span');
+        id.className = 'issue-id';
+        id.textContent = `#${issue.id}`;
+
+        const title = document.createElement('h3');
+        title.className = 'issue-title';
+        title.textContent = issue.title;
+
+        const badge = document.createElement('span');
+        badge.className = `issue-badge status-${issue.status}`;
+        badge.textContent = STATUS_TEXT[issue.status];
+
+        head.append(id, title, badge);
+
+        const meta = document.createElement('p');
+        meta.className = 'issue-meta';
+        meta.textContent = `${CATEGORY_TEXT[issue.category] ?? '其他'} · ${issue.author} · ${formatDate(issue.createdAt)} · ${issue.replyCount} 条回复`;
+
+        item.append(head, meta);
+        return item;
+      })
+    );
+    emptyEl.hidden = visible.length > 0;
+  };
+
+  const load = async () => {
+    try {
+      const response = await fetch('/api/issues', { headers: { accept: 'application/json' } });
+      const data = (await response.json()) as { issues?: Issue[] };
+      issues = data.issues ?? [];
+    } catch {
+      issues = [];
+    }
+    render();
+  };
+
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      filter = chip.dataset.filter ?? 'all';
+      chips.forEach((item) => item.classList.toggle('is-active', item === chip));
+      render();
+    });
+  });
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!statusEl) return;
+
+    const data = new FormData(form);
+    const payload = {
+      title: String(data.get('title') ?? ''),
+      body: String(data.get('body') ?? ''),
+      author: String(data.get('author') ?? ''),
+      category: String(data.get('category') ?? 'other'),
+    };
+
+    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    if (button) button.disabled = true;
+    statusEl.textContent = '正在提交…';
+    statusEl.dataset.state = 'pending';
+
+    try {
+      const response = await fetch('/api/issues', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = (await response.json()) as { issue?: Issue; message?: string; error?: string };
+      if (!response.ok) throw new Error(result.error ?? '提交失败，稍后再试');
+
+      statusEl.textContent = `已收到 #${result.issue?.id ?? ''}，等待服主审核～`;
+      statusEl.dataset.state = 'ok';
+      form.reset();
+    } catch (error) {
+      statusEl.textContent = error instanceof Error ? error.message : '提交失败，稍后再试';
+      statusEl.dataset.state = 'error';
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+
+  void load();
+</script>
+
+<style>
+  .issues-hero {
+    padding-top: clamp(16px, 3vw, 28px);
+  }
+
+  .issues-hero-card h1 {
+    margin-top: 10px;
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+  }
+
+  .hero-lead {
+    max-width: 46ch;
+    margin-top: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    line-height: 1.75;
+  }
+
+  .issues-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: clamp(16px, 2.4vw, 28px);
+    align-items: start;
+    padding-block: clamp(20px, 3vw, 32px) 64px;
+  }
+
+  @media (max-width: 860px) {
+    .issues-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .issues-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .issues-heading h2 {
+    font-size: 1.25rem;
+  }
+
+  .issues-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .filter-chip {
+    padding: 6px 14px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-medium-size);
+    cursor: pointer;
+  }
+
+  .filter-chip.is-active {
+    border-color: transparent;
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .issues-list {
+    display: grid;
+    gap: 12px;
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .issue-item {
+    padding: 16px 18px;
+    border-radius: var(--md-sys-shape-corner-large);
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .issue-item-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+  }
+
+  .issue-id {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-medium-size);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .issue-title {
+    flex: 1 1 12ch;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.5;
+  }
+
+  .issue-badge {
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: var(--md-sys-typescale-label-small-size);
+    background: var(--md-sys-color-surface-container-highest);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .issue-badge.status-open {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .issue-badge.status-done {
+    background: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
+  }
+
+  .issue-meta {
+    margin-top: 6px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-small-size);
+  }
+
+  .issues-empty {
+    margin-top: 16px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .issues-form-card {
+    position: sticky;
+    top: 84px;
+    padding: 20px;
+    border-radius: var(--md-sys-shape-corner-extra-large);
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .issues-form-card h2 {
+    font-size: 1.125rem;
+  }
+
+  .issues-form {
+    display: grid;
+    gap: 12px;
+    margin-top: 14px;
+  }
+
+  .issues-form label {
+    display: grid;
+    gap: 6px;
+    font-size: var(--md-sys-typescale-label-medium-size);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .issues-form input,
+  .issues-form select,
+  .issues-form textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-small);
+    background: var(--md-sys-color-surface-container-lowest);
+    color: var(--md-sys-color-on-surface);
+    font: inherit;
+    font-size: 0.9375rem;
+  }
+
+  .issues-form textarea {
+    resize: vertical;
+  }
+
+  .filled-button {
+    padding: 12px 18px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .filled-button:disabled {
+    opacity: 0.6;
+    cursor: progress;
+  }
+
+  .issues-form-status {
+    min-height: 1.4em;
+    margin: 0;
+    font-size: var(--md-sys-typescale-label-medium-size);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .issues-form-status[data-state='ok'] {
+    color: var(--md-sys-color-primary);
+  }
+
+  .issues-form-status[data-state='error'] {
+    color: var(--md-sys-color-error);
+  }
+</style>
