@@ -15,8 +15,10 @@ const { site } = Astro.props;
       <p class="hw-eyebrow">服务器信息</p>
       <h2 id="server-info-title">进服前先确认这些</h2>
     </div>
-    <span class="assist-chip">{site.statusLabel}</span>
+    <span class="assist-chip" data-live-status>{site.statusLabel}</span>
   </header>
+
+  <p class="server-info-live" data-live-detail hidden></p>
 
   <dl class="server-info-grid">
     <div class="server-info-item">
@@ -73,7 +75,60 @@ const { site } = Astro.props;
   </div>
 </section>
 
+<script>
+  // 页面本身是构建期静态产物，这里在浏览器端补一次实时状态：
+  // /api/status 不可用（纯静态部署、接口挂掉）时保持 Markdown 里的原文，不影响阅读。
+  type Status = {
+    online: boolean;
+    players: { online: number; max: number };
+    version: string;
+    checkedAt: string;
+  };
+
+  const chip = document.querySelector<HTMLElement>('[data-live-status]');
+  const detail = document.querySelector<HTMLElement>('[data-live-detail]');
+
+  if (chip && detail) {
+    const original = chip.textContent ?? '';
+
+    fetch('/api/status', { headers: { accept: 'application/json' } })
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error('status'))) )
+      .then((status: Status) => {
+        chip.textContent = status.online ? '在线' : '离线';
+        chip.dataset.state = status.online ? 'online' : 'offline';
+
+        const time = new Date(status.checkedAt).toLocaleTimeString('zh-CN', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        detail.textContent = status.online
+          ? `当前在线 ${status.players.online}/${status.players.max} 人 · ${status.version} · ${time} 更新`
+          : `服务器暂时没响应，可以去 QQ 群问问 · ${time} 检查`;
+        detail.hidden = false;
+      })
+      .catch(() => {
+        chip.textContent = original;
+      });
+  }
+</script>
+
 <style>
+  .server-info-live {
+    margin-top: 10px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-medium-size);
+  }
+
+  .server-info [data-live-status][data-state='online'] {
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .server-info [data-live-status][data-state='offline'] {
+    background: var(--md-sys-color-error-container);
+    color: var(--md-sys-color-on-error-container);
+  }
+
   .server-info {
     padding: clamp(20px, 3vw, 32px);
     border-radius: var(--md-sys-shape-corner-extra-large);
