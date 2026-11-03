@@ -57,6 +57,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
   <body data-page={current}>
     <a class="skip-link" href="#main">跳到主要内容</a>
     <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
+    <div class="nav-progress" data-nav-progress aria-hidden="true"></div>
     <TopAppBar current={current} />
     <main id="main">
       <slot />
@@ -79,6 +80,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
 
     <script>
       import { initMotion } from '../scripts/motion';
+      import { initNavigation } from '../scripts/navigation';
 
       const root = document.documentElement;
       const toggle = document.querySelector<HTMLButtonElement>('[data-theme-toggle]');
@@ -165,6 +167,8 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
 
       // 动效统一交给 src/scripts/motion.ts：CSS 过渡是降级方案，GSAP 是主路径
       void initMotion();
+      // 站内跳转的进度条与按下反馈（预取在 astro.config.mjs 里配）
+      initNavigation();
     </script>
   </body>
 </html>

@@ -27,6 +27,9 @@ interface Props {
 const { person } = Astro.props;
 const { Content } = await render(person);
 
+/** 传记编辑器里的「引用他人」候选：除自己以外的所有已发布人物。 */
+const others = (await getPublishedPeople()).filter((entry) => entry.id !== person.id);
+
 const description = `${person.data.gameId} 是氢风的${person.data.role}。查看人物简介与更新时间。`;
 ---
 
@@ -98,8 +101,76 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
         </div>
       </aside>
     </div>
+
+    <section class="section person-biography" data-biography data-person-id={person.id}>
+      <div class="section-heading">
+        <div>
+          <p class="hw-eyebrow">传记</p>
+          <h2>玩家写的传记</h2>
+        </div>
+        <div class="bio-head-actions">
+          <button class="text-button" type="button" data-bio-edit hidden>写一篇传记</button>
+        </div>
+      </div>
+
+      <div class="bio-body prose" data-bio-body hidden></div>
+      <p class="bio-empty" data-bio-empty>还没有人给 {person.data.gameId} 写传记，登录后可以写第一篇。</p>
+      <p class="bio-meta" data-bio-meta hidden></p>
+
+      <form class="form-stack bio-editor" data-bio-editor hidden>
+        <label class="field">
+          <span>正文</span>
+          <textarea
+            name="body"
+            rows="10"
+            maxlength="4000"
+            data-bio-input
+            placeholder={`写写 ${person.data.gameId} 在服里的故事，空行分段。`}
+          ></textarea>
+        </label>
+
+        <div class="bio-refs" data-bio-refs>
+          <span class="bio-refs-label">引用他人</span>
+          {
+            others.length > 0 ? (
+              <div class="bio-refs-list">
+                {others.map((other) => (
+                  <button
+                    class="assist-chip bio-ref-chip"
+                    type="button"
+                    data-bio-mention={`@${other.data.gameId}`}
+                  >
+                    @{other.data.gameId}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <span class="bio-refs-hint">
+                站里还没有别人可以引用，正文里写「@游戏ID」也会变成人物链接。
+              </span>
+            )
+          }
+        </div>
+
+        <span class="field-hint">
+          点上面的名字会插入「@游戏ID」，保存后正文里会变成能点开的人物链接；空行分段。
+        </span>
+
+        <div class="bio-actions">
+          <button class="filled-button is-compact" type="submit" data-bio-submit>保存传记</button>
+          <button class="text-button" type="button" data-bio-cancel>取消</button>
+        </div>
+        <p class="form-status" role="status" aria-live="polite" data-bio-status></p>
+      </form>
+    </section>
   </div>
 </BaseLayout>
+
+<script>
+  import { initBiography } from '../../scripts/biography';
+
+  void initBiography();
+</script>
 
 <style>
   .person-head-copy {
@@ -122,6 +193,98 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     align-items: flex-start;
     gap: var(--hw-space-2);
     margin-top: var(--hw-space-4);
+  }
+
+  /* —— 传记 —— */
+
+  .person-biography {
+    margin-top: var(--hw-space-7);
+  }
+
+  .bio-head-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--hw-space-2);
+  }
+
+  .bio-body {
+    max-width: 68ch;
+    margin-top: var(--hw-space-5);
+  }
+
+  .bio-body :global(.bio-mention) {
+    color: var(--md-sys-color-primary);
+    font-weight: 600;
+    text-decoration: underline;
+    text-decoration-color: color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
+    text-underline-offset: 3px;
+  }
+
+  .bio-empty,
+  .bio-meta {
+    max-width: 68ch;
+    font-size: var(--md-sys-typescale-body-medium-size);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-empty {
+    margin-top: var(--hw-space-5);
+  }
+
+  .bio-meta {
+    margin-top: var(--hw-space-4);
+    padding-top: var(--hw-space-3);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    font-size: var(--md-sys-typescale-label-medium-size);
+  }
+
+  .bio-editor {
+    max-width: 68ch;
+    margin-top: var(--hw-space-5);
+  }
+
+  .bio-refs {
+    display: grid;
+    gap: var(--hw-space-2);
+  }
+
+  .bio-refs-label {
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-refs-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--hw-space-2);
+  }
+
+  .bio-refs-hint {
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-weight: 400;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-ref-chip {
+    cursor: pointer;
+    font-family: inherit;
+    transition:
+      background-color var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard),
+      color var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard);
+  }
+
+  .bio-ref-chip:active {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  .bio-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--hw-space-3);
+    align-items: center;
   }
 
   @media (max-width: 719px) {

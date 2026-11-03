@@ -10,4 +10,10 @@ export default defineConfig({
   site: 'https://hydwind.lovie.me',
   output: 'server',
   adapter: node({ mode: 'standalone' }),
+  // 站内链接提前抓一遍 HTML：导航点下去先有内容，再谈动效。
+  // viewport 策略照顾手机（没有 hover），hover 策略让桌面鼠标扫过就预取。
+  prefetch: {
+    prefetchAll: true,
+    defaultStrategy: 'viewport',
+  },
 });

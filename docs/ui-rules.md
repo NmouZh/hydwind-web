@@ -151,6 +151,14 @@
 所有动效都必须被 `prefers-reduced-motion: reduce` 关掉：`motion.ts` 在这种情况下直接不加载 GSAP，
 CSS 侧也要有对应的兜底（`.enter` 关动画、`data-reveal` 直接可见）。
 
+### 换页：预取 + 过渡
+
+站内跳转是原生导航，不接客户端路由，三层各管一件事，不要重复实现：
+
+- **预取**：`astro.config.mjs` 的 `prefetch`（`prefetchAll` + `viewport` 策略）。手机没有 hover 也能提前抓到 HTML；不要再手写 `<link rel="prefetch">` 或自己的 fetch 预取。
+- **过渡**：`base.css` 的 `@view-transition { navigation: auto }`。`main` 单独一份快照（`view-transition-name: hw-page`）负责「抬起 + 淡入」，root 快照只做整体淡出淡入；不支持的浏览器就是普通跳转。
+- **点击反馈**：`src/scripts/navigation.ts` 在点击瞬间点亮顶部进度条、给导航项按下态。它不接管路由，浏览器前进后退、右键新开标签都不受影响。
+
 ## 9. 改完必须验证
 
 ```bash

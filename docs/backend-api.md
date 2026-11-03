@@ -78,6 +78,32 @@ PORT=4321
 
 站务回复：`{ "body": "…", "author": "可选" }`，需要令牌。插件把群里的处理进展同步到这里。
 
+### `GET /api/people/:id/biography`
+
+人物传记（`id` 是内容集合里的 slug，例如 `nz-173`）。没写过返回 `{ "biography": null }`。
+正文里用 `@游戏ID` 引用其他玩家，`refs` 会带上引用对象，前端据此渲染人物链接。
+
+```json
+{
+  "biography": {
+    "body": "……@Nz_173 在……",
+    "author": "写的人昵称",
+    "createdAt": "2026-11-03T05:00:00.000Z",
+    "updatedAt": "2026-11-03T05:00:00.000Z",
+    "refs": [{ "personId": "nz-173", "gameId": "Nz_173" }]
+  }
+}
+```
+
+### `PUT /api/people/:id/biography`
+
+保存传记，**需要登录会话**（`hydwind_session` cookie），请求体 `{ "body": "……" }`。
+
+- 校验：正文 20～4000 字；`@游戏ID` 必须是已发布人物，最多引用 12 位；引用自己不重复计入
+- 一个玩家只有一篇传记，存在就覆盖；只有作者本人和站点管理员能改
+- 同一账号 10 分钟最多 12 次
+- 成功返回同 GET 结构 + `message`
+
 ### `GET /api/admin/pending.json`
 
 待审队列，给 AstrBot 插件轮询用，需要令牌。

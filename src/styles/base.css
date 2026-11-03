@@ -623,6 +623,11 @@ html.hw-motion [data-reveal] {
   navigation: auto;
 }
 
+/* 正文单独一份快照：换页时内容轻轻抬起，页头页脚跟着根快照淡出 */
+main {
+  view-transition-name: hw-page;
+}
+
 ::view-transition-old(root) {
   animation: hw-vt-out var(--md-sys-motion-duration-short4)
     var(--md-sys-motion-easing-standard) both;
@@ -630,6 +635,16 @@ html.hw-motion [data-reveal] {
 
 ::view-transition-new(root) {
   animation: hw-vt-in var(--md-sys-motion-duration-medium2)
+    var(--md-sys-motion-easing-emphasized-decelerate) both;
+}
+
+::view-transition-old(hw-page) {
+  animation: hw-page-out var(--md-sys-motion-duration-short4)
+    var(--md-sys-motion-easing-emphasized-accelerate) both;
+}
+
+::view-transition-new(hw-page) {
+  animation: hw-page-in var(--md-sys-motion-duration-medium3)
     var(--md-sys-motion-easing-emphasized-decelerate) both;
 }
 
@@ -645,17 +660,57 @@ html.hw-motion [data-reveal] {
   }
 }
 
+@keyframes hw-page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes hw-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+/* 点击站内链接时立刻点亮的顶部进度条：预取 + 原生跳转期间给个「在路上」的信号 */
+.nav-progress {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 80;
+  height: 2px;
+  background: var(--md-sys-color-primary);
+  transform: scaleX(0);
+  transform-origin: left center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--md-sys-motion-duration-short2) linear;
+}
+
+.nav-progress[data-active] {
+  opacity: 1;
+  transform: scaleX(0.72);
+  transition:
+    opacity var(--md-sys-motion-duration-short2) linear,
+    transform 900ms var(--md-sys-motion-easing-emphasized-decelerate);
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-glow]::before {
     display: none;
   }
 
-  .scroll-progress {
+  .scroll-progress,
+  .nav-progress {
     display: none;
   }
 
   ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-new(root),
+  ::view-transition-old(hw-page),
+  ::view-transition-new(hw-page) {
     animation: none;
   }
 }

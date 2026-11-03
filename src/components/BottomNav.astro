@@ -63,8 +63,11 @@ const { current = 'home' } = Astro.props;
       color: var(--md-sys-color-on-surface-variant);
       font-size: var(--md-sys-typescale-label-small-size);
       font-weight: 600;
-      transition: color var(--md-sys-motion-duration-short4)
-        var(--md-sys-motion-easing-standard);
+      transition:
+        color var(--md-sys-motion-duration-short4)
+          var(--md-sys-motion-easing-standard),
+        transform var(--md-sys-motion-duration-short3)
+          var(--md-sys-motion-easing-emphasized);
     }
 
     .nav-indicator {
@@ -90,6 +93,10 @@ const { current = 'home' } = Astro.props;
       background: var(--md-sys-color-primary-container);
       color: var(--md-sys-color-on-primary-container);
       transform: translateY(-1px);
+    }
+
+    .bottom-nav a[data-pressed] {
+      transform: scale(0.94);
     }
   }
 </style>

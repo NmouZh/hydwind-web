@@ -185,12 +185,18 @@ const links = NAV_ITEMS;
       background-color var(--md-sys-motion-duration-short4)
         var(--md-sys-motion-easing-standard),
       color var(--md-sys-motion-duration-short4)
-        var(--md-sys-motion-easing-standard);
+        var(--md-sys-motion-easing-standard),
+      transform var(--md-sys-motion-duration-short3)
+        var(--md-sys-motion-easing-emphasized);
   }
 
   .top-nav a[aria-current='page'] {
     background: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
+  }
+
+  .top-nav a[data-pressed] {
+    transform: scale(0.96);
   }
 
   @media (hover: hover) and (pointer: fine) {
