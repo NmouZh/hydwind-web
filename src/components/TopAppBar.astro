@@ -1,20 +1,15 @@
 ---
 import Icon from './Icon.astro';
 import { JOIN_GUIDE_ID } from '../lib/content';
+import { NAV_ITEMS, type NavKey } from '../lib/nav';
 
 interface Props {
-  current?: 'home' | 'people' | 'guides' | 'join' | 'issues' | 'login';
+  current?: NavKey;
 }
 
 const { current = 'home' } = Astro.props;
 
-const links = [
-  { key: 'home', href: '/', label: '首页' },
-  { key: 'guides', href: '/guides/', label: '指南' },
-  { key: 'people', href: '/people/', label: '人物' },
-  { key: 'issues', href: '/issues/', label: '议题' },
-  { key: 'join', href: `/guides/${JOIN_GUIDE_ID}/`, label: '进服' },
-];
+const links = NAV_ITEMS;
 ---
 
 <header class="top-app-bar" data-top-app-bar>

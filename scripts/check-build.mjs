@@ -12,7 +12,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dist = path.join(root, 'dist');
+const buildDir = path.join(root, 'dist');
+/** @astrojs/node standalone 把静态产物放在 dist/client；老静态构建则直接落在 dist 根。 */
+const dist = existsSync(path.join(buildDir, 'index.html'))
+  ? buildDir
+  : path.join(buildDir, 'client');
 
 /** 进服指南的集合 id；页面与检查脚本共用同一个概念。 */
 const JOIN_GUIDE_ID = 'join';
@@ -84,6 +88,7 @@ const main = async () => {
     ['people/nz-173/index.html', '人物详情 /people/nz-173/'],
     ['guides/index.html', '指南索引 /guides/'],
     [`guides/${JOIN_GUIDE_ID}/index.html`, `进服指南 /guides/${JOIN_GUIDE_ID}/`],
+    ['account/index.html', '账号页 /account/'],
   ];
 
   const pages = new Map();
@@ -94,6 +99,37 @@ const main = async () => {
 
   const home = pages.get('index.html');
   const joinGuide = pages.get(`guides/${JOIN_GUIDE_ID}/index.html`);
+  const account = pages.get('account/index.html');
+
+  // —— 一级导航：进服已并入指南，账号是独立入口 ——
+  if (home) {
+    const topNav = home.html.match(
+      /<nav[^>]*class="top-nav"[^>]*>([\s\S]*?)<\/nav>/
+    )?.[1];
+    const bottomNav = home.html.match(
+      /<nav[^>]*class="bottom-nav"[^>]*>([\s\S]*?)<\/nav>/
+    )?.[1];
+    for (const [label, html] of [
+      ['顶部导航', topNav],
+      ['底部导航', bottomNav],
+    ]) {
+      if (!html) {
+        fail(`${label}缺失`);
+        continue;
+      }
+      for (const href of ['/guides/', '/people/', '/issues/', '/account/']) {
+        if (html.includes(`href="${href}"`)) pass(`${label}包含 ${href}`);
+        else fail(`${label}缺少 ${href}`);
+      }
+      if (/>\s*进服\s*</.test(html)) fail(`${label}仍有「进服」一级入口，应已并入指南`);
+      else pass(`${label}没有单独的「进服」入口`);
+    }
+  }
+
+  if (account) {
+    expectText(account, '登录氢风', '账号页登录标题');
+    expectText(account, '注册', '账号页注册说明');
+  }
 
   // —— 首页必须自己呈现全部已确认事实 ——
   if (home) {
@@ -229,6 +265,8 @@ const main = async () => {
   }
 
   // —— 每个页面的站内链接都必须解析到构建产物 ——
+  // /issues/ 与 /login 是服务端路由，没有静态产物，单独放行。
+  const serverRenderedRoutes = new Set(['/issues/', '/login', '/login/']);
   const hrefPattern = /href="([^"]+)"/g;
   for (const file of htmlFiles) {
     const relative = path.relative(dist, file);
@@ -246,6 +284,7 @@ const main = async () => {
         continue;
       }
       const clean = href.split('?')[0].split('#')[0];
+      if (serverRenderedRoutes.has(clean)) continue;
       if (!clean || clean === '/') {
         if (!existsSync(path.join(dist, 'index.html'))) broken.add(href);
         continue;

@@ -14,7 +14,11 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dist = path.join(root, 'dist');
+const buildDir = path.join(root, 'dist');
+/** @astrojs/node standalone 把静态产物放在 dist/client；老静态构建则直接落在 dist 根。 */
+const dist = existsSync(path.join(buildDir, 'index.html'))
+  ? buildDir
+  : path.join(buildDir, 'client');
 
 const ADDRESS = 'zzbgp2.coreyun.net:35282';
 const QQ = '1129694648';
@@ -247,6 +251,7 @@ const main = async () => {
       '/people/nz-173/',
       '/guides/',
       `/guides/${JOIN_GUIDE_ID}/`,
+      '/account/',
     ];
     for (const relativePath of desktopPaths) {
       await page.goto(`${origin}${relativePath}`, { waitUntil: 'networkidle' });
@@ -311,6 +316,7 @@ const main = async () => {
       '/people/nz-173/',
       '/guides/',
       `/guides/${JOIN_GUIDE_ID}/`,
+      '/account/',
     ];
     for (const relativePath of mobilePaths) {
       await mobilePage.goto(`${origin}${relativePath}`, {

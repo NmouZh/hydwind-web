@@ -1,25 +1,17 @@
 ---
 import Icon from './Icon.astro';
-import { JOIN_GUIDE_ID } from '../lib/content';
+import { NAV_ITEMS, type NavKey } from '../lib/nav';
 
 interface Props {
-  current?: 'home' | 'people' | 'guides' | 'join' | 'issues' | 'login';
+  current?: NavKey;
 }
 
 const { current = 'home' } = Astro.props;
-
-const items = [
-  { key: 'home', href: '/', label: '首页', icon: 'home' },
-  { key: 'guides', href: '/guides/', label: '指南', icon: 'book' },
-  { key: 'people', href: '/people/', label: '人物', icon: 'person' },
-  { key: 'issues', href: '/issues/', label: '议题', icon: 'message' },
-  { key: 'join', href: `/guides/${JOIN_GUIDE_ID}/`, label: '进服', icon: 'login' },
-];
 ---
 
 <nav class="bottom-nav" aria-label="底部导航">
   {
-    items.map((item) => (
+    NAV_ITEMS.map((item) => (
       <a
         href={item.href}
         data-nav-key={item.key}

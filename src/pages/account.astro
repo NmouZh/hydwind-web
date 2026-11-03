@@ -1,0 +1,247 @@
+---
+// 账号页在构建期出静态壳，登录态由浏览器拉 /api/auth/me 补水，
+// 和 /issues/ 保持同一套架构：内容页静态、状态走 /api/*。
+export const prerender = true;
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+
+const description =
+  '氢风（Hydwind）账号中心：登录站内账号，查看身份与最近登录；账号由群内 @机器人 注册后私信发放。';
+---
+
+<BaseLayout title="账号 · 氢风 Hydwind" description={description} current="account">
+  <section class="hw-shell account-shell">
+    <div class="hero-card enter account-card">
+      <span class="assist-chip hero-chip">
+        <Icon name="badge" size={16} />
+        账号 · Account
+      </span>
+
+      <div class="account-view" data-view="member" hidden>
+        <h1 data-member-title>你好</h1>
+        <p class="hero-lead">
+          你正以 <strong data-member-username></strong> 的身份登录氢风。账号和密码由群内机器人发放，改密码请私信机器人。
+        </p>
+        <dl class="meta-list-compact">
+          <div>
+            <dt>身份</dt>
+            <dd data-member-role></dd>
+          </div>
+          <div>
+            <dt>注册时间</dt>
+            <dd data-member-created></dd>
+          </div>
+          <div>
+            <dt>最近登录</dt>
+            <dd data-member-login></dd>
+          </div>
+        </dl>
+        <div class="hero-actions">
+          <a class="filled-button account-primary" href="/issues/">
+            <Icon name="message" size={18} />
+            去议题区
+          </a>
+          <button class="outlined-button account-secondary" type="button" data-logout>
+            退出登录
+          </button>
+        </div>
+        <p class="form-status" data-member-status role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="account-view" data-view="guest">
+        <h1>登录氢风</h1>
+        <p class="hero-lead">
+          账号不开放自助注册：在群里 @机器人 发送「注册 你的游戏ID」，账号和初始密码会私信给你。
+        </p>
+        <form class="form-stack account-form" data-form novalidate>
+          <label class="field">
+            <span>账号（游戏 ID）</span>
+            <input
+              name="username"
+              type="text"
+              autocomplete="username"
+              maxlength="24"
+              required
+              placeholder="例如 Nz_173"
+            />
+          </label>
+          <label class="field">
+            <span>密码</span>
+            <input
+              name="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              placeholder="私信里给你的密码"
+            />
+          </label>
+          <span class="field-hint">登录状态会保留 30 天，公共设备用完记得退出。</span>
+          <button class="filled-button account-primary" type="submit">登录</button>
+          <p class="form-status" data-status role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .account-shell {
+    padding-block: clamp(24px, 4vw, 40px) clamp(48px, 7vw, 88px);
+  }
+
+  .account-card {
+    max-width: 560px;
+    margin-inline: auto;
+  }
+
+  .account-view > h1 {
+    margin-top: 16px;
+    font-size: clamp(1.8rem, 4vw, 2.4rem);
+  }
+
+  .account-form {
+    margin-top: 24px;
+  }
+
+  .account-primary {
+    justify-self: start;
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-primary);
+    box-shadow: var(--md-sys-elevation-1);
+  }
+
+  .account-secondary {
+    border-color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 36%,
+      transparent
+    );
+    color: var(--md-sys-color-on-primary-container);
+  }
+
+  .account-card .meta-list-compact div {
+    border-bottom-color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 22%,
+      transparent
+    );
+  }
+
+  .account-card .meta-list-compact dt {
+    color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 74%,
+      transparent
+    );
+  }
+</style>
+
+<script>
+  interface PublicAccount {
+    username: string;
+    nickname: string;
+    role: 'admin' | 'player';
+    createdAt: string;
+    lastLoginAt: string | null;
+  }
+
+  const memberView = document.querySelector<HTMLElement>('[data-view="member"]');
+  const guestView = document.querySelector<HTMLElement>('[data-view="guest"]');
+  const status = document.querySelector<HTMLElement>('[data-status]');
+  const memberStatus = document.querySelector<HTMLElement>('[data-member-status]');
+
+  const setStatus = (node: HTMLElement | null, text: string) => {
+    if (node) node.textContent = text;
+  };
+
+  const formatTime = (value: string | null): string => {
+    if (!value) return '还没有记录';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '还没有记录';
+    return new Intl.DateTimeFormat('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    }).format(date);
+  };
+
+  const showMember = (account: PublicAccount) => {
+    const title = memberView?.querySelector('[data-member-title]');
+    if (title) title.textContent = `你好，${account.nickname}`;
+    const username = memberView?.querySelector('[data-member-username]');
+    if (username) username.textContent = account.username;
+    const role = memberView?.querySelector('[data-member-role]');
+    if (role) role.textContent = account.role === 'admin' ? '站务' : '玩家';
+    const created = memberView?.querySelector('[data-member-created]');
+    if (created) created.textContent = formatTime(account.createdAt);
+    const login = memberView?.querySelector('[data-member-login]');
+    if (login) login.textContent = formatTime(account.lastLoginAt);
+
+    if (memberView) memberView.hidden = false;
+    if (guestView) guestView.hidden = true;
+  };
+
+  const showGuest = () => {
+    if (memberView) memberView.hidden = true;
+    if (guestView) guestView.hidden = false;
+  };
+
+  const loadSession = async () => {
+    try {
+      const response = await fetch('/api/auth/me', { headers: { accept: 'application/json' } });
+      if (!response.ok) {
+        showGuest();
+        return;
+      }
+      const result = (await response.json()) as { account?: PublicAccount };
+      if (result.account) showMember(result.account);
+      else showGuest();
+    } catch {
+      showGuest();
+    }
+  };
+
+  const form = document.querySelector<HTMLFormElement>('[data-form]');
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setStatus(status, '');
+
+    const data = new FormData(form);
+    const username = String(data.get('username') ?? '').trim();
+    const password = String(data.get('password') ?? '');
+    if (!username || !password) {
+      setStatus(status, '账号和密码都要填哦');
+      return;
+    }
+
+    const button = form.querySelector('button[type="submit"]');
+    if (button instanceof HTMLButtonElement) button.disabled = true;
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setStatus(status, result.error ?? '登录失败，稍后再试');
+        return;
+      }
+      await loadSession();
+    } catch {
+      setStatus(status, '网络好像不太稳，稍后再试');
+    } finally {
+      if (button instanceof HTMLButtonElement) button.disabled = false;
+    }
+  });
+
+  document.querySelector('[data-logout]')?.addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setStatus(memberStatus, '');
+    showGuest();
+  });
+
+  void loadSession();
+</script>

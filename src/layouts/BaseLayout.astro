@@ -5,11 +5,12 @@ import TopAppBar from '../components/TopAppBar.astro';
 import BottomNav from '../components/BottomNav.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import Icon from '../components/Icon.astro';
+import type { NavKey } from '../lib/nav';
 
 interface Props {
   title: string;
   description?: string;
-  current?: 'home' | 'people' | 'guides' | 'join' | 'issues';
+  current?: NavKey;
 }
 
 const {
