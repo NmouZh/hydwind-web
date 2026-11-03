@@ -122,6 +122,7 @@ const { site } = Astro.props;
   .server-info [data-live-status][data-state='online'] {
     background: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
+    border-color: transparent;
   }
 
   .server-info [data-live-status][data-state='offline'] {
@@ -131,8 +132,9 @@ const { site } = Astro.props;
 
   .server-info {
     padding: clamp(20px, 3vw, 32px);
+    border: 1px solid var(--md-sys-color-outline-variant);
     border-radius: var(--md-sys-shape-corner-extra-large);
-    background: var(--md-sys-color-surface-container-low);
+    background: var(--md-sys-color-surface-container-lowest);
   }
 
   .server-info-heading {
@@ -158,8 +160,8 @@ const { site } = Astro.props;
   .server-info-item {
     min-width: 0;
     padding: 14px 16px;
-    border-radius: var(--md-sys-shape-corner-large);
-    background: var(--md-sys-color-surface-container-lowest);
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-surface-container-low);
   }
 
   .server-info-item dt {

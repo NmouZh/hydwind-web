@@ -82,7 +82,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
 
       const syncTheme = (theme: 'light' | 'dark') => {
         root.dataset.theme = theme;
-        themeMeta?.setAttribute('content', theme === 'dark' ? '#101419' : '#f8f9ff');
+        themeMeta?.setAttribute('content', theme === 'dark' ? '#0e141c' : '#f8f9ff');
         toggle?.setAttribute(
           'aria-label',
           theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'
@@ -158,6 +158,26 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
       });
 
       toastHost.hydwindToast = showSnackbar;
+
+      // 滚动进入视口时轻轻升起：统一全站的「出现」节奏
+      const revealTargets = document.querySelectorAll<HTMLElement>('[data-reveal]');
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      if (revealTargets.length > 0 && !reduceMotion && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add('is-revealed');
+              observer.unobserve(entry.target);
+            });
+          },
+          { rootMargin: '0px 0px -12% 0px', threshold: 0.08 }
+        );
+        revealTargets.forEach((target) => observer.observe(target));
+      } else {
+        revealTargets.forEach((target) => target.classList.add('is-revealed'));
+      }
     </script>
   </body>
 </html>

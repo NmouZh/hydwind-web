@@ -87,6 +87,7 @@ const columns = [
 <style>
   .site-footer {
     margin-top: clamp(64px, 9vw, 112px);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
     background: var(--md-sys-color-surface-container-low);
   }
 
@@ -115,14 +116,14 @@ const columns = [
     width: 30px;
     height: 30px;
     padding-bottom: 7px;
-    border-radius: 10px;
-    background: var(--md-sys-color-primary);
+    border-radius: var(--md-sys-shape-corner-small);
+    background: var(--md-sys-color-primary-container);
   }
 
   .footer-mark span {
     width: 2px;
-    border-radius: 2px;
-    background: var(--md-sys-color-on-primary);
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--md-sys-color-on-primary-container);
   }
 
   .footer-name {

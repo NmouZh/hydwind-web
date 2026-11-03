@@ -37,11 +37,11 @@ const description =
           </div>
         </dl>
         <div class="hero-actions">
-          <a class="filled-button account-primary" href="/issues/">
+          <a class="filled-button" href="/issues/">
             <Icon name="message" size={18} />
             去议题区
           </a>
-          <button class="outlined-button account-secondary" type="button" data-logout>
+          <button class="outlined-button" type="button" data-logout>
             退出登录
           </button>
         </div>
@@ -76,7 +76,7 @@ const description =
             />
           </label>
           <span class="field-hint">登录状态会保留 30 天，公共设备用完记得退出。</span>
-          <button class="filled-button account-primary" type="submit">登录</button>
+          <button class="filled-button" type="submit">登录</button>
           <p class="form-status" data-status role="status" aria-live="polite"></p>
         </form>
       </div>
@@ -103,20 +103,8 @@ const description =
     margin-top: 24px;
   }
 
-  .account-primary {
+  .account-form .filled-button {
     justify-self: start;
-    background: var(--md-sys-color-surface);
-    color: var(--md-sys-color-primary);
-    box-shadow: var(--md-sys-elevation-1);
-  }
-
-  .account-secondary {
-    border-color: color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 36%,
-      transparent
-    );
-    color: var(--md-sys-color-on-primary-container);
   }
 
   .account-card .meta-list-compact div {

@@ -47,10 +47,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
   current="home"
 >
   <section class="hero-wrap hw-shell">
-    <div class="hero-card hero-card--tint hero-card--split enter">
-      <div class="hero-glow hero-glow-a" aria-hidden="true"></div>
-      <div class="hero-glow hero-glow-b" aria-hidden="true"></div>
-
+    <div class="hero-card hero-card--split enter">
       <div class="hero-copy">
         <span class="tag-chip hero-badge">
           <span class="hero-dot" aria-hidden="true"></span>
@@ -63,7 +60,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
 
         <div class="hero-actions">
           <button
-            class="filled-button hero-primary"
+            class="filled-button"
             type="button"
             data-copy={site.address}
             aria-label={`复制服务器地址 ${site.address}`}
@@ -73,7 +70,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
             <code>{site.address}</code>
           </button>
           <a
-            class="outlined-button hero-secondary"
+            class="outlined-button"
             href={`/guides/${JOIN_GUIDE_ID}/`}
           >
             第一次进服
@@ -157,7 +154,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
   </section>
 
   <section class="facts hw-shell" aria-labelledby="facts-title">
-    <header class="section-heading enter">
+    <header class="section-heading" data-reveal>
       <div>
         <p class="hw-eyebrow">先知道这三件事</p>
         <h2 id="facts-title">进服前不用准备太多</h2>
@@ -172,8 +169,9 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
       {
         facts.map((fact, index) => (
           <article
-            class="panel fact-card enter"
-            style={`--enter-delay: ${index * 60}ms`}
+            class="panel fact-card"
+            data-reveal
+            style={`--reveal-delay: ${index * 80}ms`}
           >
             <span class="icon-tile">
               <Icon name={fact.icon} size={22} />
@@ -193,7 +191,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
   {
     people.length > 0 && (
       <section class="people-section hw-shell" aria-labelledby="people-title">
-        <header class="section-heading enter">
+        <header class="section-heading" data-reveal>
           <div>
             <p class="hw-eyebrow">人物传记</p>
             <h2 id="people-title">服务器里真实存在的人</h2>
@@ -218,7 +216,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
   }
 
   <section class="join-wrap hw-shell" id="join" aria-labelledby="join-title">
-    <div class="join-card enter" style="--enter-delay: 80ms">
+    <div class="join-card" data-reveal>
       <div class="join-orbit" aria-hidden="true"></div>
 
       <div class="join-copy">
@@ -233,7 +231,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
 
         <div class="join-actions">
           <button
-            class="filled-button join-primary"
+            class="filled-button"
             type="button"
             data-copy={site.address}
             aria-label={`复制服务器地址 ${site.address}`}
@@ -242,7 +240,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
             复制地址
           </button>
           <button
-            class="outlined-button join-secondary"
+            class="outlined-button"
             type="button"
             data-copy={site.qqGroup}
             aria-label={`复制 QQ 群号 ${site.qqGroup}`}
@@ -250,7 +248,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
             <Icon name="copy" size={18} />
             复制 QQ 群号 {site.qqGroup}
           </button>
-          <a class="text-button join-link" href={`/guides/${JOIN_GUIDE_ID}/`}>
+          <a class="text-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
             阅读完整指南
             <Icon name="arrow_forward" size={18} />
           </a>
@@ -365,38 +363,11 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     padding-top: clamp(16px, 2.5vw, 28px);
   }
 
-  /* 两层色晕压在 hero-card--tint 的渐变上面，只做氛围，不承载信息 */
-  .hero-glow {
-    position: absolute;
-    z-index: 0;
-    border-radius: 50%;
-    pointer-events: none;
-    filter: blur(2px);
-  }
-
-  .hero-glow-a {
-    top: -30%;
-    right: -6%;
-    width: clamp(240px, 30vw, 400px);
-    aspect-ratio: 1;
-    background: color-mix(
-      in srgb,
-      var(--md-sys-color-secondary-container) 55%,
-      transparent
-    );
-  }
-
-  .hero-glow-b {
-    bottom: -46%;
-    left: 26%;
-    width: clamp(300px, 40vw, 560px);
-    aspect-ratio: 1;
-    border: 1px solid
-      color-mix(in srgb, var(--md-sys-color-primary) 10%, transparent);
-  }
 
   .hero-badge {
     gap: 8px;
+    background: var(--md-sys-color-surface-container-lowest);
+    color: var(--md-sys-color-primary);
   }
 
   .hero-dot {
@@ -408,29 +379,20 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
 
   .hero-title {
     margin-top: 20px;
-    font-size: clamp(3rem, 7vw, 4.6rem);
-    line-height: 1;
+    font-size: clamp(2.9rem, 6.4vw, 4.2rem);
+    line-height: 1.02;
     letter-spacing: -0.04em;
-    color: var(--md-sys-color-on-surface);
+    color: var(--md-sys-color-on-primary-container);
   }
 
-  .hero-primary {
-    box-shadow: var(--md-sys-elevation-1);
-  }
 
-  .hero-primary code {
-    padding: 4px 8px;
-    border-radius: var(--md-sys-shape-corner-extra-small);
-    background: color-mix(in srgb, var(--md-sys-color-surface) 18%, transparent);
-    font-size: 0.75rem;
-  }
 
   .server-card {
     padding: clamp(20px, 2.6vw, 26px);
-    border-radius: var(--md-sys-shape-corner-extra-large);
+    border-radius: var(--md-sys-shape-corner-large);
     background: var(--md-sys-color-surface-container-lowest);
     color: var(--md-sys-color-on-surface);
-    box-shadow: var(--md-sys-elevation-2);
+    box-shadow: var(--hw-elevation-raised);
   }
 
   .server-top {
@@ -674,34 +636,9 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     margin-top: 20px;
   }
 
-  .join-primary {
-    background: var(--md-sys-color-surface);
-    color: var(--md-sys-color-primary);
-    box-shadow: var(--md-sys-elevation-1);
-  }
 
-  .join-secondary {
-    border-color: color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 36%,
-      transparent
-    );
-    color: var(--md-sys-color-on-primary-container);
-  }
 
-  .join-link {
-    color: var(--md-sys-color-on-primary-container);
-  }
 
-  .join-notice {
-    margin-top: 22px;
-    background: color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 12%,
-      transparent
-    );
-    color: var(--md-sys-color-on-primary-container);
-  }
 
   .join-updated {
     grid-column: 1 / -1;
@@ -731,10 +668,6 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
       width: 100%;
     }
 
-    .hero-primary code {
-      display: none;
-    }
-
     .server-card {
       padding: 20px;
     }
@@ -751,10 +684,6 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     .join-actions .filled-button,
     .join-actions .outlined-button {
       width: 100%;
-    }
-
-    .join-link {
-      justify-content: center;
     }
   }
 </style>

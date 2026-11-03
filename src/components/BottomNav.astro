@@ -41,10 +41,15 @@ const { current = 'home' } = Astro.props;
       z-index: 70;
       display: grid;
       grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 4px;
-      padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-      background: var(--md-sys-color-surface-container);
-      box-shadow: 0 -1px 0 var(--md-sys-color-outline-variant);
+      gap: 2px;
+      padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+      border-top: 1px solid var(--md-sys-color-outline-variant);
+      background: color-mix(
+        in srgb,
+        var(--md-sys-color-surface) 92%,
+        transparent
+      );
+      backdrop-filter: blur(18px) saturate(1.4);
     }
 
     .bottom-nav a {
@@ -52,34 +57,39 @@ const { current = 'home' } = Astro.props;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 3px;
-      min-height: 56px;
-      border-radius: var(--md-sys-shape-corner-large);
+      gap: 2px;
+      min-height: 58px;
+      border-radius: var(--md-sys-shape-corner-medium);
       color: var(--md-sys-color-on-surface-variant);
       font-size: var(--md-sys-typescale-label-small-size);
-      font-weight: 500;
+      font-weight: 600;
+      transition: color var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard);
     }
 
     .nav-indicator {
       display: grid;
       place-items: center;
-      width: 64px;
-      height: 32px;
+      width: 58px;
+      height: 30px;
       border-radius: var(--md-sys-shape-corner-full);
       transition:
         background-color var(--md-sys-motion-duration-short4)
           var(--md-sys-motion-easing-standard),
         color var(--md-sys-motion-duration-short4)
-          var(--md-sys-motion-easing-standard);
+          var(--md-sys-motion-easing-standard),
+        transform var(--md-sys-motion-duration-medium1)
+          var(--md-sys-motion-easing-emphasized);
     }
 
     .bottom-nav a[aria-current='page'] {
-      color: var(--md-sys-color-on-surface);
+      color: var(--md-sys-color-primary);
     }
 
     .bottom-nav a[aria-current='page'] .nav-indicator {
-      background: var(--md-sys-color-secondary-container);
-      color: var(--md-sys-color-on-secondary-container);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
+      transform: translateY(-1px);
     }
   }
 </style>

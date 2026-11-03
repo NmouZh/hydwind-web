@@ -9,7 +9,8 @@
 - 颜色：`var(--md-sys-color-*)`
 - 字体：`var(--md-sys-typescale-*-size)`、`var(--md-sys-typescale-font)`
 - 圆角：`var(--md-sys-shape-corner-*)`（`extra-small` / `small` / `medium` / `large` / `extra-large` / `full`）
-- 阴影：`var(--md-sys-elevation-0…3)`
+- 阴影：`var(--hw-elevation-flat / raised / overlay)`，`--md-sys-elevation-*` 是它的别名
+- 卡片描边统一用 1px `var(--md-sys-color-outline-variant)`，默认不用阴影，hover 才抬起
 - 动效：`var(--md-sys-motion-duration-*)`、`var(--md-sys-motion-easing-standard)`
 
 禁止在页面里写死 `#rrggbb`、`rgba()`、`px` 圆角、`0.2s` 这类字面值。需要半透明时用 `color-mix(in srgb, var(--token) N%, transparent)`。token 只在 `src/styles/md3-tokens.css` 里定义，由 `scripts/generate-md3-tokens.mjs` 生成，不要手改。
@@ -61,7 +62,7 @@
 | 纯图标 | `icon-button` + `aria-label` |
 | 标签、状态 | `assist-chip` / `tag-chip` |
 
-按钮放在 `hero-card` 里时要注意对比度：主按钮用 `.account-primary` 那种"surface 底 + primary 字"的写法，描边按钮用 `on-primary-container` 的描边。
+按钮只有这一套配色，**任何页面都不许给按钮换底色**（历史写法 `.hero-primary` / `.account-primary` 这类反色覆盖已经删掉）。`hero-card` 的底色是 primary-container（tone 90 的浅色），filled 按钮叠在上面天然成立；如果发现对比度不够，改的是容器色，不是按钮。
 
 ## 5. 表单
 
@@ -98,7 +99,16 @@
 - 图片有 `alt`，纯装饰图标 `aria-hidden`，图标按钮必须有 `aria-label`。
 - 尊重 `prefers-reduced-motion`：新动效要能被全局的降级规则覆盖。
 
-## 8. 改完必须验证
+## 8. 出现节奏
+
+两套，不要混用，也不要新增第三套：
+
+- `.enter`：首屏元素，加载时一次性淡入上浮，可配 `--enter-delay`。
+- `data-reveal`：滚动进入视口时出现，可配 `--reveal-delay`；监听逻辑在 `BaseLayout` 里统一挂，页面只写属性。
+
+两套都必须被 `prefers-reduced-motion: reduce` 的全局规则关掉。
+
+## 9. 改完必须验证
 
 ```bash
 npm run build          # 构建

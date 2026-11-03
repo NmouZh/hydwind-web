@@ -16,10 +16,10 @@ const links = NAV_ITEMS;
   <div class="hw-shell app-bar-inner">
     <a class="brand" href="/" aria-label="氢风首页">
       <span class="brand-mark" aria-hidden="true">
-        <span style="height: 10px; opacity: 0.6;"></span>
-        <span style="height: 18px;"></span>
-        <span style="height: 14px; opacity: 0.8;"></span>
-        <span style="height: 7px; opacity: 0.55;"></span>
+        <span style="height: 9px; opacity: 0.5;"></span>
+        <span style="height: 17px;"></span>
+        <span style="height: 13px; opacity: 0.75;"></span>
+        <span style="height: 6px; opacity: 0.45;"></span>
       </span>
       <span class="brand-text">
         <span class="brand-title">氢风</span>
@@ -48,11 +48,11 @@ const links = NAV_ITEMS;
         data-theme-toggle
         aria-label="切换到深色模式"
       >
-        <Icon name="sun" size={22} class="theme-icon theme-icon-light" />
-        <Icon name="moon" size={22} class="theme-icon theme-icon-dark" />
+        <Icon name="sun" size={20} class="theme-icon theme-icon-light" />
+        <Icon name="moon" size={20} class="theme-icon theme-icon-dark" />
       </button>
-      <a class="filled-tonal-button join-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
-        <Icon name="login" size={18} />
+      <a class="filled-button join-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
+        <Icon name="login" size={16} />
         开始进服
       </a>
     </div>
@@ -87,25 +87,26 @@ const links = NAV_ITEMS;
     position: sticky;
     top: 0;
     z-index: 60;
-    background: color-mix(in srgb, var(--md-sys-color-surface) 88%, transparent);
-    backdrop-filter: blur(16px) saturate(1.2);
+    border-bottom: 1px solid transparent;
+    background: color-mix(in srgb, var(--md-sys-color-surface) 86%, transparent);
+    backdrop-filter: blur(18px) saturate(1.4);
     transition:
-      background-color var(--md-sys-motion-duration-short4)
+      border-color var(--md-sys-motion-duration-short4)
         var(--md-sys-motion-easing-standard),
-      box-shadow var(--md-sys-motion-duration-short4)
+      background-color var(--md-sys-motion-duration-short4)
         var(--md-sys-motion-easing-standard);
   }
 
   .top-app-bar[data-scrolled] {
-    background: color-mix(in srgb, var(--md-sys-color-surface) 96%, transparent);
-    box-shadow: var(--md-sys-elevation-2);
+    border-bottom-color: var(--md-sys-color-outline-variant);
+    background: color-mix(in srgb, var(--md-sys-color-surface) 94%, transparent);
   }
 
   .app-bar-inner {
     display: flex;
     align-items: center;
     gap: 16px;
-    min-height: 64px;
+    min-height: var(--hw-bar-height);
   }
 
   .brand {
@@ -125,14 +126,22 @@ const links = NAV_ITEMS;
     width: 36px;
     height: 36px;
     padding-bottom: 9px;
-    border-radius: var(--md-sys-shape-corner-medium);
-    background: var(--md-sys-color-primary);
+    border-radius: var(--md-sys-shape-corner-small);
+    background: var(--md-sys-color-primary-container);
+    transition: transform var(--md-sys-motion-duration-medium1)
+      var(--md-sys-motion-easing-emphasized);
   }
 
   .brand-mark span {
     width: 2px;
-    border-radius: 2px;
-    background: var(--md-sys-color-on-primary);
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--md-sys-color-on-primary-container);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .brand:hover .brand-mark {
+      transform: translateY(-1px);
+    }
   }
 
   .brand-text {
@@ -142,35 +151,36 @@ const links = NAV_ITEMS;
   }
 
   .brand-title {
-    font-size: 1.05rem;
+    font-size: 1.0625rem;
     font-weight: 700;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
   }
 
   .brand-sub {
     margin-top: 4px;
     font-size: 0.5rem;
-    font-weight: 500;
+    font-weight: 600;
     letter-spacing: 0.3em;
     color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.7;
   }
 
   .top-nav {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     margin-left: auto;
   }
 
   .top-nav a {
     display: inline-flex;
     align-items: center;
-    min-height: 40px;
+    min-height: 38px;
     padding: 0 14px;
     border-radius: var(--md-sys-shape-corner-full);
     color: var(--md-sys-color-on-surface-variant);
     font-size: var(--md-sys-typescale-label-large-size);
-    font-weight: 500;
+    font-weight: 600;
     transition:
       background-color var(--md-sys-motion-duration-short4)
         var(--md-sys-motion-easing-standard),
@@ -179,19 +189,19 @@ const links = NAV_ITEMS;
   }
 
   .top-nav a[aria-current='page'] {
-    background: var(--md-sys-color-secondary-container);
-    color: var(--md-sys-color-on-secondary-container);
+    background: var(--md-sys-color-primary-container);
+    color: var(--md-sys-color-on-primary-container);
   }
 
   @media (hover: hover) and (pointer: fine) {
     .top-nav a:hover {
-      background: var(--md-sys-color-surface-container-high);
+      background: var(--md-sys-color-surface-container);
       color: var(--md-sys-color-on-surface);
     }
 
     .top-nav a[aria-current='page']:hover {
-      background: var(--md-sys-color-secondary-container);
-      color: var(--md-sys-color-on-secondary-container);
+      background: var(--md-sys-color-primary-container);
+      color: var(--md-sys-color-on-primary-container);
     }
   }
 
@@ -202,6 +212,8 @@ const links = NAV_ITEMS;
   }
 
   .theme-toggle {
+    width: 40px;
+    height: 40px;
     color: var(--md-sys-color-on-surface-variant);
   }
 
@@ -219,7 +231,7 @@ const links = NAV_ITEMS;
 
   .join-button {
     min-height: 40px;
-    padding: 0 18px;
+    padding: 0 16px;
     font-size: var(--md-sys-typescale-label-medium-size);
   }
 
