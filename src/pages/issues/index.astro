@@ -7,20 +7,18 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
 ---
 
 <BaseLayout title="议题 · 氢风 Hydwind" description={description} current="issues">
-  <section class="hw-shell issues-hero">
-    <div class="hero-card enter">
-      <span class="assist-chip">
-        <Icon name="message" size={16} />
-        议题 · Issues
-      </span>
+  <div class="hw-shell page-shell">
+    <header class="page-header enter">
+      <p class="hw-eyebrow">议题</p>
       <h1>有想法就写下来</h1>
-      <p class="hero-lead">
-        Bug、平衡性建议、想加的功能，都可以在这里提。提交后会先进入待审队列，服主在群里确认后公开出现在下面。
-      </p>
-    </div>
-  </section>
+      <div class="page-header-aside">
+        <p class="page-lede">
+          Bug、平衡性建议、想加的功能，都可以在这里提。提交后会先进入待审队列，服主在群里确认后公开出现在下面。
+        </p>
+      </div>
+    </header>
 
-  <section class="hw-shell issues-layout">
+    <section class="issues-layout">
     <div class="issues-main">
       <header class="issues-heading">
         <h2>公开议题</h2>
@@ -63,7 +61,8 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
         <p class="form-status" data-status role="status" aria-live="polite"></p>
       </form>
     </aside>
-  </section>
+    </section>
+  </div>
 </BaseLayout>
 
 <script>
@@ -198,21 +197,12 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
 </script>
 
 <style>
-  .issues-hero {
-    padding-top: clamp(16px, 3vw, 28px);
-  }
-
-  .issues-hero-card h1 {
-    margin-top: 10px;
-    font-size: clamp(1.8rem, 4vw, 2.4rem);
-  }
-
   .issues-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
-    gap: clamp(16px, 2.4vw, 28px);
+    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+    gap: clamp(28px, 5vw, 64px);
     align-items: start;
-    padding-block: clamp(20px, 3vw, 32px) 64px;
+    margin-top: clamp(32px, 5vw, 56px);
   }
 
   @media (max-width: 839px) {
@@ -226,11 +216,13 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--hw-space-4);
+    padding-bottom: var(--hw-space-4);
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
   }
 
   .issues-heading h2 {
-    font-size: 1.25rem;
+    font-size: var(--md-sys-typescale-headline-medium-size);
   }
 
   .issues-filters {
@@ -241,8 +233,7 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
 
   .issues-list {
     display: grid;
-    gap: 12px;
-    margin: 16px 0 0;
+    margin: 0;
     padding: 0;
     list-style: none;
   }
@@ -313,10 +304,21 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
   }
 
   .issue-item {
-    padding: 16px 18px;
-    border: 1px solid var(--md-sys-color-outline-variant);
-    border-radius: var(--md-sys-shape-corner-large);
-    background: var(--md-sys-color-surface-container-lowest);
+    padding: var(--hw-space-4) var(--hw-space-4) var(--hw-space-4) 0;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+    border-left: 2px solid transparent;
+    transition:
+      border-color var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard),
+      padding-left var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .issue-item:hover {
+      padding-left: var(--hw-space-3);
+      border-left-color: var(--md-sys-color-primary);
+    }
   }
 
   .issue-badge {

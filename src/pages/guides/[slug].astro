@@ -44,8 +44,15 @@ const isJoinGuide = guide.id === JOIN_GUIDE_ID;
     <header class="page-header enter">
       <p class="hw-eyebrow">指南</p>
       <h1>{guide.data.title}</h1>
-      <p class="page-lede">{guide.data.summary}</p>
-      <p class="guide-updated">更新于 {formatDate(guide.data.updated)}</p>
+      <div class="page-header-aside">
+        <p class="page-lede">{guide.data.summary}</p>
+        <div class="page-actions">
+          <a class="outlined-button" href="/guides/">
+            <Icon name="arrow_back" size={18} />
+            返回指南
+          </a>
+        </div>
+      </div>
     </header>
 
     {
@@ -56,48 +63,58 @@ const isJoinGuide = guide.id === JOIN_GUIDE_ID;
       )
     }
 
-    <section class="steps-section" aria-labelledby="steps-title">
-      <h2 id="steps-title">按顺序完成</h2>
-      <GuideSteps steps={guide.data.steps} />
-    </section>
+    <div class="detail-layout">
+      <div class="detail-main">
+        <section class="steps-section" aria-labelledby="steps-title">
+          <h2 id="steps-title">按顺序完成</h2>
+          <GuideSteps steps={guide.data.steps} />
+        </section>
 
-    <article class="prose">
-      <Content />
-    </article>
+        <article class="prose">
+          <Content />
+        </article>
+      </div>
 
-    <div class="page-actions">
-      <a class="outlined-button" href="/guides/">
-        <Icon name="arrow_back" size={18} />
-        返回指南
-      </a>
-      <a class="text-button" href="/">
-        回到首页
-        <Icon name="arrow_forward" size={18} />
-      </a>
+      <aside class="detail-aside">
+        <p class="hw-label">本页信息</p>
+        <dl class="meta-list">
+          <div>
+            <dt>章节</dt>
+            <dd>{guide.data.steps.length} 个步骤</dd>
+          </div>
+          <div>
+            <dt>更新于</dt>
+            <dd>{formatDate(guide.data.updated)}</dd>
+          </div>
+        </dl>
+        <a class="text-button" href="/">
+          回到首页
+          <Icon name="arrow_forward" size={18} />
+        </a>
+      </aside>
     </div>
   </div>
 </BaseLayout>
 
 <style>
-  .guide-updated {
-    margin-top: 10px;
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: var(--md-sys-typescale-label-small-size);
-  }
-
   .server-info-wrap {
-    margin-top: clamp(24px, 4vw, 36px);
+    margin-top: var(--hw-space-7);
   }
 
   .steps-section {
-    margin-top: clamp(32px, 5vw, 48px);
+    padding-bottom: var(--hw-space-7);
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
   }
 
   .steps-section h2 {
-    font-size: 1.25rem;
+    font-size: var(--md-sys-typescale-headline-medium-size);
   }
 
-  .page-actions {
-    margin-top: clamp(32px, 5vw, 48px);
+  .prose {
+    margin-top: var(--hw-space-7);
+  }
+
+  .detail-aside .text-button {
+    justify-self: start;
   }
 </style>

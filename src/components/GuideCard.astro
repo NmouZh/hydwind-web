@@ -6,22 +6,28 @@ import { formatDate } from '../lib/format';
 interface Props {
   guide: CollectionEntry<'guides'>;
   delay?: number;
+  /** 行首序号，由列表页传入；单独使用时留空。 */
+  index?: number;
 }
 
-const { guide, delay = 0 } = Astro.props;
+const { guide, delay = 0, index } = Astro.props;
 ---
 
 <a
-  class="content-card enter"
+  class="list-row enter"
   href={`/guides/${guide.id}/`}
   style={`--enter-delay: ${delay}ms`}
 >
-  <span class="card-kicker">指南</span>
-  <h2 class="card-title">{guide.data.title}</h2>
-  <p class="card-text">{guide.data.summary}</p>
-  <div class="card-footer">
-    <span class="card-date">更新于 {formatDate(guide.data.updated)}</span>
-    <span class="card-arrow">
+  <span class="list-row-index">
+    {index === undefined ? '指南' : String(index + 1).padStart(2, '0')}
+  </span>
+  <div>
+    <h2 class="list-row-title">{guide.data.title}</h2>
+    <p class="list-row-text">{guide.data.summary}</p>
+  </div>
+  <div class="list-row-meta">
+    <span>更新于 {formatDate(guide.data.updated)}</span>
+    <span class="list-row-cta">
       {guide.data.steps.length} 个步骤
       <Icon name="arrow_forward" size={16} />
     </span>

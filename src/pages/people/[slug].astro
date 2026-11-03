@@ -61,6 +61,16 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
             </div>
           )
         }
+      </div>
+    </header>
+
+    <div class="detail-layout">
+      <article class="prose">
+        <Content />
+      </article>
+
+      <aside class="detail-aside">
+        <p class="hw-label">档案</p>
         <dl class="meta-list">
           <div>
             <dt>身份</dt>
@@ -79,28 +89,31 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
             <dd>{formatDate(person.data.updated)}</dd>
           </div>
         </dl>
-      </div>
-    </header>
-
-    <article class="prose">
-      <Content />
-    </article>
-
-    <div class="page-actions">
-      <a class="outlined-button" href="/people/">
-        <Icon name="arrow_back" size={18} />
-        返回人物
-      </a>
-      <a class="text-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
-        第一次进服
-        <Icon name="arrow_forward" size={18} />
-      </a>
+        <div class="aside-actions">
+          <a class="outlined-button" href="/people/">
+            <Icon name="arrow_back" size={18} />
+            返回人物
+          </a>
+          <a class="text-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
+            第一次进服
+            <Icon name="arrow_forward" size={18} />
+          </a>
+        </div>
+      </aside>
     </div>
   </div>
 </BaseLayout>
 
 <style>
-  .page-actions {
-    margin-top: clamp(32px, 5vw, 48px);
+  .prose {
+    margin-top: 0;
+  }
+
+  .aside-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--hw-space-2);
+    margin-top: var(--hw-space-4);
   }
 </style>

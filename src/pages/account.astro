@@ -10,117 +10,186 @@ const description =
 ---
 
 <BaseLayout title="账号 · 氢风 Hydwind" description={description} current="account">
-  <section class="hw-shell account-shell">
-    <div class="hero-card enter account-card">
-      <span class="assist-chip hero-chip">
-        <Icon name="badge" size={16} />
-        账号 · Account
-      </span>
-
-      <div class="account-view" data-view="member" hidden>
-        <h1 data-member-title>你好</h1>
-        <p class="hero-lead">
-          你正以 <strong data-member-username></strong> 的身份登录氢风。账号和密码由群内机器人发放，改密码请私信机器人。
-        </p>
-        <dl class="meta-list-compact">
-          <div>
-            <dt>身份</dt>
-            <dd data-member-role></dd>
+  <section class="hw-shell page-shell account-shell">
+    <div class="account-layout">
+      <div class="account-main enter">
+        <div class="account-view" data-view="member" hidden>
+          <p class="hw-eyebrow">账号</p>
+          <h1 data-member-title>你好</h1>
+          <p class="account-lede">
+            你正以 <strong data-member-username></strong> 的身份登录氢风。账号和密码由群内机器人发放，改密码请私信机器人。
+          </p>
+          <dl class="meta-list-compact">
+            <div>
+              <dt>身份</dt>
+              <dd data-member-role></dd>
+            </div>
+            <div>
+              <dt>注册时间</dt>
+              <dd data-member-created></dd>
+            </div>
+            <div>
+              <dt>最近登录</dt>
+              <dd data-member-login></dd>
+            </div>
+          </dl>
+          <div class="page-actions account-actions">
+            <a class="filled-button" href="/issues/">
+              <Icon name="message" size={18} />
+              去议题区
+            </a>
+            <button class="outlined-button" type="button" data-logout>
+              退出登录
+            </button>
           </div>
-          <div>
-            <dt>注册时间</dt>
-            <dd data-member-created></dd>
-          </div>
-          <div>
-            <dt>最近登录</dt>
-            <dd data-member-login></dd>
-          </div>
-        </dl>
-        <div class="hero-actions">
-          <a class="filled-button" href="/issues/">
-            <Icon name="message" size={18} />
-            去议题区
-          </a>
-          <button class="outlined-button" type="button" data-logout>
-            退出登录
-          </button>
+          <p class="form-status" data-member-status role="status" aria-live="polite"></p>
         </div>
-        <p class="form-status" data-member-status role="status" aria-live="polite"></p>
+
+        <div class="account-view" data-view="guest">
+          <p class="hw-eyebrow">账号</p>
+          <h1>登录氢风</h1>
+          <p class="account-lede">
+            账号不开放自助注册：在群里 @机器人 发送「注册 你的游戏ID」，账号和初始密码会私信给你。
+          </p>
+          <form class="form-stack account-form" data-form novalidate>
+            <label class="field">
+              <span>账号（游戏 ID）</span>
+              <input
+                name="username"
+                type="text"
+                autocomplete="username"
+                maxlength="24"
+                required
+                placeholder="例如 Nz_173"
+              />
+            </label>
+            <label class="field">
+              <span>密码</span>
+              <input
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+                placeholder="私信里给你的密码"
+              />
+            </label>
+            <span class="field-hint">登录状态会保留 30 天，公共设备用完记得退出。</span>
+            <button class="filled-button" type="submit">登录</button>
+            <p class="form-status" data-status role="status" aria-live="polite"></p>
+          </form>
+        </div>
       </div>
 
-      <div class="account-view" data-view="guest">
-        <h1>登录氢风</h1>
-        <p class="hero-lead">
-          账号不开放自助注册：在群里 @机器人 发送「注册 你的游戏ID」，账号和初始密码会私信给你。
-        </p>
-        <form class="form-stack account-form" data-form novalidate>
-          <label class="field">
-            <span>账号（游戏 ID）</span>
-            <input
-              name="username"
-              type="text"
-              autocomplete="username"
-              maxlength="24"
-              required
-              placeholder="例如 Nz_173"
-            />
-          </label>
-          <label class="field">
-            <span>密码</span>
-            <input
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              required
-              placeholder="私信里给你的密码"
-            />
-          </label>
-          <span class="field-hint">登录状态会保留 30 天，公共设备用完记得退出。</span>
-          <button class="filled-button" type="submit">登录</button>
-          <p class="form-status" data-status role="status" aria-live="polite"></p>
-        </form>
-      </div>
+      <aside class="account-aside enter" style="--enter-delay: 120ms">
+        <p class="hw-label">账号说明</p>
+        <ol class="account-notes">
+          <li>
+            <span class="note-index">01</span>
+            <h2>账号从群里来</h2>
+            <p>在群里 @机器人 发送「注册 你的游戏ID」，机器人会私信账号和初始密码。</p>
+          </li>
+          <li>
+            <span class="note-index">02</span>
+            <h2>密码只私信发</h2>
+            <p>账号和密码不会公开在群里，改密码同样私信机器人处理。</p>
+          </li>
+          <li>
+            <span class="note-index">03</span>
+            <h2>登录能待 30 天</h2>
+            <p>登录状态会保留 30 天，公共设备用完请点退出。</p>
+          </li>
+        </ol>
+      </aside>
     </div>
   </section>
 </BaseLayout>
 
 <style>
   .account-shell {
-    padding-block: clamp(24px, 4vw, 40px) clamp(48px, 7vw, 88px);
+    padding-block: clamp(32px, 5vw, 64px) clamp(56px, 8vw, 104px);
   }
 
-  .account-card {
-    max-width: 560px;
-    margin-inline: auto;
+  .account-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 0.62fr);
+    gap: clamp(32px, 7vw, 96px);
+    align-items: start;
   }
 
-  .account-view > h1 {
-    margin-top: 16px;
-    font-size: clamp(1.8rem, 4vw, 2.4rem);
+  @media (max-width: 839px) {
+    .account-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
+  .account-view h1 {
+    margin-top: var(--hw-space-3);
+    font-size: var(--md-sys-typescale-headline-large-size);
+  }
+
+  .account-lede {
+    max-width: 40ch;
+    margin-top: var(--hw-space-4);
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.9375rem;
+    line-height: 1.8;
   }
 
   .account-form {
-    margin-top: 24px;
+    max-width: 26rem;
+    margin-top: var(--hw-space-6);
   }
 
   .account-form .filled-button {
     justify-self: start;
   }
 
-  .account-card .meta-list-compact div {
-    border-bottom-color: color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 22%,
-      transparent
-    );
+  .account-actions {
+    margin-top: var(--hw-space-6);
   }
 
-  .account-card .meta-list-compact dt {
-    color: color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 74%,
-      transparent
-    );
+  .account-main .meta-list-compact {
+    max-width: 26rem;
+    margin-top: var(--hw-space-5);
+  }
+
+  .account-aside {
+    padding-top: var(--hw-space-2);
+  }
+
+  .account-notes {
+    display: grid;
+    gap: var(--hw-space-5);
+    margin-top: var(--hw-space-4);
+  }
+
+  .account-notes li {
+    padding-top: var(--hw-space-4);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .account-notes li:first-child {
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .note-index {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.12em;
+  }
+
+  .account-notes h2 {
+    margin-top: var(--hw-space-2);
+    font-size: var(--md-sys-typescale-title-large-size);
+  }
+
+  .account-notes p {
+    margin-top: var(--hw-space-2);
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.75;
   }
 </style>
 

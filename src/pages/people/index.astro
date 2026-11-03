@@ -17,24 +17,29 @@ const people = await getPublishedPeople();
     <header class="page-header enter">
       <p class="hw-eyebrow">人物传记</p>
       <h1>服务器里真实存在的人</h1>
-      <p class="page-lede">
-        这里只收录真实玩家的公开信息。编辑权限由服主授权，
-        内容以 Markdown 维护，可通过 Pages CMS 更新。
-      </p>
+      <div class="page-header-aside">
+        <p class="page-lede">
+          这里只收录真实玩家的公开信息。编辑权限由服主授权，
+          内容以 Markdown 维护，可通过 Pages CMS 更新。
+        </p>
+      </div>
     </header>
 
     {
       people.length > 0 && (
-        <div class="content-grid">
+        <div class="list-rows people-list">
           {people.map((person, index) => (
-            <PersonCard
-              person={person}
-              headingLevel={2}
-              delay={80 + index * 60}
-            />
+            <PersonCard person={person} headingLevel={2} delay={80 + index * 60} />
           ))}
         </div>
       )
     }
   </div>
 </BaseLayout>
+
+<style>
+  .people-list {
+    margin-top: var(--hw-space-7);
+    border-top: 0;
+  }
+</style>

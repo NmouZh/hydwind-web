@@ -30,62 +30,53 @@ const { steps, variant = 'cards' } = Astro.props;
 <style>
   .guide-steps {
     display: grid;
-    gap: 12px;
-    margin-top: 16px;
+    gap: 0;
+    margin-top: var(--hw-space-4);
   }
 
   .guide-steps li {
     display: grid;
-    grid-template-columns: 40px minmax(0, 1fr);
-    gap: 12px;
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: var(--hw-space-3);
   }
 
   .step-number {
-    display: grid;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    font-size: var(--md-sys-typescale-label-medium-size);
-    font-weight: 700;
+    color: var(--md-sys-color-primary);
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.1em;
+    padding-top: 2px;
   }
 
   .guide-steps strong {
-    font-size: 1rem;
+    display: block;
+    font-size: var(--md-sys-typescale-title-large-size);
     font-weight: 600;
+    line-height: 1.4;
   }
 
   .guide-steps p {
-    margin-top: 4px;
+    margin-top: 3px;
     color: var(--md-sys-color-on-surface-variant);
     font-size: var(--md-sys-typescale-body-medium-size);
-    line-height: 1.65;
-  }
-
-  .guide-steps--cards {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+    line-height: 1.7;
   }
 
   .guide-steps--cards li {
-    padding: 18px;
-    border-radius: var(--md-sys-shape-corner-large);
-    background: var(--md-sys-color-surface-container-low);
+    padding-block: var(--hw-space-4);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
   }
 
-  .guide-steps--cards .step-number {
-    background: var(--md-sys-color-primary-container);
-    color: var(--md-sys-color-on-primary-container);
+  .guide-steps--cards li:first-child {
+    border-top: 0;
   }
 
   .guide-steps--join {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
     margin-top: 0;
   }
 
   .guide-steps--join li {
-    padding: 14px 0;
+    padding: var(--hw-space-3) 0;
     border-top: 1px solid
       color-mix(
         in srgb,
@@ -100,20 +91,24 @@ const { steps, variant = 'cards' } = Astro.props;
   }
 
   .guide-steps--join .step-number {
-    background: var(--md-sys-color-surface);
-    color: var(--md-sys-color-primary);
+    color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 66%,
+      transparent
+    );
+  }
+
+  .guide-steps--join strong {
+    font-size: 0.9375rem;
   }
 
   .guide-steps--join p {
-    margin-top: 3px;
     color: var(--md-sys-color-on-primary-container);
-    font-size: 0.8125rem;
-    line-height: 1.6;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 839px) {
     .guide-steps--join li:first-child {
-      padding-top: 14px;
+      padding-top: var(--hw-space-3);
       border-top: 1px solid
         color-mix(
           in srgb,

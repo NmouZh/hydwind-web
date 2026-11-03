@@ -15,15 +15,15 @@ const Heading = headingLevel === 2 ? 'h2' : 'h3';
 ---
 
 <a
-  class="content-card person-card enter"
+  class="list-row person-row enter"
   href={`/people/${person.id}/`}
   style={`--enter-delay: ${delay}ms`}
 >
   <PlayerAvatar gameId={person.data.gameId} src={person.data.avatar} />
   <div>
-    <span class="card-kicker">人物传记</span>
-    <Heading class="card-title">{person.data.gameId}</Heading>
-    <p class="card-text">{person.data.role}</p>
+    <span class="list-row-index">人物传记</span>
+    <Heading class="list-row-title">{person.data.gameId}</Heading>
+    <p class="list-row-text">{person.data.role}</p>
     {
       person.data.tags.length > 0 && (
         <div class="chip-row">
@@ -33,12 +33,12 @@ const Heading = headingLevel === 2 ? 'h2' : 'h3';
         </div>
       )
     }
-    <div class="card-footer">
-      <span class="card-date">更新于 {formatDate(person.data.updated)}</span>
-      <span class="card-arrow">
-        人物页
-        <Icon name="arrow_forward" size={16} />
-      </span>
-    </div>
+  </div>
+  <div class="list-row-meta">
+    <span>更新于 {formatDate(person.data.updated)}</span>
+    <span class="list-row-cta">
+      人物页
+      <Icon name="arrow_forward" size={16} />
+    </span>
   </div>
 </a>

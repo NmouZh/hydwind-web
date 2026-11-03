@@ -18,26 +18,35 @@ const guides = await getGuides();
     <header class="page-header enter">
       <p class="hw-eyebrow">指南</p>
       <h1>从第一次进服开始</h1>
-      <p class="page-lede">
-        先确认客户端和服务器地址，再加入 QQ 群获取测试安排。
-        指南内容以 Markdown 维护，可通过 Pages CMS 更新。
-      </p>
-      <div class="page-actions">
-        <a class="filled-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
-          <Icon name="login" size={18} />
-          第一次进服
-        </a>
+      <div class="page-header-aside">
+        <p class="page-lede">
+          先确认客户端和服务器地址，再加入 QQ 群获取测试安排。
+          指南内容以 Markdown 维护，可通过 Pages CMS 更新。
+        </p>
+        <div class="page-actions">
+          <a class="filled-button" href={`/guides/${JOIN_GUIDE_ID}/`}>
+            <Icon name="login" size={18} />
+            第一次进服
+          </a>
+        </div>
       </div>
     </header>
 
     {
       guides.length > 0 && (
-        <div class="content-grid">
+        <div class="list-rows guides-list">
           {guides.map((guide, index) => (
-            <GuideCard guide={guide} delay={80 + index * 60} />
+            <GuideCard guide={guide} index={index} delay={80 + index * 60} />
           ))}
         </div>
       )
     }
   </div>
 </BaseLayout>
+
+<style>
+  .guides-list {
+    margin-top: var(--hw-space-7);
+    border-top: 0;
+  }
+</style>

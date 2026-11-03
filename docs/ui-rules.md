@@ -9,8 +9,9 @@
 - 颜色：`var(--md-sys-color-*)`
 - 字体：`var(--md-sys-typescale-*-size)`、`var(--md-sys-typescale-font)`
 - 圆角：`var(--md-sys-shape-corner-*)`（`extra-small` / `small` / `medium` / `large` / `extra-large` / `full`）
+- 间距：`var(--hw-space-1..9)`（4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 / 96），页面的 margin、padding、gap 都从这里取，不要写 `18px` 这种散值
 - 阴影：`var(--hw-elevation-flat / raised / overlay)`，`--md-sys-elevation-*` 是它的别名
-- 卡片描边统一用 1px `var(--md-sys-color-outline-variant)`，默认不用阴影，hover 才抬起
+- 描边统一用 1px `var(--md-sys-color-outline-variant)`，默认不用阴影，hover 才抬起；列表页优先用发丝线分行的 `list-rows`，不铺卡片
 - 动效：`var(--md-sys-motion-duration-*)`、`var(--md-sys-motion-easing-standard)`
 
 禁止在页面里写死 `#rrggbb`、`rgba()`、`px` 圆角、`0.2s` 这类字面值。需要半透明时用 `color-mix(in srgb, var(--token) N%, transparent)`。token 只在 `src/styles/md3-tokens.css` 里定义，由 `scripts/generate-md3-tokens.mjs` 生成，不要手改。
@@ -19,7 +20,8 @@
 
 ## 2. 页面骨架
 
-内容页统一是这三层，别自创结构：
+整站是**编辑式栅格**：左栏放标题，右栏放说明和操作，区块之间用发丝线分隔，
+列表用「行」而不是一堆漂浮的卡片。内容页统一是这三层，别自创结构：
 
 ```astro
 <BaseLayout title="… · 氢风 Hydwind" description="…" current="guides">
@@ -27,19 +29,51 @@
     <header class="page-header enter">
       <p class="hw-eyebrow">指南</p>
       <h1>一句话说清这页做什么</h1>
-      <p class="page-lede">补充说明，1～2 句。</p>
-      <div class="page-actions">…主操作按钮…</div>
+      <div class="page-header-aside">
+        <p class="page-lede">补充说明，1～2 句。</p>
+        <div class="page-actions">…主操作按钮…</div>
+      </div>
     </header>
-    …
+
+    <div class="list-rows">…行式列表…</div>
   </div>
 </BaseLayout>
 ```
 
 - `hw-shell`：唯一的宽度容器，不要在页面里另写 `max-width` 居中。
-- `page-shell`：内容页上边距。
-- `page-header` / `hw-eyebrow` / `page-lede` / `page-actions`：页头四件套，顺序固定。
-- 首屏区块想要"强调感"用 `hero-card`，普通区块用 `panel`。
-- 详情页要有 `breadcrumb`，返回链接放在 `page-actions` 里。
+- `hw-grid` + `hw-span-*`：需要并排时用这套 12 栏栅格（移动端自动收成 4 栏），不要每页自己写 `grid-template-columns`。
+- `page-shell`：内容页上下边距。
+- `page-header`：刊头，两栏（标题栏 7 份 / 说明栏 4 份），底部自动带一根通栏发丝线。眉标、`h1` 放在标题栏，`page-lede` 和 `page-actions` 必须包在 `page-header-aside` 里。
+- `section`：页面内的分节，自带顶部发丝线和 `padding-block` 节奏；`section-heading` 是「眉标 + 标题 + 右侧轻链接」。
+- 强调区块用 `hero-plate`（底色 primary-container），普通容器用 `panel`；两端对齐的卡片网格已废弃，列表用 `list-rows`。
+- 详情页要有 `breadcrumb`，返回链接放在 `page-actions` 或 `detail-aside` 里。
+
+### 行式列表
+
+列表页和首页的「人物」「指南」都用这套，别退回卡片网格：
+
+```astro
+<div class="list-rows">
+  <a class="list-row" href="…">
+    <span class="list-row-index">01</span>
+    <div>
+      <h2 class="list-row-title">标题</h2>
+      <p class="list-row-text">一行说明</p>
+    </div>
+    <div class="list-row-meta">
+      <span>更新于 …</span>
+      <span class="list-row-cta">查看 <Icon name="arrow_forward" size={16} /></span>
+    </div>
+  </a>
+</div>
+```
+
+人物行额外加 `person-row`（第一列是头像）。行与行之间只有一根发丝线，hover 时底色淡入，不要再给每行加圆角卡片。
+
+### 详情页
+
+正文 + 粘性侧栏：外层 `detail-layout`，正文放 `prose`，信息放 `detail-aside`（内含 `meta-list`）。
+移动端侧栏自动落到正文上方。
 
 ## 3. 导航只有一处数据源
 
@@ -62,7 +96,7 @@
 | 纯图标 | `icon-button` + `aria-label` |
 | 标签、状态 | `assist-chip` / `tag-chip` |
 
-按钮只有这一套配色，**任何页面都不许给按钮换底色**（历史写法 `.hero-primary` / `.account-primary` 这类反色覆盖已经删掉）。`hero-card` 的底色是 primary-container（tone 90 的浅色），filled 按钮叠在上面天然成立；如果发现对比度不够，改的是容器色，不是按钮。
+按钮只有这一套配色，**任何页面都不许给按钮换底色**（历史写法 `.hero-primary` / `.account-primary` 这类反色覆盖已经删掉）。`hero-plate` 的底色是 primary-container（tone 90 的浅色），filled 按钮叠在上面天然成立；如果发现对比度不够，改的是容器色，不是按钮。
 
 ## 5. 表单
 
