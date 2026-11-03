@@ -25,3 +25,6 @@ pnpm-debug.log*
 
 # 运行时的议题数据（本地 JSON 存储，不入库）
 data/
+
+# 本地检查产物（截图/报告）
+.taste-skill/

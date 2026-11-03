@@ -1,47 +1,95 @@
 ---
-// 议题列表在构建期出壳，内容由浏览器拉 /api/issues 渲染（所以这里不 prerender）
+// 议题列表：壳在构建期生成，行数据由浏览器拉 /api/issues 渲染。
+// 管理员登录后同一接口会带上 pending，并多出「待审」页签。
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
+
+import '../../styles/issues.css';
 
 const description = '氢风（Hydwind）议题区：提交 bug、建议与想法，和服主一起把服务器做好。';
 ---
 
 <BaseLayout title="议题 · 氢风 Hydwind" description={description} current="issues">
-  <div class="hw-shell page-shell">
-    <header class="page-header enter">
-      <p class="hw-eyebrow">议题</p>
-      <h1>有想法就写下来</h1>
-      <div class="page-header-aside">
-        <p class="page-lede">
-          Bug、平衡性建议、想加的功能，都可以在这里提。提交后会先进入待审队列，服主在群里确认后公开出现在下面。
-        </p>
+  <div class="hw-shell issues-page">
+    <div class="issues-titlebar">
+      <div>
+        <h1>议题</h1>
+        <p class="issues-sub">玩家提的 bug 和建议，服主在这里跟进。提交后先进待审，过审才公开。</p>
       </div>
-    </header>
-
-    <section class="issues-layout">
-    <div class="issues-main">
-      <header class="issues-heading">
-        <h2>公开议题</h2>
-        <div class="issues-filters" role="group" aria-label="按状态筛选">
-          <button type="button" class="filter-chip is-active" data-filter="all">全部</button>
-          <button type="button" class="filter-chip" data-filter="open">进行中</button>
-          <button type="button" class="filter-chip" data-filter="done">已完成</button>
-          <button type="button" class="filter-chip" data-filter="rejected">已驳回</button>
-        </div>
-      </header>
-
-      <p class="issues-empty" data-empty hidden>还没有公开议题，来做第一个吧。</p>
-      <ul class="issues-list" data-list></ul>
+      <button class="issues-primary" type="button" data-open-form>
+        <Icon name="plus" size={16} />
+        提交议题
+      </button>
     </div>
 
-    <aside class="panel issues-form-card">
-      <h2 class="panel-title">提交议题</h2>
-      <form class="form-stack" data-form novalidate>
-        <label class="field">
-          <span>标题</span>
-          <input name="title" type="text" maxlength="80" required placeholder="一句话说清问题" />
+    <div class="issues-tabs" role="tablist" aria-label="按状态筛选">
+      <button type="button" class="issue-tab is-active" role="tab" aria-selected="true" data-filter="all">
+        全部<span class="issue-tab-count" data-count="all"></span>
+      </button>
+      <button type="button" class="issue-tab" role="tab" aria-selected="false" data-filter="open">
+        进行中<span class="issue-tab-count" data-count="open"></span>
+      </button>
+      <button type="button" class="issue-tab" role="tab" aria-selected="false" data-filter="done">
+        已完成<span class="issue-tab-count" data-count="done"></span>
+      </button>
+      <button type="button" class="issue-tab" role="tab" aria-selected="false" data-filter="rejected">
+        已驳回<span class="issue-tab-count" data-count="rejected"></span>
+      </button>
+      <button type="button" class="issue-tab" role="tab" aria-selected="false" data-filter="pending" data-admin-tab hidden>
+        待审<span class="issue-tab-count" data-count="pending"></span>
+      </button>
+    </div>
+
+    <div class="issues-toolbar">
+      <label class="issues-search">
+        <Icon name="search" size={16} />
+        <input type="search" placeholder="搜标题、编号或玩家 ID" data-search aria-label="搜索议题" />
+      </label>
+      <div class="issues-toolbar-end">
+        <span class="issues-total" data-total>共 0 个议题</span>
+        <label class="issues-sort">
+          <span class="visually-hidden">排序</span>
+          <select data-sort>
+            <option value="new">最新在前</option>
+            <option value="old">最早在前</option>
+            <option value="replies">回复最多</option>
+          </select>
         </label>
-        <label class="field">
+      </div>
+    </div>
+
+    <div class="issues-head" aria-hidden="true">
+      <span>议题</span>
+      <span>类型</span>
+      <span>状态</span>
+      <span>回复</span>
+      <span>更新</span>
+    </div>
+
+    <ul class="issues-list" data-list></ul>
+
+    <p class="issues-empty" data-empty hidden>
+      还没有公开议题。想到什么就提一个，我们会看。
+    </p>
+    <p class="issues-empty" data-empty-filter hidden>这个状态下暂时没有议题。</p>
+  </div>
+
+  <dialog class="issue-dialog" data-dialog>
+    <form class="issue-form" data-form novalidate>
+      <div class="issue-form-head">
+        <h2>提交议题</h2>
+        <button class="issue-form-close" type="button" data-close-form aria-label="关闭">
+          <Icon name="close" size={18} />
+        </button>
+      </div>
+
+      <label class="issue-field">
+        <span>标题</span>
+        <input name="title" type="text" maxlength="80" required placeholder="一句话说清问题" />
+      </label>
+
+      <div class="issue-field-row">
+        <label class="issue-field">
           <span>类型</span>
           <select name="category">
             <option value="bug">Bug</option>
@@ -49,20 +97,25 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
             <option value="other">其他</option>
           </select>
         </label>
-        <label class="field">
+        <label class="issue-field">
           <span>游戏 ID（可不填）</span>
           <input name="author" type="text" maxlength="32" placeholder="方便我们找到你" />
         </label>
-        <label class="field">
-          <span>详细描述</span>
-          <textarea name="body" rows="5" maxlength="2000" required placeholder="发生了什么、什么时候、能不能复现"></textarea>
-        </label>
-        <button class="filled-button" type="submit">提交议题</button>
-        <p class="form-status" data-status role="status" aria-live="polite"></p>
-      </form>
-    </aside>
-    </section>
-  </div>
+      </div>
+
+      <label class="issue-field">
+        <span>详细描述</span>
+        <textarea name="body" rows="5" maxlength="2000" required placeholder="发生了什么、什么时候、能不能复现"></textarea>
+      </label>
+
+      <div class="issue-form-foot">
+        <p class="issue-status" data-status role="status" aria-live="polite"></p>
+        <button class="issues-primary" type="submit" data-submit>提交</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="issue-scrim" data-scrim hidden></div>
 </BaseLayout>
 
 <script>
@@ -74,8 +127,11 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
     category: string;
     status: IssueStatus;
     createdAt: string;
+    updatedAt: string;
     replyCount: number;
   };
+  type Reply = { id: string; author: string; body: string; createdAt: string; staff: boolean };
+  type Detail = { body: string; replies: Reply[] };
 
   const STATUS_TEXT: Record<IssueStatus, string> = {
     pending: '待审核',
@@ -83,77 +139,276 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
     rejected: '已驳回',
     done: '已完成',
   };
-  const CATEGORY_TEXT: Record<string, string> = {
-    bug: 'Bug',
-    suggestion: '建议',
-    other: '其他',
-  };
+  const CATEGORY_TEXT: Record<string, string> = { bug: 'Bug', suggestion: '建议', other: '其他' };
 
   const listEl = document.querySelector<HTMLUListElement>('[data-list]');
   const emptyEl = document.querySelector<HTMLElement>('[data-empty]');
+  const emptyFilterEl = document.querySelector<HTMLElement>('[data-empty-filter]');
+  const totalEl = document.querySelector<HTMLElement>('[data-total]');
+  const searchEl = document.querySelector<HTMLInputElement>('[data-search]');
+  const sortEl = document.querySelector<HTMLSelectElement>('[data-sort]');
+  const adminTab = document.querySelector<HTMLButtonElement>('[data-admin-tab]');
+  const tabs = document.querySelectorAll<HTMLButtonElement>('[data-filter]');
+
+  const dialog = document.querySelector<HTMLDialogElement>('[data-dialog]');
+  const scrim = document.querySelector<HTMLElement>('[data-scrim]');
   const form = document.querySelector<HTMLFormElement>('[data-form]');
   const statusEl = document.querySelector<HTMLElement>('[data-status]');
-  const chips = document.querySelectorAll<HTMLButtonElement>('[data-filter]');
 
   let issues: Issue[] = [];
   let filter = 'all';
+  let query = '';
+  let sort = 'new';
+  let openId: number | null = null;
+  const details = new Map<number, Detail>();
 
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
+  const pad = (n: number) => String(n).padStart(2, '0'); // taste-skill-ignore: 日期补零
+  const shortDate = (iso: string) => {
+    const d = new Date(iso);
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  };
+
+  const counts = () =>
+    issues.reduce(
+      (acc, issue) => {
+        acc[issue.status] = (acc[issue.status] ?? 0) + 1;
+        return acc;
+      },
+      {} as Record<string, number>
+    );
+
+  const updateCounts = () => {
+    const map = counts();
+    document.querySelectorAll<HTMLElement>('[data-count]').forEach((el) => {
+      const key = el.dataset.count ?? 'all';
+      const value = key === 'all' ? issues.length : (map[key] ?? 0);
+      el.textContent = value ? String(value) : '';
+      el.hidden = !value;
+    });
+  };
+
+  const matches = (issue: Issue) => {
+    if (filter !== 'all' && issue.status !== filter) return false;
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return (
+      issue.title.toLowerCase().includes(q) ||
+      issue.author.toLowerCase().includes(q) ||
+      `#${issue.id}`.includes(q) ||
+      String(issue.id) === q
+    );
+  };
+
+  const sorted = (list: Issue[]) => {
+    const copy = [...list];
+    if (sort === 'old') copy.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    else if (sort === 'replies') copy.sort((a, b) => b.replyCount - a.replyCount);
+    else copy.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return copy;
+  };
+
+  const detailMarkup = (issue: Issue, detail: Detail | undefined) => {
+    const section = document.createElement('div');
+    section.className = 'issue-detail';
+
+    const body = document.createElement('p');
+    body.className = 'issue-body';
+    body.textContent = detail?.body ?? '正在读取…';
+    section.append(body);
+
+    if (detail && detail.replies.length) {
+      const replies = document.createElement('ul');
+      replies.className = 'issue-replies';
+      detail.replies.forEach((reply) => {
+        const item = document.createElement('li');
+        item.className = reply.staff ? 'reply is-staff' : 'reply';
+        const head = document.createElement('p');
+        head.className = 'reply-head';
+        head.textContent = `${reply.staff ? '服主' : reply.author} · ${shortDate(reply.createdAt)}`;
+        const text = document.createElement('p');
+        text.className = 'reply-body';
+        text.textContent = reply.body;
+        item.append(head, text);
+        replies.append(item);
+      });
+      section.append(replies);
+    } else if (detail) {
+      const none = document.createElement('p');
+      none.className = 'issue-noreply';
+      none.textContent = '还没有回复。';
+      section.append(none);
+    }
+
+    if (issue.status === 'pending') {
+      const actions = document.createElement('div');
+      actions.className = 'issue-actions';
+      (['open', 'rejected'] as const).forEach((next) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = next === 'open' ? 'issues-primary is-small' : 'issues-ghost is-small';
+        button.textContent = next === 'open' ? '通过并公开' : '驳回';
+        button.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          button.disabled = true;
+          const res = await fetch(`/api/issues/${issue.id}`, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ status: next }),
+          });
+          button.disabled = false;
+          if (res.ok) {
+            issue.status = next;
+            openId = null;
+            updateCounts();
+            render();
+          }
+        });
+        actions.append(button);
+      });
+      section.append(actions);
+    }
+
+    return section;
+  };
+
+  const row = (issue: Issue) => {
+    const item = document.createElement('li');
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `issue-row status-${issue.status}`;
+    button.setAttribute('aria-expanded', String(openId === issue.id));
+
+    const main = document.createElement('span');
+    main.className = 'issue-main';
+    const id = document.createElement('span');
+    id.className = 'issue-id';
+    id.textContent = `#${issue.id}`;
+    const title = document.createElement('span');
+    title.className = 'issue-name';
+    title.textContent = issue.title;
+    main.append(id, title);
+
+    const meta = document.createElement('span');
+    meta.className = 'issue-meta';
+    meta.textContent = `${issue.author || '匿名玩家'} · 提交于 ${shortDate(issue.createdAt)}`;
+
+    const category = document.createElement('span');
+    category.className = 'issue-category';
+    category.textContent = CATEGORY_TEXT[issue.category] ?? '其他';
+
+    const badge = document.createElement('span');
+    badge.className = `issue-badge status-${issue.status}`;
+    badge.textContent = STATUS_TEXT[issue.status];
+
+    const replies = document.createElement('span');
+    replies.className = 'issue-replies-count';
+    replies.textContent = issue.replyCount ? String(issue.replyCount) : '—';
+
+    const updated = document.createElement('span');
+    updated.className = 'issue-updated';
+    updated.textContent = shortDate(issue.updatedAt);
+
+    button.append(main, meta, category, badge, replies, updated);
+    item.append(button);
+
+    if (openId === issue.id) {
+      item.append(detailMarkup(issue, details.get(issue.id)));
+    }
+
+    button.addEventListener('click', () => {
+      if (openId === issue.id) {
+        openId = null;
+        render();
+        return;
+      }
+      openId = issue.id;
+      if (!details.has(issue.id)) void loadDetail(issue.id);
+      render();
+    });
+
+    return item;
+  };
 
   const render = () => {
     if (!listEl || !emptyEl) return;
-    const visible = issues.filter((issue) => filter === 'all' || issue.status === filter);
-    listEl.replaceChildren(
-      ...visible.map((issue) => {
-        const item = document.createElement('li');
-        item.className = `issue-item status-${issue.status}`;
 
-        const head = document.createElement('div');
-        head.className = 'issue-item-head';
+    // 有 pending 说明当前浏览器是管理员。
+    if (adminTab) adminTab.hidden = !issues.some((issue) => issue.status === 'pending');
 
-        const id = document.createElement('span');
-        id.className = 'issue-id';
-        id.textContent = `#${issue.id}`;
+    const visible = sorted(issues.filter(matches));
+    listEl.replaceChildren(...visible.map(row));
 
-        const title = document.createElement('h3');
-        title.className = 'issue-title';
-        title.textContent = issue.title;
+    if (totalEl) totalEl.textContent = `共 ${issues.length} 个议题`;
+    emptyEl.hidden = !(issues.length === 0);
+    if (emptyFilterEl) emptyFilterEl.hidden = !(issues.length > 0 && visible.length === 0);
+  };
 
-        const badge = document.createElement('span');
-        badge.className = `issue-badge status-${issue.status}`;
-        badge.textContent = STATUS_TEXT[issue.status];
-
-        head.append(id, title, badge);
-
-        const meta = document.createElement('p');
-        meta.className = 'issue-meta';
-        meta.textContent = `${CATEGORY_TEXT[issue.category] ?? '其他'} · ${issue.author} · ${formatDate(issue.createdAt)} · ${issue.replyCount} 条回复`;
-
-        item.append(head, meta);
-        return item;
-      })
-    );
-    emptyEl.hidden = visible.length > 0;
+  const loadDetail = async (id: number) => {
+    try {
+      const res = await fetch(`/api/issues/${id}`, { headers: { accept: 'application/json' } });
+      if (!res.ok) throw new Error('no');
+      const data = (await res.json()) as { issue?: { body: string; replies: Reply[] } };
+      details.set(id, { body: data.issue?.body ?? '', replies: data.issue?.replies ?? [] });
+    } catch {
+      details.set(id, { body: '没能读到这条议题的内容。', replies: [] });
+    }
+    if (openId === id) render();
   };
 
   const load = async () => {
     try {
-      const response = await fetch('/api/issues', { headers: { accept: 'application/json' } });
-      const data = (await response.json()) as { issues?: Issue[] };
+      const res = await fetch('/api/issues', { headers: { accept: 'application/json' } });
+      const data = (await res.json()) as { issues?: Issue[] };
       issues = data.issues ?? [];
     } catch {
       issues = [];
     }
+    updateCounts();
     render();
   };
 
-  chips.forEach((chip) => {
-    chip.addEventListener('click', () => {
-      filter = chip.dataset.filter ?? 'all';
-      chips.forEach((item) => item.classList.toggle('is-active', item === chip));
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      filter = tab.dataset.filter ?? 'all';
+      openId = null;
+      tabs.forEach((other) => {
+        const active = other === tab;
+        other.classList.toggle('is-active', active);
+        other.setAttribute('aria-selected', String(active));
+      });
       render();
     });
+  });
+
+  searchEl?.addEventListener('input', () => {
+    query = searchEl.value.trim();
+    render();
+  });
+
+  sortEl?.addEventListener('change', () => {
+    sort = sortEl.value;
+    render();
+  });
+
+  const setDialog = (open: boolean) => {
+    if (!dialog || !scrim) return;
+    if (open) {
+      scrim.hidden = false;
+      dialog.showModal();
+    } else {
+      dialog.close();
+      scrim.hidden = true;
+    }
+  };
+
+  document.querySelector('[data-open-form]')?.addEventListener('click', () => setDialog(true));
+  document.querySelector('[data-close-form]')?.addEventListener('click', () => setDialog(false));
+  dialog?.addEventListener('close', () => {
+    if (scrim) scrim.hidden = true;
+  });
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) setDialog(false);
   });
 
   form?.addEventListener('submit', async (event) => {
@@ -168,23 +423,24 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
       category: String(data.get('category') ?? 'other'),
     };
 
-    const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+    const button = form.querySelector<HTMLButtonElement>('[data-submit]');
     if (button) button.disabled = true;
     statusEl.textContent = '正在提交…';
     statusEl.dataset.state = 'pending';
 
     try {
-      const response = await fetch('/api/issues', {
+      const res = await fetch('/api/issues', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      const result = (await response.json()) as { issue?: Issue; message?: string; error?: string };
-      if (!response.ok) throw new Error(result.error ?? '提交失败，稍后再试');
+      const result = (await res.json()) as { issue?: { id: number }; error?: string };
+      if (!res.ok) throw new Error(result.error ?? '提交失败，稍后再试');
 
-      statusEl.textContent = `已收到 #${result.issue?.id ?? ''}，等待服主审核～`;
+      statusEl.textContent = `已收到 #${result.issue?.id ?? ''}，等待服主审核`;
       statusEl.dataset.state = 'ok';
       form.reset();
+      void load();
     } catch (error) {
       statusEl.textContent = error instanceof Error ? error.message : '提交失败，稍后再试';
       statusEl.dataset.state = 'error';
@@ -196,147 +452,3 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
   void load();
 </script>
 
-<style>
-  .issues-layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
-    gap: clamp(28px, 5vw, 64px);
-    align-items: start;
-    margin-top: clamp(32px, 5vw, 56px);
-  }
-
-  @media (max-width: 839px) {
-    .issues-layout {
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
-  .issues-heading {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--hw-space-4);
-    padding-bottom: var(--hw-space-4);
-    border-bottom: 1px solid var(--md-sys-color-outline-variant);
-  }
-
-  .issues-heading h2 {
-    font-size: var(--md-sys-typescale-headline-medium-size);
-  }
-
-  .issues-filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-
-  .issues-list {
-    display: grid;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .issue-item-head {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 8px 10px;
-  }
-
-  .issue-id {
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: var(--md-sys-typescale-label-medium-size);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .issue-title {
-    flex: 1 1 12ch;
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    line-height: 1.5;
-  }
-
-  .issue-meta {
-    margin-top: 6px;
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: var(--md-sys-typescale-label-small-size);
-  }
-
-  .issues-empty {
-    margin-top: 16px;
-    color: var(--md-sys-color-on-surface-variant);
-  }
-
-  .issues-form-card {
-    position: sticky;
-    top: calc(var(--hw-bar-height) + 20px);
-  }
-
-  .issues-form-card h2 {
-    font-size: 1.125rem;
-  }
-
-  .filter-chip {
-    min-height: 34px;
-    padding: 0 14px;
-    border: 1px solid var(--md-sys-color-outline-variant);
-    border-radius: var(--md-sys-shape-corner-full);
-    background: var(--md-sys-color-surface-container-lowest);
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: var(--md-sys-typescale-label-medium-size);
-    font-weight: 600;
-    transition:
-      background-color var(--md-sys-motion-duration-short4)
-        var(--md-sys-motion-easing-standard),
-      color var(--md-sys-motion-duration-short4)
-        var(--md-sys-motion-easing-standard),
-      border-color var(--md-sys-motion-duration-short4)
-        var(--md-sys-motion-easing-standard);
-  }
-
-  .filter-chip.is-active {
-    border-color: transparent;
-    background: var(--md-sys-color-primary-container);
-    color: var(--md-sys-color-on-primary-container);
-  }
-
-  .issue-item {
-    padding: var(--hw-space-4) var(--hw-space-4) var(--hw-space-4) 0;
-    border-bottom: 1px solid var(--md-sys-color-outline-variant);
-    border-left: 2px solid transparent;
-    transition:
-      border-color var(--md-sys-motion-duration-short4)
-        var(--md-sys-motion-easing-standard),
-      padding-left var(--md-sys-motion-duration-short4)
-        var(--md-sys-motion-easing-standard);
-  }
-
-  @media (hover: hover) and (pointer: fine) {
-    .issue-item:hover {
-      padding-left: var(--hw-space-3);
-      border-left-color: var(--md-sys-color-primary);
-    }
-  }
-
-  .issue-badge {
-    padding: 2px 10px;
-    border-radius: var(--md-sys-shape-corner-full);
-    font-size: var(--md-sys-typescale-label-small-size);
-    font-weight: 600;
-    background: var(--md-sys-color-surface-container-high);
-    color: var(--md-sys-color-on-surface-variant);
-  }
-
-  .issue-badge.status-open {
-    background: var(--md-sys-color-primary-container);
-    color: var(--md-sys-color-on-primary-container);
-  }
-
-  .issue-badge.status-done {
-    background: var(--md-sys-color-tertiary-container);
-    color: var(--md-sys-color-on-tertiary-container);
-  }
-</style>
