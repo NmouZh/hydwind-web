@@ -31,7 +31,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="theme-color" content="#fbf8ff" data-theme-color />
+    <meta name="theme-color" content="#f8f9ff" data-theme-color />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
@@ -82,7 +82,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
 
       const syncTheme = (theme: 'light' | 'dark') => {
         root.dataset.theme = theme;
-        themeMeta?.setAttribute('content', theme === 'dark' ? '#11131b' : '#fbf8ff');
+        themeMeta?.setAttribute('content', theme === 'dark' ? '#101419' : '#f8f9ff');
         toggle?.setAttribute(
           'aria-label',
           theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'
