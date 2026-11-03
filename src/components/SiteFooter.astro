@@ -234,9 +234,58 @@ const columns = [
   }
 
   @media (max-width: 680px) {
+    .site-footer {
+      margin-top: clamp(40px, 8vw, 56px);
+    }
+
+    .footer-inner {
+      gap: 24px;
+      padding-top: 28px;
+      padding-bottom: 24px;
+    }
+
+    .footer-brand p {
+      margin-top: 12px;
+      font-size: 0.82rem;
+      line-height: 1.6;
+    }
+
+    .footer-brand .assist-chip {
+      margin-top: 12px;
+    }
+
     .footer-nav {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      row-gap: 24px;
+      column-gap: 16px;
+      row-gap: 18px;
+    }
+
+    .footer-nav h2 {
+      margin-bottom: 6px;
+    }
+
+    /* 说明列在手机上折成紧凑的两列标签，去掉大块行高 */
+    .footer-nav > div:last-child {
+      grid-column: 1 / -1;
+    }
+
+    .footer-nav > div:last-child span {
+      display: inline;
+      min-height: 0;
+      padding: 0;
+      font-size: 0.78rem;
+      line-height: 1.6;
+    }
+
+    .footer-nav > div:last-child span + span::before {
+      content: '·';
+      margin: 0 6px;
+      opacity: 0.6;
+    }
+
+    .footer-bottom {
+      padding-top: 12px;
+      padding-bottom: 16px;
     }
   }
 
