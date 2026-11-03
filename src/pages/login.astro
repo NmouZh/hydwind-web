@@ -1,0 +1,161 @@
+---
+// 登录页：账号只能由群里 @机器人 注册后私信获得，这里只做登录
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { readSession } from '../lib/session';
+import { findAccount, publicAccount } from '../lib/accounts';
+
+const session = readSession(Astro.cookies);
+const account = session ? await findAccount(session.username) : undefined;
+const current = account ? publicAccount(account) : null;
+
+const description = '氢风（Hydwind）账号登录：群内 @机器人 发送「注册」，账号密码会私信给你。';
+---
+
+<BaseLayout title="登录 · 氢风 Hydwind" description={description} current="login">
+  <section class="hw-shell auth-shell">
+    <div class="hero-card enter auth-card">
+      <span class="assist-chip">
+        <Icon name="person" size={16} />
+        账号 · Account
+      </span>
+      <h1>登录氢风</h1>
+
+      {
+        current ? (
+          <div class="auth-signed">
+            <p class="hero-lead">
+              你已经登录啦，{current.nickname}（{current.username}）。
+            </p>
+            <p class="auth-meta">身份：{current.role === 'admin' ? '站务' : '玩家'}</p>
+            <div class="auth-actions">
+              <button class="filled-button" type="button" data-logout>
+                退出登录
+              </button>
+            </div>
+            <p class="auth-status" data-status role="status" aria-live="polite"></p>
+          </div>
+        ) : (
+          <div class="auth-signed">
+            <p class="hero-lead">
+              账号不开放自助注册：在群里 @机器人 发送「注册 你的游戏ID」，账号和初始密码会私信给你。
+            </p>
+            <form class="auth-form" data-form novalidate>
+              <label>
+                <span>账号（游戏 ID）</span>
+                <input name="username" type="text" autocomplete="username" maxlength="24" required placeholder="例如 Nz_173" />
+              </label>
+              <label>
+                <span>密码</span>
+                <input name="password" type="password" autocomplete="current-password" required placeholder="私信里给你的密码" />
+              </label>
+              <button class="filled-button" type="submit">登录</button>
+              <p class="auth-status" data-status role="status" aria-live="polite"></p>
+            </form>
+          </div>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .auth-shell {
+    padding-block: 32px 64px;
+  }
+
+  .auth-card {
+    max-width: 520px;
+    margin-inline: auto;
+  }
+
+  .auth-form {
+    display: grid;
+    gap: 16px;
+    margin-top: 20px;
+  }
+
+  .auth-form label {
+    display: grid;
+    gap: 6px;
+    font-size: 0.875rem;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .auth-form input {
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    background: var(--md-sys-color-surface-container-highest);
+    color: var(--md-sys-color-on-surface);
+    font: inherit;
+  }
+
+  .auth-form input:focus-visible {
+    outline: 2px solid var(--md-sys-color-primary);
+    outline-offset: 1px;
+  }
+
+  .auth-meta {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 0.875rem;
+  }
+
+  .auth-actions {
+    margin-top: 16px;
+  }
+
+  .auth-status {
+    min-height: 1.25rem;
+    font-size: 0.875rem;
+    color: var(--md-sys-color-error);
+  }
+</style>
+
+<script>
+  const form = document.querySelector<HTMLFormElement>('[data-form]');
+  const status = document.querySelector<HTMLElement>('[data-status]');
+
+  const setStatus = (text: string) => {
+    if (status) status.textContent = text;
+  };
+
+  form?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    setStatus('');
+
+    const data = new FormData(form);
+    const username = String(data.get('username') ?? '').trim();
+    const password = String(data.get('password') ?? '');
+    if (!username || !password) {
+      setStatus('账号和密码都要填哦');
+      return;
+    }
+
+    const button = form.querySelector('button[type="submit"]');
+    if (button instanceof HTMLButtonElement) button.disabled = true;
+
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ username, password }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setStatus(result.error ?? '登录失败，稍后再试');
+        return;
+      }
+      location.reload();
+    } catch {
+      setStatus('网络好像不太稳，稍后再试');
+    } finally {
+      if (button instanceof HTMLButtonElement) button.disabled = false;
+    }
+  });
+
+  document.querySelector('[data-logout]')?.addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    location.reload();
+  });
+</script>
