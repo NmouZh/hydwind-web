@@ -1,6 +1,9 @@
 import type { APIRoute } from 'astro';
 import { findAccount } from '../../../../lib/accounts';
 import {
+  MAX_BIO_BODY,
+  MAX_BIO_REFS,
+  MIN_BIO_BODY,
   canEditBiography,
   getBiography,
   saveBiography,
@@ -36,23 +39,30 @@ const loadPeople = async () => {
   return { people, byGameId, byId };
 };
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, request }) => {
   const personId = params.id ?? '';
   const { byId } = await loadPeople();
   const gameId = byId.get(personId);
   if (!gameId) return json({ error: '没有这个人物' }, 404);
 
   const biography = await getBiography(personId);
-  if (!biography) return json({ biography: null });
+  // 一次请求把「谁能改」也带回去：前端不用再打一趟 /api/auth/me，入口不用等第二次往返
+  const session = readSessionFromRequest(request);
+  const canEdit = canEditBiography(biography, session);
 
   return json({
-    biography: {
-      body: biography.body,
-      author: biography.author,
-      createdAt: biography.createdAt,
-      updatedAt: biography.updatedAt,
-      refs: biography.refs.map((id) => ({ personId: id, gameId: byId.get(id) ?? id })),
-    },
+    signedIn: Boolean(session),
+    canEdit,
+    limits: { min: MIN_BIO_BODY, max: MAX_BIO_BODY, refs: MAX_BIO_REFS },
+    biography: biography
+      ? {
+          body: biography.body,
+          author: biography.author,
+          createdAt: biography.createdAt,
+          updatedAt: biography.updatedAt,
+          refs: biography.refs.map((id) => ({ personId: id, gameId: byId.get(id) ?? id })),
+        }
+      : null,
   });
 };
 

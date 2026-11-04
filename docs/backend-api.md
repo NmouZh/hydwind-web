@@ -80,11 +80,17 @@ PORT=4321
 
 ### `GET /api/people/:id/biography`
 
-人物传记（`id` 是内容集合里的 slug，例如 `nz-173`）。没写过返回 `{ "biography": null }`。
+人物传记（`id` 是内容集合里的 slug，例如 `nz-173`）。没写过时 `biography` 是 `null`。
 正文里用 `@游戏ID` 引用其他玩家，`refs` 会带上引用对象，前端据此渲染人物链接。
+
+除了正文，这条还把**当前请求者能不能改**一起带回来：页面上的入口（写一篇 / 编辑 / 只读）
+据此切换，不用再额外打一趟 `/api/auth/me`。
 
 ```json
 {
+  "signedIn": true,
+  "canEdit": true,
+  "limits": { "min": 20, "max": 4000, "refs": 12 },
   "biography": {
     "body": "……@Nz_173 在……",
     "author": "写的人昵称",
@@ -94,6 +100,12 @@ PORT=4321
   }
 }
 ```
+
+`canEdit` 的判定：未登录为 `false`；登录后没有传记或自己是作者、或角色是 `admin` 为 `true`。
+
+人物页是构建期渲染的，**传记正文在构建时就写进 HTML**（构建机读同一份 `HYDWIND_DATA_DIR`），
+所以打开页面第一屏就有内容；浏览器再拉这条接口刷新最新版本，内容没变就不重画。
+改了传记要等下一次构建才会进静态 HTML，期间靠接口补。
 
 ### `PUT /api/people/:id/biography`
 

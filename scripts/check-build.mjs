@@ -157,6 +157,37 @@ const main = async () => {
     }
   }
 
+  // —— 人物传记区块：入口三态 + 引用他人，入口藏起来就等于没有这个功能 ——
+  const personPage = pages.get('people/nz-173/index.html');
+  if (personPage) {
+    const bio =
+      personPage.html.match(/<section[^>]*data-biography[\s\S]*?<\/section>/)?.[0] ?? '';
+    if (!bio) {
+      fail('人物页缺少传记区块');
+    } else {
+      pass('人物页有传记区块');
+      if (/<a[^>]*href="\/account\/"[^>]*data-bio-entry="signin"/.test(bio)) {
+        pass('未登录也能看到「登录后写一篇」入口');
+      } else {
+        fail('未登录时没有传记入口（入口被藏起来了）');
+      }
+      const bioBits = [
+        ['data-bio-entry="edit"', '已登录的编辑按钮'],
+        ['data-bio-body', '传记正文容器'],
+        ['data-bio-input', '正文输入框'],
+        ['data-bio-ref-count', '引用计数'],
+        ['data-bio-refs', '引用他人区块'],
+        ['data-bio-editor', '传记编辑器'],
+      ];
+      for (const [needle, label] of bioBits) {
+        if (bio.includes(needle)) pass(`传记区块含${label}`);
+        else fail(`传记区块缺少${label}（${needle}）`);
+      }
+      if (/maxlength="4000"/.test(bio)) pass('传记正文上限 4000 字');
+      else fail('传记正文缺少 4000 字上限');
+    }
+  }
+
   const htmlFiles = (await walk(dist)).filter((file) => file.endsWith('.html'));
 
   // —— 每个页面都不得残留编造的旧内容 ——

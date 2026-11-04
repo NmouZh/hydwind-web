@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { parseMentions } from './biography-text';
 
 /**
  * 人物传记存储层。
@@ -76,16 +77,7 @@ const clamp = (value: unknown, max: number): string => {
   return value.trim().slice(0, max);
 };
 
-/** 正文里的 `@某某`：薄荷风游戏 ID 只允许字母、数字、下划线、连字符。 */
-const MENTION_PATTERN = /@([A-Za-z0-9_-]{1,32})/g;
-
-export const parseMentions = (body: string): string[] => {
-  const seen = new Set<string>();
-  for (const match of body.matchAll(MENTION_PATTERN)) {
-    seen.add(match[1]);
-  }
-  return [...seen];
-};
+export { parseMentions };
 
 export interface MentionResolver {
   /** 游戏 ID → 人物 id */

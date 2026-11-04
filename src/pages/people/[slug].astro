@@ -7,6 +7,17 @@ import Icon from '../../components/Icon.astro';
 import PlayerAvatar from '../../components/PlayerAvatar.astro';
 import { formatDate } from '../../lib/format';
 import {
+  MAX_BIO_BODY,
+  MAX_BIO_REFS,
+  MIN_BIO_BODY,
+  getBiography,
+} from '../../lib/biographies';
+import {
+  formatBiographyDate,
+  renderBiographyHtml,
+  type BiographyRef,
+} from '../../lib/biography-text';
+import {
   JOIN_GUIDE_ID,
   getPublishedPeople,
   type PublishedPerson,
@@ -27,8 +38,26 @@ interface Props {
 const { person } = Astro.props;
 const { Content } = await render(person);
 
+const people = await getPublishedPeople();
 /** 传记编辑器里的「引用他人」候选：除自己以外的所有已发布人物。 */
-const others = (await getPublishedPeople()).filter((entry) => entry.id !== person.id);
+const others = people.filter((entry) => entry.id !== person.id);
+const gameIdOf = new Map(people.map((entry) => [entry.id, entry.data.gameId]));
+
+/**
+ * 传记在构建期就渲染进 HTML：打开人物页第一屏就有内容，不用等接口回来再补，
+ * 也不会先闪一下「还没有人写」。浏览器随后拉一次接口，只在版本变了时才重画。
+ */
+const biography = await getBiography(person.id).catch(() => null);
+const biographyRefs: BiographyRef[] = (biography?.refs ?? []).map((id) => ({
+  personId: id,
+  gameId: gameIdOf.get(id) ?? id,
+}));
+const biographyHtml = biography ? renderBiographyHtml(biography.body, biographyRefs) : '';
+const biographyMeta = !biography
+  ? ''
+  : biography.updatedAt === biography.createdAt
+    ? `${biography.author} 写于 ${formatBiographyDate(biography.createdAt)}`
+    : `${biography.author} 写于 ${formatBiographyDate(biography.createdAt)}，最后改了 ${formatBiographyDate(biography.updatedAt)}`;
 
 const description = `${person.data.gameId} 是氢风的${person.data.role}。查看人物简介与更新时间。`;
 ---
@@ -102,63 +131,376 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
       </aside>
     </div>
 
-    <section class="section person-biography" data-biography data-person-id={person.id}>
+    <section
+      class="section person-biography"
+      data-biography
+      data-person-id={person.id}
+      data-game-id={person.data.gameId}
+    >
       <div class="section-heading">
         <div>
           <p class="hw-eyebrow">传记</p>
           <h2>玩家写的传记</h2>
         </div>
         <div class="bio-head-actions">
-          <button class="text-button" type="button" data-bio-edit hidden>写一篇传记</button>
+          {
+            /*
+             * 默认这一版是给未登录访客的：入口直接写成去登录的链接，不用等脚本判断登录态。
+             * 脚本拿到 /api/…/biography 的 canEdit 之后，再把这一对按钮换成对应状态。
+             */
+          }
+          <a class="outlined-button is-compact" href="/account/" data-bio-entry="signin">
+            登录后写一篇
+          </a>
+          <button class="filled-button is-compact" type="button" data-bio-entry="edit" hidden>
+            {biography ? '编辑这篇传记' : '写一篇传记'}
+          </button>
         </div>
       </div>
 
-      <div class="bio-body prose" data-bio-body hidden></div>
-      <p class="bio-empty" data-bio-empty>还没有人给 {person.data.gameId} 写传记，登录后可以写第一篇。</p>
-      <p class="bio-meta" data-bio-meta hidden></p>
+      <p class="bio-lead">
+        一位玩家一篇。写他在这台服务器上的事——小标题分段、列表记事、引用原话都可以；正文里写
+        @游戏ID，保存后会自动变成他的主页链接。
+      </p>
+
+      {
+        /*
+         * 读正文的地方：左边是文章，右边是这一篇的小节目录。
+         * 目录由浏览器从渲染好的 h2 / h3 里收集（见 scripts/biography.ts 的 buildToc），
+         * 构建期不用额外存一份标题树；小节不足两个时整块不显示。
+         */
+      }
+      <div class="bio-shell">
+        <div class="bio-reading">
+          <div class="bio-body prose" data-bio-body set:html={biographyHtml}></div>
+
+          <p class="bio-empty" data-bio-empty hidden={Boolean(biography)}>
+            还没有人给 {person.data.gameId} 写传记，你可以写第一篇。
+          </p>
+
+          <div class="bio-byline">
+            <p class="bio-meta" data-bio-meta hidden={!biography}>{biographyMeta}</p>
+            <p class="bio-read" data-bio-read hidden={!biography}></p>
+          </div>
+
+          <p class="bio-note" data-bio-note hidden></p>
+        </div>
+
+        <aside class="bio-aside" data-bio-toc hidden>
+          <p class="hw-label">本页小节</p>
+          <nav class="bio-toc-list" data-bio-toc-list aria-label="传记小节"></nav>
+        </aside>
+      </div>
 
       <form class="form-stack bio-editor" data-bio-editor hidden>
-        <label class="field">
-          <span>正文</span>
-          <textarea
-            name="body"
-            rows="10"
-            maxlength="4000"
-            data-bio-input
-            placeholder={`写写 ${person.data.gameId} 在服里的故事，空行分段。`}
-          ></textarea>
-        </label>
+        <div class="bio-workbench">
+          {
+            /*
+             * 工具栏只发命令，不管格式推导：命令名在 scripts/biography.ts 里映射到
+             * 「包一层」还是「行首加前缀」。手机端横向滚动，不给每个按钮留文字。
+             */
+          }
+          <div class="bio-toolbar" role="toolbar" aria-label="Markdown 快捷操作">
+            <div class="bio-toolbar-group">
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="undo"
+                aria-label="撤销"
+                title="撤销（Ctrl / ⌘ + Z）"
+              >
+                <Icon name="undo" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="redo"
+                aria-label="重做"
+                title="重做（Ctrl / ⌘ + Shift + Z）"
+              >
+                <Icon name="redo" size={18} />
+              </button>
+            </div>
+
+            <span class="bio-toolbar-divider" aria-hidden="true"></span>
+
+            <div class="bio-toolbar-group">
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="h2"
+                aria-label="小标题"
+                title="小标题（##）"
+              >
+                <Icon name="heading" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool bio-tool-text"
+                type="button"
+                data-bio-cmd="h3"
+                aria-label="次一级标题"
+                title="次一级标题（###）"
+              >
+                H3
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="bold"
+                aria-label="加粗"
+                title="加粗（Ctrl / ⌘ + B）"
+              >
+                <Icon name="bold" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="italic"
+                aria-label="斜体"
+                title="斜体（Ctrl / ⌘ + I）"
+              >
+                <Icon name="italic" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="strike"
+                aria-label="删除线"
+                title="删除线"
+              >
+                <Icon name="strikethrough" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="code"
+                aria-label="行内代码"
+                title="行内代码"
+              >
+                <Icon name="code" size={18} />
+              </button>
+            </div>
+
+            <span class="bio-toolbar-divider" aria-hidden="true"></span>
+
+            <div class="bio-toolbar-group">
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="quote"
+                aria-label="引用"
+                title="引用"
+              >
+                <Icon name="quote" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="ul"
+                aria-label="无序列表"
+                title="无序列表"
+              >
+                <Icon name="list" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="ol"
+                aria-label="有序列表"
+                title="有序列表"
+              >
+                <Icon name="list_numbered" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="task"
+                aria-label="待办清单"
+                title="待办清单"
+              >
+                <Icon name="checklist" size={18} />
+              </button>
+            </div>
+
+            <span class="bio-toolbar-divider" aria-hidden="true"></span>
+
+            <div class="bio-toolbar-group">
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="link"
+                aria-label="插入链接"
+                title="插入链接（Ctrl / ⌘ + K）"
+              >
+                <Icon name="link" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="mention"
+                aria-label="引用玩家"
+                title="引用玩家"
+              >
+                <Icon name="mention" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="table"
+                aria-label="插入表格"
+                title="插入表格"
+              >
+                <Icon name="table" size={18} />
+              </button>
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-cmd="hr"
+                aria-label="分隔线"
+                title="分隔线"
+              >
+                <Icon name="minus" size={18} />
+              </button>
+            </div>
+
+            <span class="bio-toolbar-divider" aria-hidden="true"></span>
+
+            <div class="bio-toolbar-group">
+              <button
+                class="icon-button bio-tool"
+                type="button"
+                data-bio-focus
+                aria-label="进入专注模式"
+                aria-pressed="false"
+                title="专注模式"
+              >
+                <Icon name="fullscreen" size={18} />
+              </button>
+            </div>
+          </div>
+
+          <div class="bio-tabs" role="tablist" aria-label="编辑与预览" data-bio-tabs>
+            <button
+              class="bio-tab is-active"
+              type="button"
+              role="tab"
+              aria-selected="true"
+              data-bio-view="edit">编辑</button
+            >
+            <button
+              class="bio-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              data-bio-view="preview">预览</button
+            >
+          </div>
+
+          <div class="bio-panes" data-bio-panes data-view="edit">
+            <div class="bio-pane">
+              <p class="bio-pane-label">正文</p>
+              {
+                /*
+                 * 真正的编辑区：`data-bio-editor-host` 留给 CodeMirror 挂载，
+                 * 底下的 textarea 是表单字段和降级路径，编辑器起来后被 CSS 藏掉。
+                 */
+              }
+              <div class="bio-input-shell">
+                <div class="bio-editor-host" data-bio-editor-host></div>
+                <textarea
+                  class="bio-textarea"
+                  name="body"
+                  rows="14"
+                  maxlength={MAX_BIO_BODY}
+                  data-bio-input
+                  spellcheck="false"
+                  aria-label="传记正文"
+                  placeholder={`写写 ${person.data.gameId} 在服里的故事。可以用 # 起标题、- 列清单，空行分段。`}
+                ></textarea>
+              </div>
+              <div class="bio-input-meta">
+                <span>Markdown：标题、列表、引用、粗体；空行分段，至少 {MIN_BIO_BODY} 字</span>
+                <span class="bio-count" data-bio-count>0 / {MAX_BIO_BODY}</span>
+              </div>
+            </div>
+
+            <div class="bio-pane bio-pane-preview">
+              <p class="bio-pane-label">预览</p>
+              <div class="bio-body prose bio-preview-body" data-bio-preview-body></div>
+              <p class="bio-preview-empty" data-bio-preview-empty>
+                在左边写点东西，这里会实时显示排好版的样子。
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <details class="bio-cheatsheet">
+          <summary>Markdown 语法速查</summary>
+          <ul class="bio-cheatsheet-list">
+            <li><code># 标题</code> 标题，<code>##</code> 再低一层</li>
+            <li>
+              <code>**加粗**</code> <code>*斜体*</code> <code>~~删除线~~</code>
+              <code>`行内代码`</code>
+            </li>
+            <li><code>- 列表</code> 或 <code>1. 列表</code>，缩进两格就是子列表</li>
+            <li><code>&gt; 引用</code> 引用一段话</li>
+            <li><code>[文字](https://…)</code> 链接，<code>---</code> 分隔线</li>
+            <li><code>@游戏ID</code> 引用其他玩家，下面的候选按钮可以直接点</li>
+          </ul>
+        </details>
 
         <div class="bio-refs" data-bio-refs>
-          <span class="bio-refs-label">引用他人</span>
+          <div class="bio-refs-head">
+            <span class="bio-refs-label">引用他人</span>
+            <span class="bio-refs-status" data-bio-ref-count data-max={MAX_BIO_REFS}>
+              已引用 0 / {MAX_BIO_REFS}
+            </span>
+          </div>
+
+          <div class="bio-refs-picked" data-bio-picked hidden></div>
+
           {
             others.length > 0 ? (
-              <div class="bio-refs-list">
-                {others.map((other) => (
-                  <button
-                    class="assist-chip bio-ref-chip"
-                    type="button"
-                    data-bio-mention={`@${other.data.gameId}`}
-                  >
-                    @{other.data.gameId}
-                  </button>
-                ))}
-              </div>
+              <>
+                <label class="field bio-refs-search">
+                  <span>查找玩家</span>
+                  <input
+                    type="search"
+                    data-bio-ref-search
+                    placeholder="输入游戏 ID 或身份"
+                    autocomplete="off"
+                  />
+                </label>
+                <div class="bio-refs-list" data-bio-ref-list>
+                  {others.map((other) => (
+                    <button
+                      class="assist-chip bio-ref-chip"
+                      type="button"
+                      data-bio-mention={`@${other.data.gameId}`}
+                      data-bio-person={other.id}
+                      data-bio-key={`${other.data.gameId} ${other.data.role}`.toLowerCase()}
+                    >
+                      @{other.data.gameId}
+                      <span class="bio-ref-role">{other.data.role}</span>
+                    </button>
+                  ))}
+                </div>
+                <p class="bio-refs-hint" data-bio-refs-empty hidden>
+                  没有匹配的玩家，换个关键词试试。
+                </p>
+              </>
             ) : (
-              <span class="bio-refs-hint">
-                站里还没有别人可以引用，正文里写「@游戏ID」也会变成人物链接。
-              </span>
+              <p class="bio-refs-hint">
+                站里还没有别的玩家可以引用。正文里直接写「@游戏ID」，保存后一样会变成人物链接。
+              </p>
             )
           }
         </div>
 
-        <span class="field-hint">
-          点上面的名字会插入「@游戏ID」，保存后正文里会变成能点开的人物链接；空行分段。
-        </span>
-
         <div class="bio-actions">
           <button class="filled-button is-compact" type="submit" data-bio-submit>保存传记</button>
           <button class="text-button" type="button" data-bio-cancel>取消</button>
+          <span class="bio-kbd">Ctrl / ⌘ + Enter 保存</span>
         </div>
         <p class="form-status" role="status" aria-live="polite" data-bio-status></p>
       </form>
@@ -195,7 +537,55 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     margin-top: var(--hw-space-4);
   }
 
-  /* —— 传记 —— */
+  /* —— 传记：读 —— */
+
+  /*
+   * 文章 + 目录：桌面上一栏读、一栏导航。
+   * 目录把长文的骨架摆在旁边，读到哪里、还剩几节能一眼看到。
+   */
+  .bio-shell {
+    display: grid;
+    gap: var(--hw-space-6);
+    margin-top: var(--hw-space-5);
+  }
+
+  .bio-reading {
+    min-width: 0;
+  }
+
+  .bio-aside {
+    display: none;
+  }
+
+  .bio-toc-list {
+    display: grid;
+    gap: 2px;
+    margin-top: var(--hw-space-3);
+    padding-left: 0;
+    border-left: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .bio-toc-link {
+    display: block;
+    margin-left: -1px;
+    padding: 2px 0 2px var(--hw-space-3);
+    border-left: 2px solid transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-large-size);
+    line-height: 1.5;
+    text-decoration: none;
+  }
+
+  .bio-toc-link[data-depth='3'] {
+    padding-left: var(--hw-space-5);
+    font-size: var(--md-sys-typescale-label-medium-size);
+  }
+
+  .bio-toc-link:hover,
+  .bio-toc-link:focus-visible {
+    border-left-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-primary);
+  }
 
   .person-biography {
     margin-top: var(--hw-space-7);
@@ -207,9 +597,136 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     gap: var(--hw-space-2);
   }
 
+  /* 一句说明：把「谁能写、怎么写」说在正文前面，不靠猜 */
+  .bio-lead {
+    max-width: 62ch;
+    margin-top: var(--hw-space-3);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  /*
+   * 长文阅读宽度收到 62ch、行高放到 1.85：传记是整页里唯一一口气读几百字的地方，
+   * 比全站正文再松一点，眼睛不容易串行。
+   */
   .bio-body {
-    max-width: 68ch;
-    margin-top: var(--hw-space-5);
+    max-width: 62ch;
+    margin-top: 0;
+    font-size: 1.0625rem;
+    line-height: 1.88;
+    /* 中英混排时让浏览器自己避开「行末孤字」和参差的右边缘 */
+    text-wrap: pretty;
+    hanging-punctuation: allow-end;
+    overflow-wrap: anywhere;
+  }
+
+  .bio-body :global(> :first-child) {
+    margin-top: 0;
+  }
+
+  /* 首段当引子：比正文大半号，先被一句话带进去 */
+  .bio-body :global(> p:first-of-type) {
+    font-size: 1.125rem;
+    line-height: 1.75;
+  }
+
+  .bio-body :global(p) {
+    margin-top: 1.15em;
+  }
+
+  .bio-body :global(h2),
+  .bio-body :global(h3),
+  .bio-body :global(h4) {
+    line-height: var(--hw-leading-snug);
+    letter-spacing: -0.01em;
+  }
+
+  /* 二级标题当作章节口：上面留白 + 一根发丝线，长文才有段落感 */
+  .bio-body :global(h2) {
+    margin-top: 1.9em;
+    padding-top: var(--hw-space-4);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    font-size: 1.375rem;
+  }
+
+  .bio-body :global(> h2:first-child) {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+
+  .bio-body :global(h3) {
+    margin-top: 1.7em;
+    font-size: 1.125rem;
+  }
+
+  .bio-body :global(h4) {
+    margin-top: 1.4em;
+    font-size: 1rem;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-body :global(ul),
+  .bio-body :global(ol) {
+    margin-top: 1em;
+    padding-left: 1.45em;
+  }
+
+  .bio-body :global(li) {
+    margin-top: 0.45em;
+  }
+
+  .bio-body :global(li::marker) {
+    color: var(--md-sys-color-primary);
+  }
+
+  .bio-body :global(li > ul),
+  .bio-body :global(li > ol) {
+    margin-top: 0.35em;
+  }
+
+  .bio-body :global(blockquote) {
+    margin-top: 1.4em;
+    padding: var(--hw-space-3) var(--hw-space-4);
+    font-size: 0.98em;
+  }
+
+  .bio-body :global(blockquote > :first-child) {
+    margin-top: 0;
+  }
+
+  /* 分隔线不铺满整行：短一点更像排版，而不是表格边框 */
+  .bio-body :global(hr) {
+    width: 42%;
+    margin: 2.2em auto;
+  }
+
+  .bio-body :global(img) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin-top: 1.3em;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+  }
+
+  .bio-body :global(pre) {
+    margin-top: 1.2em;
+    padding: var(--hw-space-4);
+    overflow-x: auto;
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-surface-container-high);
+  }
+
+  .bio-body :global(pre code) {
+    padding: 0;
+    background: none;
+    font-size: 0.875rem;
+    line-height: var(--hw-leading-body);
+  }
+
+  .bio-body :global(del) {
+    color: var(--md-sys-color-on-surface-variant);
   }
 
   .bio-body :global(.bio-mention) {
@@ -221,8 +738,9 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
   }
 
   .bio-empty,
-  .bio-meta {
-    max-width: 68ch;
+  .bio-meta,
+  .bio-note {
+    max-width: 62ch;
     font-size: var(--md-sys-typescale-body-medium-size);
     color: var(--md-sys-color-on-surface-variant);
   }
@@ -231,21 +749,229 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     margin-top: var(--hw-space-5);
   }
 
-  .bio-meta {
-    margin-top: var(--hw-space-4);
+  /*
+   * 落款行：左边署名、右边字数与阅读时长，中间一条发丝线把它们和正文隔开。
+   * 像杂志文章末尾的那一行小字，而不是又一段正文。
+   */
+  .bio-byline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--hw-space-2) var(--hw-space-4);
+    margin-top: var(--hw-space-5);
     padding-top: var(--hw-space-3);
     border-top: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .bio-meta,
+  .bio-read {
+    margin: 0;
+    font-size: var(--md-sys-typescale-label-medium-size);
+    font-variant-numeric: tabular-nums;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-note {
+    margin-top: var(--hw-space-2);
     font-size: var(--md-sys-typescale-label-medium-size);
   }
 
+  /* —— 传记：写 —— */
+
   .bio-editor {
-    max-width: 68ch;
     margin-top: var(--hw-space-5);
+    padding-top: var(--hw-space-5);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .bio-workbench {
+    display: grid;
+    gap: var(--hw-space-3);
+  }
+
+  /* 工具栏跟着正文一起停在视口上沿：手机上滚到中间也能加粗 */
+  .bio-toolbar {
+    position: sticky;
+    top: calc(var(--hw-bar-height) + var(--hw-space-1));
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: var(--hw-space-1);
+    padding: var(--hw-space-1);
+    overflow-x: auto;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--md-sys-color-surface);
+    scrollbar-width: none;
+  }
+
+  .bio-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bio-toolbar-group {
+    display: flex;
+    align-items: center;
+    flex: none;
+  }
+
+  .bio-toolbar-divider {
+    flex: none;
+    width: 1px;
+    height: var(--hw-space-5);
+    margin: 0 var(--hw-space-1);
+    background: var(--md-sys-color-outline-variant);
+  }
+
+  .bio-tool {
+    width: 40px;
+    height: 40px;
+    flex: none;
+  }
+
+  .bio-tool[aria-pressed='true'] {
+    background: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+  }
+
+  /* 手机端：tab 切「编辑 / 预览」 */
+  .bio-tabs {
+    display: none;
+    padding: var(--hw-space-1);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--md-sys-color-surface-container-low);
+  }
+
+  .bio-tab {
+    flex: 1;
+    min-height: 36px;
+    border: 0;
+    border-radius: var(--md-sys-shape-corner-full);
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    font: inherit;
+    font-size: var(--md-sys-typescale-label-large-size);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .bio-tab.is-active {
+    background: var(--md-sys-color-surface);
+    color: var(--md-sys-color-on-surface);
+    box-shadow: var(--hw-elevation-flat);
+  }
+
+  .bio-pane {
+    display: grid;
+    gap: var(--hw-space-2);
+    align-content: start;
+  }
+
+  .bio-field {
+    gap: var(--hw-space-2);
+  }
+
+  /* 正文框跟着内容长高：手机上写一段就是一段，不用在小框里滚 */
+  .bio-textarea {
+    min-height: calc(var(--hw-space-8) * 3);
+    padding: var(--hw-space-4);
+    font-family: var(--md-sys-typescale-font);
+    font-size: var(--md-sys-typescale-body-large-size);
+    line-height: 1.8;
+    resize: vertical;
+  }
+
+  /* 写作台的辅助信息：左说明右字数，贴着输入框，不抢正文 */
+  .bio-input-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--hw-space-2);
+    justify-content: space-between;
+    font-size: var(--md-sys-typescale-label-small-size);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-count {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .bio-count[data-state='ok'] {
+    color: var(--md-sys-color-primary);
+  }
+
+  .bio-count[data-state='over'] {
+    color: var(--md-sys-color-error);
+  }
+
+  .bio-pane-label {
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: var(--md-sys-color-on-surface-variant);
+    text-transform: uppercase;
+  }
+
+  /* 预览框和正文框同高起步，避免打字时整块跳动 */
+  .bio-preview-body {
+    min-height: calc(var(--hw-space-8) * 3);
+    max-width: none;
+    margin-top: 0;
+    padding: var(--hw-space-4);
+    border: 1px dashed var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-surface-container-low);
+    font-size: 1rem;
+  }
+
+  .bio-preview-empty {
+    font-size: var(--md-sys-typescale-label-medium-size);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-cheatsheet {
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+    padding: var(--hw-space-3) var(--hw-space-4);
+  }
+
+  .bio-cheatsheet summary {
+    cursor: pointer;
+    font-size: var(--md-sys-typescale-label-large-size);
+    font-weight: 600;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-cheatsheet-list {
+    display: grid;
+    gap: var(--hw-space-2);
+    margin-top: var(--hw-space-3);
+    padding-left: 0;
+    list-style: none;
+    font-size: var(--md-sys-typescale-label-medium-size);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-cheatsheet-list code {
+    padding: 0.1em 0.4em;
+    border-radius: var(--md-sys-shape-corner-extra-small);
+    background: var(--md-sys-color-surface-container-high);
+    color: var(--md-sys-color-on-surface);
+    font-size: 0.9em;
   }
 
   .bio-refs {
     display: grid;
+    gap: var(--hw-space-3);
+  }
+
+  .bio-refs-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
     gap: var(--hw-space-2);
+    justify-content: space-between;
   }
 
   .bio-refs-label {
@@ -254,10 +980,52 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     color: var(--md-sys-color-on-surface-variant);
   }
 
+  .bio-refs-status {
+    font-size: var(--md-sys-typescale-label-small-size);
+    font-variant-numeric: tabular-nums;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .bio-refs-status[data-state='ok'] {
+    color: var(--md-sys-color-primary);
+  }
+
+  .bio-refs-status[data-state='over'] {
+    color: var(--md-sys-color-error);
+  }
+
+  /* 已引用的标签：点 × 直接从正文里拿掉，不用自己去正文找那串 @ */
+  .bio-refs-picked {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--hw-space-2);
+  }
+
+  .bio-picked-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--hw-space-2);
+    min-height: 32px;
+    padding: 0 var(--hw-space-3);
+    border: 1px solid var(--md-sys-color-primary);
+    border-radius: var(--md-sys-shape-corner-full);
+    background: transparent;
+    color: var(--md-sys-color-primary);
+    font: inherit;
+    font-size: var(--md-sys-typescale-label-medium-size);
+    cursor: pointer;
+  }
+
+  .bio-refs-search {
+    max-width: 24ch;
+  }
+
   .bio-refs-list {
     display: flex;
     flex-wrap: wrap;
     gap: var(--hw-space-2);
+    max-height: calc(var(--hw-space-8) * 2);
+    overflow-y: auto;
   }
 
   .bio-refs-hint {
@@ -267,6 +1035,9 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
   }
 
   .bio-ref-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--hw-space-2);
     cursor: pointer;
     font-family: inherit;
     transition:
@@ -280,6 +1051,11 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     color: var(--md-sys-color-on-secondary-container);
   }
 
+  .bio-ref-role {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-small-size);
+  }
+
   .bio-actions {
     display: flex;
     flex-wrap: wrap;
@@ -287,7 +1063,33 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     align-items: center;
   }
 
-  @media (max-width: 719px) {
+  .bio-kbd {
+    font-size: var(--md-sys-typescale-label-small-size);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  /* 桌面：两栏并排，编辑和预览互不遮挡，tab 收起 */
+  @media (min-width: 839px) {
+    .bio-panes {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: var(--hw-space-4);
+      align-items: start;
+    }
+  }
+
+  /* 手机：一栏，tab 决定看哪一屏 */
+  @media (max-width: 838.98px) {
+    .bio-tabs {
+      display: flex;
+      gap: var(--hw-space-1);
+    }
+
+    .bio-panes[data-view='edit'] .bio-pane-preview,
+    .bio-panes[data-view='preview'] .bio-pane:not(.bio-pane-preview) {
+      display: none;
+    }
+
     .person-head-copy {
       gap: var(--hw-space-3);
     }
@@ -295,6 +1097,146 @@ const description = `${person.data.gameId} 是氢风的${person.data.role}。查
     .person-head :global(.avatar-img) {
       width: 52px;
       height: 52px;
+    }
+  }
+
+  @media (max-width: 599px) {
+    .bio-head-actions {
+      width: 100%;
+    }
+
+    .bio-toolbar {
+      top: 0;
+    }
+  }
+
+  /* —— 传记：编辑器 —— */
+
+  /*
+   * textarea 和 CodeMirror 二选一挂在这里：
+   * 脚本把 `.is-enhanced` 加到表单上之后，真正的编辑区接替 textarea；
+   * 脚本没跑起来时（或编辑器初始化失败），这块是空的，textarea 照旧能用。
+   */
+  .bio-input-shell {
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-surface);
+    overflow: hidden;
+  }
+
+  .bio-input-shell:focus-within {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 1px var(--md-sys-color-primary);
+  }
+
+  .bio-editor-host {
+    display: none;
+  }
+
+  .bio-editor.is-enhanced .bio-editor-host {
+    display: block;
+  }
+
+  .bio-editor.is-enhanced .bio-textarea {
+    display: none;
+  }
+
+  .bio-editor.is-enhanced .bio-input-shell :global(.cm-editor) {
+    max-height: 62vh;
+  }
+
+  .bio-editor.is-enhanced .bio-input-shell :global(.cm-scroller) {
+    max-height: 62vh;
+  }
+
+  /* 工具栏上的纯文字按钮（H3）：和图标按钮同尺寸，不额外造一套尺寸 */
+  .bio-tool-text {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /*
+   * 专注模式：手机上写作最容易被顶栏和页脚挤走视线，
+   * 开成整屏之后只剩工具栏、正文和一排动作按钮。
+   */
+  .bio-editor.is-focus {
+    position: fixed;
+    inset: 0;
+    /* 要压过顶栏（60）和底栏（70）：专注模式下这两条都不该留在画面上 */
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    gap: var(--hw-space-2);
+    margin: 0;
+    padding: var(--hw-space-2) var(--hw-space-3) var(--hw-space-3);
+    overflow: hidden;
+    border: 0;
+    background: var(--md-sys-color-surface);
+  }
+
+  .bio-editor.is-focus .bio-workbench {
+    flex: 1;
+    min-height: 0;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .bio-editor.is-focus .bio-toolbar {
+    position: static;
+    border-radius: var(--md-sys-shape-corner-full);
+  }
+
+  .bio-editor.is-focus .bio-panes {
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .bio-editor.is-focus .bio-input-shell {
+    min-height: 100%;
+  }
+
+  .bio-editor.is-focus .bio-input-shell :global(.cm-editor),
+  .bio-editor.is-focus .bio-input-shell :global(.cm-scroller) {
+    max-height: none;
+    min-height: 100%;
+  }
+
+  .bio-editor.is-focus .bio-cheatsheet {
+    display: none;
+  }
+
+  .bio-editor.is-focus .bio-actions {
+    position: sticky;
+    bottom: 0;
+    padding: var(--hw-space-2) 0;
+    background: var(--md-sys-color-surface);
+  }
+
+  /*
+   * 专注模式时把全站顶栏 / 底栏收起来：它们和编辑器抢同一个 z 轴，
+   * 光调 z-index 还会被顶层动画的 transform 叠出新的层叠上下文，索性收干净。
+   */
+  :global(html.is-bio-focus) {
+    overflow: hidden;
+  }
+
+  :global(html.is-bio-focus .top-app-bar),
+  :global(html.is-bio-focus .bottom-nav),
+  :global(html.is-bio-focus .scroll-progress) {
+    display: none;
+  }
+
+  /* 桌面端：正文与目录并排，目录跟着滚动停在视口里 */
+  @media (min-width: 1024px) {
+    .bio-shell {
+      grid-template-columns: minmax(0, 1fr) 13rem;
+      align-items: start;
+    }
+
+    .bio-aside {
+      display: block;
+      position: sticky;
+      top: calc(var(--hw-bar-height) + var(--hw-space-4));
     }
   }
 </style>
