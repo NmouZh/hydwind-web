@@ -648,6 +648,64 @@ html.hw-motion [data-reveal] {
 }
 
 /*
+ * 页头、底栏单独一份快照，不跟着 root 换。
+ *
+ * 它们是跨页不变的常驻 chrome：只要原地不动、不做任何动画，
+ * 换页时就永远不会「闪一下 / 消失一拍」。
+ * 一定要给名字——不给名字就会被并进 root 快照，跟着 root 的换帧节奏走。
+ */
+.top-app-bar {
+  view-transition-name: hw-header;
+}
+
+@media (max-width: 839px) {
+  .bottom-nav {
+    view-transition-name: hw-bottom-nav;
+  }
+}
+
+@keyframes hw-vt-hold {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hw-vt-hide {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+/* backdrop-filter 的元素被抓进换页快照时会被画成空白（页头整条消失）。
+ * 换页期间（点击瞬间 -> 新页面首帧）先关掉这层毛玻璃：底色本来就是 86% 不透明的表面色，
+ * 关掉之后观感几乎不变，但快照里有东西了。 */
+html[data-navigating] .top-app-bar,
+html[data-vt-flat] .top-app-bar,
+html[data-navigating] .bottom-nav,
+html[data-vt-flat] .bottom-nav {
+  backdrop-filter: none;
+}
+
+/* 用 1ms 的填充动画把旧快照定住：纯 animation: none 时浏览器不会画出这一层 */
+::view-transition-old(hw-header),
+::view-transition-old(hw-bottom-nav) {
+  animation: hw-vt-hold 1ms both;
+}
+
+::view-transition-new(hw-header),
+::view-transition-new(hw-bottom-nav) {
+  animation: hw-vt-hide 1ms both;
+}
+
+/*
  * 正文单独一份快照：换页时旧内容抬起淡出，新内容从下面升上来。
  *
  * 两段式，不要改成同时进行：旧内容先走完（--hw-vt-out-duration），

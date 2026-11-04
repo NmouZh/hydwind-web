@@ -44,6 +44,7 @@ export const initNavigation = (): void => {
   const reset = (): void => {
     leaving = false;
     html.removeAttribute('data-navigating');
+    html.removeAttribute('data-vt-flat');
     bar?.removeAttribute('data-active');
   };
 

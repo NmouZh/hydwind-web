@@ -56,10 +56,12 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
       // 跨文档换页过渡马上要开始时告诉页面两件事：
       // 1. `data-vt="cross"` —— 关掉 .enter 进场动画，别让新快照截到 opacity: 0 的空页
       // 2. 把过渡对象挂到 window —— 动效层等它跑完再接管，否则 GSAP 的 opacity: 0 也一样会被截进快照
+      // 3. `data-vt-flat` —— 换页期间摘掉页头/底栏的毛玻璃，快照才画得出来（详见 base.css）
       // 必须写在 head 里：pagereveal 在文档解析完、首次渲染前就触发了。
       window.addEventListener('pagereveal', (event) => {
         if (!event.viewTransition) return;
         document.documentElement.dataset.vt = 'cross';
+        document.documentElement.dataset.vtFlat = '';
         window.hydwindViewTransition = event.viewTransition;
       });
     </script>
@@ -186,7 +188,11 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
         ? pendingTransition.finished.catch(() => undefined)
         : Promise.resolve();
 
-      void motionGate.then(() => initMotion());
+      // 过渡结束后把毛玻璃还回去：`data-vt` 要留着（它负责压住 .enter，摘掉会让进场动画再跑一遍）
+      void motionGate.then(() => {
+        delete root.dataset.vtFlat;
+        initMotion();
+      });
       // 站内跳转的进度条与按下反馈（预取在 astro.config.mjs 里配）
       initNavigation();
     </script>
