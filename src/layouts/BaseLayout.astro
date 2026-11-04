@@ -52,6 +52,16 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
           document.documentElement.dataset.theme = 'light';
         }
       })();
+
+      // 跨文档换页过渡马上要开始时告诉页面两件事：
+      // 1. `data-vt="cross"` —— 关掉 .enter 进场动画，别让新快照截到 opacity: 0 的空页
+      // 2. 把过渡对象挂到 window —— 动效层等它跑完再接管，否则 GSAP 的 opacity: 0 也一样会被截进快照
+      // 必须写在 head 里：pagereveal 在文档解析完、首次渲染前就触发了。
+      window.addEventListener('pagereveal', (event) => {
+        if (!event.viewTransition) return;
+        document.documentElement.dataset.vt = 'cross';
+        window.hydwindViewTransition = event.viewTransition;
+      });
     </script>
   </head>
   <body data-page={current}>
@@ -165,8 +175,18 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
 
       toastHost.hydwindToast = showSnackbar;
 
-      // 动效统一交给 src/scripts/motion.ts：CSS 过渡是降级方案，GSAP 是主路径
-      void initMotion();
+      // 动效统一交给 src/scripts/motion.ts：CSS 过渡是降级方案，GSAP 是主路径。
+      // 换页过渡还在跑的时候先等一等：GSAP 会把元素压到 opacity: 0，
+      // 而浏览器恰好在此时截新页面快照，截到的就是一张空页。
+      const pendingTransition = (
+        window as Window & { hydwindViewTransition?: ViewTransition }
+      ).hydwindViewTransition;
+
+      const motionGate = pendingTransition
+        ? pendingTransition.finished.catch(() => undefined)
+        : Promise.resolve();
+
+      void motionGate.then(() => initMotion());
       // 站内跳转的进度条与按下反馈（预取在 astro.config.mjs 里配）
       initNavigation();
     </script>

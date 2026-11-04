@@ -21,7 +21,7 @@ const description =
     </header>
 
     <div class="account-layout">
-      <div class="account-main enter">
+      <div class="account-main enter" style="--enter-delay: 60ms">
         <div class="account-panel panel">
           <div class="account-view" data-view="guest">
             <div class="account-intro">
@@ -77,7 +77,7 @@ const description =
               </label>
               <p class="field-note" data-caps-lock hidden>大写锁定开着，密码会不一样。</p>
 
-              <button class="filled-button account-submit" type="submit" data-submit>
+              <button class="filled-button account-submit" type="submit" data-submit data-magnetic>
                 登录
               </button>
               <p class="form-status" data-status role="status" aria-live="polite"></p>
@@ -121,7 +121,7 @@ const description =
         </div>
       </div>
 
-      <aside class="account-aside enter" style="--enter-delay: 120ms">
+      <aside class="account-aside enter" style="--enter-delay: 160ms">
         <p class="hw-label">账号说明</p>
         <dl class="account-notes">
           <div>
@@ -203,6 +203,12 @@ const description =
   .field-control > :global(svg) {
     flex: none;
     color: var(--md-sys-color-on-surface-variant);
+    transition: color var(--md-sys-motion-duration-short4) var(--md-sys-motion-easing-standard);
+  }
+
+  /* 焦点进来时图标跟着变成主色，是「输入框活了」最省事的一笔 */
+  .field-control:focus-within > :global(svg) {
+    color: var(--md-sys-color-primary);
   }
 
   .field-control input {
@@ -258,6 +264,47 @@ const description =
   .field-note {
     font-size: var(--md-sys-typescale-label-small-size);
     color: var(--md-sys-color-on-surface-variant);
+  }
+
+  /* 校验没过时轻轻抖一下：比只改个边框颜色更容易被看见，也很短 */
+  @keyframes hw-field-shake {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    25% {
+      transform: translateX(calc(var(--hw-space-1) * -1));
+    }
+
+    75% {
+      transform: translateX(var(--hw-space-1));
+    }
+  }
+
+  .field[data-shake='true'] {
+    animation: hw-field-shake var(--md-sys-motion-duration-medium1)
+      var(--md-sys-motion-easing-standard);
+  }
+
+  /* 提示文字是后填进去的，淡一下才不显得凭空弹出 */
+  @keyframes hw-status-in {
+    from {
+      opacity: 0;
+      transform: translateY(calc(var(--hw-space-1) * -1));
+    }
+  }
+
+  .form-status:not(:empty) {
+    animation: hw-status-in var(--md-sys-motion-duration-short4)
+      var(--md-sys-motion-easing-emphasized-decelerate);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .field[data-shake='true'],
+    .form-status:not(:empty) {
+      animation: none;
+    }
   }
 
   .account-submit {
@@ -397,8 +444,20 @@ const description =
 
   const markInvalid = (field: HTMLElement | null, invalid: boolean) => {
     if (!field) return;
-    if (invalid) field.dataset.invalid = 'true';
-    else delete field.dataset.invalid;
+    // 状态挂在 .field 上：红框和抖动都靠这个祖先选择器，挂到 .field-control 上 CSS 就找不到
+    const label = field.closest<HTMLElement>('.field') ?? field;
+    if (invalid) {
+      label.dataset.invalid = 'true';
+      // 重新挂一次属性，动画才会从头播（连着错两次也能再抖一下）
+      delete label.dataset.shake;
+      void label.offsetWidth;
+      label.dataset.shake = 'true';
+      window.setTimeout(() => {
+        delete label.dataset.shake;
+      }, 300);
+    } else {
+      delete label.dataset.invalid;
+    }
     const input = field.querySelector('input');
     if (invalid) input?.setAttribute('aria-invalid', 'true');
     else input?.removeAttribute('aria-invalid');

@@ -156,8 +156,26 @@ CSS 侧也要有对应的兜底（`.enter` 关动画、`data-reveal` 直接可�
 站内跳转是原生导航，不接客户端路由，三层各管一件事，不要重复实现：
 
 - **预取**：`astro.config.mjs` 的 `prefetch`（`prefetchAll` + `viewport` 策略）。手机没有 hover 也能提前抓到 HTML；不要再手写 `<link rel="prefetch">` 或自己的 fetch 预取。
-- **过渡**：`base.css` 的 `@view-transition { navigation: auto }`。`main` 单独一份快照（`view-transition-name: hw-page`）负责「抬起 + 淡入」，root 快照只做整体淡出淡入；不支持的浏览器就是普通跳转。
+- **过渡**：`base.css` 的 `@view-transition { navigation: auto }`。`main` 单独一份快照（`view-transition-name: hw-page`）负责「抬起 + 淡入」，root 快照**完全不参与动画**；不支持的浏览器就是普通跳转。
+  - root 不许做淡出淡入：它带着整页底色，淡到一半、新快照还没开始时底下是空的，会直接露出浏览器白底（深色模式下整页透明闪一下）。页头页脚跨页几乎没变化，直接换掉看不出接缝。
+  - 时间轴是**两段式**：旧内容先淡出（`--hw-vt-out-duration`），新内容晚 `--hw-vt-in-delay` 再入场，中间看到的是 root 快照的底色。别改回同时淡入淡出——两段重叠时旧文字会以半透明状态压在新文字上，看起来像「旧文字慢一步才消失」的残影。但新内容也别拖太久：空内容区一旦超过一眨眼，就又像闪了。
+  - **跨文档过渡期间进场动画要让位**：浏览器在新页面首次渲染时就截快照，`.enter` 这时还在 `opacity: 0`，截到的就是空页。所以 `BaseLayout` 在 `pagereveal` 里给 `html` 挂 `data-vt="cross"`（关掉 `.enter`），把过渡对象挂在 `window.hydwindViewTransition` 上；`initMotion()` 等 `finished` 之后再跑。新页面的入场交给过渡本身。
 - **点击反馈**：`src/scripts/navigation.ts` 在点击瞬间点亮顶部进度条、给导航项按下态。它不接管路由，浏览器前进后退、右键新开标签都不受影响。
+
+## 8.5 人物传记区块
+
+人物页底部的「玩家写的传记」是全站唯一有写作入口的地方，三态都要成立：
+
+| 访客状态 | 入口 | 说明 |
+| --- | --- | --- |
+| 未登录 | `登录后写一篇`（`outlined-button`，链接 `/account/`） | 这一版直接写进 HTML，不等脚本判断登录态 |
+| 已登录、能改 | `写一篇传记` / `编辑这篇传记`（`filled-button`） | 由 `/api/…/biography` 的 `canEdit` 决定 |
+| 已登录、改不了别人的 | 不给按钮 | `data-bio-note` 说明只有作者本人和站务能改 |
+
+- 正文在构建期就渲染进 HTML（`src/lib/biography-text.ts` 的 `renderBiographyHtml`，浏览器端同一份逻辑），
+  接口回来只在内容变了时才重画，避免先闪一下空态。
+- 引用他人：候选按钮插入 `@游戏ID`；正文里认得的 `@` 会实时列成可移除的标签，上限 12 位。
+- 一个字都不许隐藏得像彩蛋：入口始终在区块标题右侧，未登录也不藏起来。
 
 ## 9. 改完必须验证
 
