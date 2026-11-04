@@ -90,6 +90,12 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
   const account = await verifyLogin(username, password);
   if (!account) return json({ error: '账号或密码不对' }, 401);
 
-  createSessionCookie(cookies, account.username, account.role);
+  // 协议以真实请求为准；反代后面优先看 X-Forwarded-Proto，避免 https 站点下发非 Secure cookie
+  const forwardedProto = (request.headers.get('x-forwarded-proto') ?? '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase();
+  const protocol = forwardedProto || new URL(request.url).protocol.replace(':', '');
+  createSessionCookie(cookies, account.username, account.role, protocol === 'https');
   return json({ account: publicAccount(account) });
 };

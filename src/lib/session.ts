@@ -54,7 +54,13 @@ const decode = (token: string): SessionPayload | null => {
   }
 };
 
-export const createSessionCookie = (cookies: AstroCookies, username: string, role: AccountRole): void => {
+export const createSessionCookie = (
+  cookies: AstroCookies,
+  username: string,
+  role: AccountRole,
+  /** 由请求的真实协议决定；拿不到时按非开发环境处理，宁可 Secure */
+  secure = process.env.NODE_ENV !== 'development'
+): void => {
   const payload: SessionPayload = {
     username,
     role,
@@ -65,8 +71,7 @@ export const createSessionCookie = (cookies: AstroCookies, username: string, rol
     httpOnly: true,
     sameSite: 'lax',
     maxAge: SESSION_TTL_SECONDS,
-    // 站点前面有 NAT / 反代，这里交给 https 判断即可；本地 http 调试仍能用
-    secure: process.env.NODE_ENV === 'production',
+    secure,
   });
 };
 
@@ -87,5 +92,11 @@ export const readSessionFromRequest = (request: Request): SessionPayload | null 
     .map((part) => part.trim())
     .find((part) => part.startsWith(`${SESSION_COOKIE}=`));
   if (!match) return null;
-  return decode(decodeURIComponent(match.slice(SESSION_COOKIE.length + 1)));
+
+  try {
+    return decode(decodeURIComponent(match.slice(SESSION_COOKIE.length + 1)));
+  } catch {
+    // 畸形 cookie 不该把接口打成 500，当作未登录
+    return null;
+  }
 };

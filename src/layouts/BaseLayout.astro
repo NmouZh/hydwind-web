@@ -12,12 +12,15 @@ interface Props {
   title: string;
   description?: string;
   current?: NavKey;
+  /** 错误页等不该被索引的页面 */
+  noindex?: boolean;
 }
 
 const {
   title,
   description = '氢风（Hydwind）是 Minecraft Java 生存服务器。',
   current = 'home',
+  noindex = false,
 } = Astro.props;
 
 const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.lovie.me').href;
@@ -30,6 +33,7 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="theme-color" content="#f8f9ff" data-theme-color />
@@ -53,29 +57,90 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
         }
       })();
 
-      // 跨文档换页过渡马上要开始时告诉页面两件事：
-      // 1. `data-vt="cross"` —— 关掉 .enter 进场动画，别让新快照截到 opacity: 0 的空页
-      // 2. 把过渡对象挂到 window —— 动效层等它跑完再接管，否则 GSAP 的 opacity: 0 也一样会被截进快照
-      // 3. `data-vt-flat` —— 换页期间摘掉页头/底栏的毛玻璃，快照才画得出来（详见 base.css）
-      // 必须写在 head 里：pagereveal 在文档解析完、首次渲染前就触发了。
-      window.addEventListener('pagereveal', (event) => {
-        if (!event.viewTransition) return;
-        document.documentElement.dataset.vt = 'cross';
-        document.documentElement.dataset.vtFlat = '';
-        window.hydwindViewTransition = event.viewTransition;
+      /*
+       * 跨文档换页：
+       * - 常驻 chrome 留在 root 快照里，root 本身不做动画，页头/底栏不会闪、不会消失；
+       * - 只有 main 和当前项胶囊各自过渡；
+       * - 这里把「过渡何时结束」变成 promise，动效层等它跑完再接管，
+       *   否则 GSAP 的 opacity: 0 会被截进新页面快照。
+       */
+      window.__hwViewTransition = new Promise((resolve) => {
+        let settled = false;
+
+        const finish = (transition) => {
+          if (settled) return;
+          settled = true;
+          resolve(transition ?? null);
+        };
+
+        window.addEventListener(
+          'pagereveal',
+          (event) => {
+            if (!event.viewTransition) return finish(null);
+
+            const root = document.documentElement;
+            root.dataset.vt = 'cross';
+            window.hydwindViewTransition = event.viewTransition;
+
+            event.viewTransition.finished
+              .then(() => {
+                root.dataset.vt = 'settled';
+              })
+              .catch(() => {
+                root.dataset.vt = 'settled';
+              })
+              .finally(() => finish(event.viewTransition));
+          },
+          { once: true }
+        );
+
+        // 直接打开、bfcache 恢复、浏览器不支持过渡：load 后放行动效层
+        window.addEventListener(
+          'load',
+          () => {
+            setTimeout(() => finish(null), 0);
+          },
+          { once: true }
+        );
+
+        // 兜底：任何异常情况下都不让动效层永远等下去
+        setTimeout(() => finish(null), 2000);
       });
+
+      // 动效层整体没跑起来（脚本被阻断 / bundle 失败）时，
+      // 别把 [data-reveal] 永久留在 opacity: 0。没有 JS 的情况由下面的 noscript 兜底。
+      window.addEventListener(
+        'load',
+        () => {
+          setTimeout(() => {
+            if (document.documentElement.classList.contains('hw-motion')) return;
+            document
+              .querySelectorAll('[data-reveal]')
+              .forEach((element) => element.classList.add('is-revealed'));
+          }, 2500);
+        },
+        { once: true }
+      );
     </script>
+    <noscript>
+      <style>
+        [data-reveal] {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+      </style>
+    </noscript>
   </head>
   <body data-page={current}>
     <a class="skip-link" href="#main">跳到主要内容</a>
     <div class="scroll-progress" data-scroll-progress aria-hidden="true"></div>
     <div class="nav-progress" data-nav-progress aria-hidden="true"></div>
     <TopAppBar current={current} />
+    <BottomNav current={current} />
     <main id="main">
       <slot />
     </main>
     <SiteFooter />
-    <BottomNav current={current} />
 
     <div
       class="snackbar"
@@ -108,12 +173,19 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
       };
 
       const setTheme = (theme: 'light' | 'dark') => {
+        // 主题切换只该发生一帧：停掉颜色过渡，避免「浅色底 + 深色页头」的混合帧
+        root.dataset.themeSwitching = '';
         syncTheme(theme);
         try {
           localStorage.setItem('hydwind-theme', theme);
         } catch {
           /* storage can be unavailable in private modes */
         }
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            delete root.dataset.themeSwitching;
+          });
+        });
       };
 
       syncTheme(root.dataset.theme === 'dark' ? 'dark' : 'light');
@@ -180,19 +252,13 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'https://hydwind.
       // 动效统一交给 src/scripts/motion.ts：CSS 过渡是降级方案，GSAP 是主路径。
       // 换页过渡还在跑的时候先等一等：GSAP 会把元素压到 opacity: 0，
       // 而浏览器恰好在此时截新页面快照，截到的就是一张空页。
-      const pendingTransition = (
-        window as Window & { hydwindViewTransition?: ViewTransition }
-      ).hydwindViewTransition;
+      type VTWindow = Window & { __hwViewTransition?: Promise<unknown> };
+      const motionGate = (window as VTWindow).__hwViewTransition ?? Promise.resolve();
 
-      const motionGate = pendingTransition
-        ? pendingTransition.finished.catch(() => undefined)
-        : Promise.resolve();
-
-      // 过渡结束后把毛玻璃还回去：`data-vt` 要留着（它负责压住 .enter，摘掉会让进场动画再跑一遍）
       void motionGate.then(() => {
-        delete root.dataset.vtFlat;
         initMotion();
       });
+
       // 站内跳转的进度条与按下反馈（预取在 astro.config.mjs 里配）
       initNavigation();
     </script>

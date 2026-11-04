@@ -1,0 +1,102 @@
+/* ==========================================================================
+   403 / 404：错误页共用排版
+   一个巨大的状态码当视觉锚点，右侧一句人话 + 两个出口，下面一行常用入口。
+   ========================================================================== */
+
+.error-page {
+  display: grid;
+  align-content: center;
+  gap: clamp(28px, 5vw, 56px);
+  min-height: calc(100dvh - var(--hw-bar-height));
+}
+
+.error-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.75fr) minmax(0, 1.25fr);
+  align-items: center;
+  gap: clamp(24px, 5vw, 72px);
+}
+
+.error-numeral {
+  color: color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+  font-size: clamp(6rem, 18vw, 13rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 0.82;
+  letter-spacing: -0.08em;
+  user-select: none;
+}
+
+.error-copy {
+  display: grid;
+  gap: var(--hw-space-3);
+  max-width: 44ch;
+}
+
+.error-title {
+  font-size: clamp(1.9rem, 4vw, 3rem);
+  font-weight: 700;
+  line-height: 1.12;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.error-text {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-body-large-size);
+  line-height: var(--hw-leading-body);
+}
+
+.error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hw-space-3);
+  margin-top: var(--hw-space-2);
+}
+
+.error-help {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hw-space-2) var(--hw-space-5);
+  padding-top: var(--hw-space-5);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-large-size);
+}
+
+.error-help .hw-label {
+  font-size: var(--md-sys-typescale-label-medium-size);
+}
+
+.error-help a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  color: var(--md-sys-color-primary);
+  font-weight: 600;
+  transition: gap var(--md-sys-motion-duration-short4)
+    var(--md-sys-motion-easing-standard);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .error-help a:hover {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 839px) {
+  .error-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--hw-space-4);
+  }
+
+  .error-numeral {
+    font-size: clamp(5rem, 28vw, 8rem);
+  }
+
+  .error-page {
+    align-content: start;
+  }
+}

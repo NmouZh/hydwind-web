@@ -633,14 +633,12 @@ html.hw-motion [data-reveal] {
 }
 
 /*
- * root 快照（页头、页脚、整页底色）**不做**淡出淡入。
+ * 常驻 chrome（页头、页脚、底栏）留在 root 快照里，root 完全不参与动画。
  *
- * 它身上带着整页的背景色，一淡就等于把页面底色也淡掉了：旧快照淡到一半、
- * 新快照还没开始的那一瞬间，底下什么都没有，直接露出浏览器白底——
- * 深色模式下就是整页透明一下。页头页脚跨页几乎没变化（只有当前导航胶囊在变），
- * 直接换成新快照看不出接缝，没必要为它冒险。
- *
- * 记住：所有淡入淡出都发生在 root 之上，永远有一层实心底色垫着。
+ * 之前把页头和底栏拆成独立快照、再用 1ms 动画「定住」，同时靠 data-vt-flat
+ * 在换页瞬间摘掉 backdrop-filter。这条链路依赖 pagereveal 的时序，实测会偶发
+ * 残留属性，毛玻璃整页失效；backdrop-filter 本身也容易被快照画成空白。
+ * 现在页头/底栏改成实心表面，直接并进 root：不闪、不消失、没有时序赌注。
  */
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -648,61 +646,26 @@ html.hw-motion [data-reveal] {
 }
 
 /*
- * 页头、底栏单独一份快照，不跟着 root 换。
- *
- * 它们是跨页不变的常驻 chrome：只要原地不动、不做任何动画，
- * 换页时就永远不会「闪一下 / 消失一拍」。
- * 一定要给名字——不给名字就会被并进 root 快照，跟着 root 的换帧节奏走。
+ * 当前项胶囊是唯一跨页移动的东西。
+ * 旧胶囊直接隐藏、新胶囊直接显示，由 group 负责位置和大小的补间——
+ * 既不会淡出闪一下，也不会把整条导航拖进快照。
  */
-.top-app-bar {
-  view-transition-name: hw-header;
+::view-transition-old(nav-top-active),
+::view-transition-old(nav-bottom-active) {
+  animation: none;
+  opacity: 0;
 }
 
-@media (max-width: 839px) {
-  .bottom-nav {
-    view-transition-name: hw-bottom-nav;
-  }
+::view-transition-new(nav-top-active),
+::view-transition-new(nav-bottom-active) {
+  animation: none;
+  opacity: 1;
 }
 
-@keyframes hw-vt-hold {
-  from {
-    opacity: 1;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes hw-vt-hide {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 0;
-  }
-}
-
-/* backdrop-filter 的元素被抓进换页快照时会被画成空白（页头整条消失）。
- * 换页期间（点击瞬间 -> 新页面首帧）先关掉这层毛玻璃：底色本来就是 86% 不透明的表面色，
- * 关掉之后观感几乎不变，但快照里有东西了。 */
-html[data-navigating] .top-app-bar,
-html[data-vt-flat] .top-app-bar,
-html[data-navigating] .bottom-nav,
-html[data-vt-flat] .bottom-nav {
-  backdrop-filter: none;
-}
-
-/* 用 1ms 的填充动画把旧快照定住：纯 animation: none 时浏览器不会画出这一层 */
-::view-transition-old(hw-header),
-::view-transition-old(hw-bottom-nav) {
-  animation: hw-vt-hold 1ms both;
-}
-
-::view-transition-new(hw-header),
-::view-transition-new(hw-bottom-nav) {
-  animation: hw-vt-hide 1ms both;
+::view-transition-group(nav-top-active),
+::view-transition-group(nav-bottom-active) {
+  animation-duration: var(--md-sys-motion-duration-medium2);
+  animation-timing-function: var(--md-sys-motion-easing-emphasized);
 }
 
 /*
@@ -729,27 +692,35 @@ main {
 /*
  * 跨文档换页时，`.enter` 的进场动画让位给过渡。
  *
- * 两个原因：新页面是在过渡遮罩后面渲染的，动画播了也没人看见；
- * 更糟的是浏览器在新页面首次渲染时就截快照，这时候 `.enter` 还在 opacity: 0，
- * 截到的是一张空页——等过渡结束内容才「啪」地出现，看起来就是「换页没动画，还闪一下」。
- * 属性由 BaseLayout 的 pagereveal 监听挂上（见 src/layouts/BaseLayout.astro）。
+ * 浏览器在新页面首次渲染时就截快照，这时 `.enter` 还在 opacity: 0，截到的就是空页。
+ * `cross` 是过渡进行中，`settled` 是过渡结束后——两种状态都保持 `animation: none`，
+ * 否则过渡结束后把属性一删，进场动画会从头再播一遍，变成二次入场。
+ * 属性由 BaseLayout 的 pagereveal 监听挂上并收尾（见 src/layouts/BaseLayout.astro）。
  */
-html[data-vt='cross'] .enter {
+html[data-vt='cross'] .enter,
+html[data-vt='settled'] .enter {
   animation: none;
 }
 
 @keyframes hw-page-out {
   to {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-6px);
   }
 }
 
 @keyframes hw-page-in {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    transform: translateY(10px);
   }
+}
+
+/* 主题切换：先停掉颜色过渡，避免「浅色底 + 深色页头」的半主题混合帧 */
+html[data-theme-switching] *,
+html[data-theme-switching] *::before,
+html[data-theme-switching] *::after {
+  transition-duration: 0s !important;
 }
 
 /* 点击站内链接时立刻点亮的顶部进度条：预取 + 原生跳转期间给个「在路上」的信号 */
@@ -786,7 +757,9 @@ html[data-vt='cross'] .enter {
   }
 
   ::view-transition-old(hw-page),
-  ::view-transition-new(hw-page) {
+  ::view-transition-new(hw-page),
+  ::view-transition-group(nav-top-active),
+  ::view-transition-group(nav-bottom-active) {
     animation: none;
   }
 }
@@ -849,6 +822,10 @@ html[data-vt='cross'] .enter {
 @media (max-width: 839px) {
   .snackbar {
     bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
+  .snackbar-action {
+    min-height: 44px;
   }
 }
 

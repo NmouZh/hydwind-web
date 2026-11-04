@@ -53,30 +53,29 @@ const isJoinGuide = guide.id === JOIN_GUIDE_ID;
     </header>
 
     <div class="guide-layout">
-      <div class="guide-main">
-        <section class="guide-section" aria-labelledby="steps-title">
-          <div class="guide-section-head">
-            <div>
-              <p class="hw-eyebrow">Route</p>
-              <h2 id="steps-title">按顺序完成</h2>
-            </div>
-            <span class="guide-section-count">{guide.data.steps.length} 步</span>
+      <section class="guide-section guide-route-section" aria-labelledby="steps-title">
+        <div class="guide-section-head">
+          <div>
+            <p class="hw-eyebrow">Route</p>
+            <h2 id="steps-title">按顺序完成</h2>
           </div>
-          <GuideSteps steps={guide.data.steps} variant="route" />
-        </section>
+          <span class="guide-section-count">{guide.data.steps.length} 步</span>
+        </div>
 
-        <section class="guide-section guide-notes" aria-labelledby="notes-title" data-reveal>
-          <div class="guide-section-head">
-            <div>
-              <p class="hw-eyebrow">Notes</p>
-              <h2 id="notes-title">补充说明</h2>
-            </div>
-          </div>
-          <article class="prose">
-            <Content />
-          </article>
-        </section>
-      </div>
+        {
+          isJoinGuide && (
+            <p class="guide-warning">
+              <Icon name="info" size={18} class="icon" />
+              <span>
+                <strong>测试期提示：</strong>
+                {site.testingNotice}。
+              </span>
+            </p>
+          )
+        }
+
+        <GuideSteps steps={guide.data.steps} variant="route" />
+      </section>
 
       <aside class="guide-aside" aria-label="本页信息">
         {isJoinGuide && <ServerInfo site={site} />}
@@ -98,6 +97,18 @@ const isJoinGuide = guide.id === JOIN_GUIDE_ID;
           返回指南
         </a>
       </aside>
+
+      <section class="guide-section guide-notes" aria-labelledby="notes-title" data-reveal>
+        <div class="guide-section-head">
+          <div>
+            <p class="hw-eyebrow">Notes</p>
+            <h2 id="notes-title">补充说明</h2>
+          </div>
+        </div>
+        <article class="prose">
+          <Content />
+        </article>
+      </section>
     </div>
   </div>
 </BaseLayout>

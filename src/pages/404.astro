@@ -1,0 +1,21 @@
+---
+// 静态错误页：Node 适配器会把它作为未匹配路由的兜底
+export const prerender = true;
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ErrorPage from '../components/ErrorPage.astro';
+import '../styles/error.css';
+---
+
+<BaseLayout
+  title="页面不存在 · 氢风 Hydwind"
+  description="这个地址没有对应的页面。回首页，或者看看进服指南。"
+  current="home"
+  noindex
+>
+  <ErrorPage
+    code="404"
+    eyebrow="Not Found"
+    title="这条路没通向服务器。"
+    description="地址可能写错了，或者这个页面已经搬走。回首页看看，或者先去读一遍进服指南。"
+  />
+</BaseLayout>

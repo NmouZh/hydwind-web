@@ -52,6 +52,15 @@ PORT=4321
 }
 ```
 
+### `GET /api/avatar/:name`
+
+在线玩家头像代理。`name` 是游戏 ID，只允许字母、数字、下划线，1–16 位。
+
+- 先查 Mojang 官方 profile：是正版账号就用它的 UUID 取本人皮肤头像；
+- 不是正版 / 查不到 / 上游失败 → 302 到本地默认头像（从官方 `MHF_Steve`、`MHF_Alex` 皮肤裁出），
+  按名字稳定选一个，刷新不会来回换；
+- 成功头像缓存 24 小时，未命中缓存 1 小时；浏览器只请求同源地址，不直连第三方头像站。
+
 ### `GET /api/issues`
 
 公开议题列表（不含 `pending`）。带 `?includePending=1` 且带站务令牌时返回全部。
@@ -177,5 +186,9 @@ PORT=4321
 
 - 议题与账号数据都存在本地 JSON 文件里，**只适合单实例、带持久磁盘的部署**（VPS / 自建容器）。EdgeOne 这类纯静态托管的 Pages 不能跑这层接口，需要改成边缘函数 + 数据库/对象存储。
 - 站点前面是 NAT 转发，没有独立公网 IP：服务只监听 `0.0.0.0:4321`，由路由器把公网端口映射进来。
-- 会话是无状态签名 cookie，重启服务不会踢人；`SESSION_SECRET` 一换所有人都会掉线。
+- **反向代理必须透传真实 Host 和 `X-Forwarded-Proto`。** `astro.config.mjs` 的 `security.allowedDomains` 只认可
+  `hydwind.lovie.me`、`localhost`、`127.0.0.1`：Host 不在名单里时 Astro 会把 `request.url` 回落成 localhost，
+  登录的同源校验会直接 403，`X-Forwarded-For` 也不会被信任（限流会按代理 IP 分桶）。换域名时记得同步这份名单。
+- 所有写接口的请求体在适配器层统一限制为 1MB（`bodySizeLimit`）；登录接口另有 1KB 的更严限制。
+- 会话是无状态签名 cookie，`Secure` 由请求协议 / `X-Forwarded-Proto` 决定，重启服务不会踢人；`SESSION_SECRET` 一换所有人都会掉线。
 - 想无状态部署时，把 `src/lib/issues.ts` 和 `src/lib/accounts.ts` 换成 MySQL / D1 / KV 实现即可，接口层不用动。

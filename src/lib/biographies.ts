@@ -161,8 +161,7 @@ export const saveBiography = (input: PreparedBiography): Promise<Biography> =>
         ...previous,
         body: input.body,
         refs: input.refs,
-        author: input.author,
-        authorUsername: input.authorUsername,
+        // 作者归属只在创建时确定：管理员编辑不能把别人的传记“过户”给自己
         updatedAt: now,
       };
       data.biographies[index] = next;

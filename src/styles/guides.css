@@ -104,11 +104,7 @@
 
 .guide-feature-text {
   max-width: 40ch;
-  color: color-mix(
-    in srgb,
-    var(--md-sys-color-on-primary-container) 78%,
-    transparent
-  );
+  color: var(--md-sys-color-on-primary-container);
   font-size: var(--md-sys-typescale-body-medium-size);
   line-height: 1.75;
 }
@@ -231,7 +227,9 @@
 .guide-fact-copy {
   display: inline-flex;
   align-items: center;
+  justify-self: start;
   gap: 6px;
+  width: fit-content;
   min-height: 44px;
   margin-left: -8px;
   padding: 0 8px;
@@ -245,24 +243,57 @@
 .guide-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 17.5rem);
+  grid-template-areas:
+    "route aside"
+    "notes aside";
   align-items: start;
-  gap: clamp(32px, 5vw, 72px);
+  column-gap: clamp(32px, 5vw, 72px);
   margin-top: clamp(28px, 4vw, 48px);
 }
 
-.guide-main {
+.guide-route-section {
+  grid-area: route;
   min-width: 0;
 }
 
+.guide-notes {
+  grid-area: notes;
+  min-width: 0;
+  margin-top: clamp(36px, 5vw, 64px);
+}
+
 .guide-aside {
+  grid-area: aside;
   position: sticky;
   top: calc(var(--hw-bar-height) + 24px);
   display: grid;
   gap: var(--hw-space-4);
 }
 
-.guide-section + .guide-section {
-  margin-top: clamp(36px, 5vw, 64px);
+/* 测试期提示：放在路线最前面，比塞进服务器卡里更该被看见 */
+.guide-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hw-space-3);
+  margin-bottom: var(--hw-space-4);
+  padding: 14px var(--hw-space-4);
+  border: 1px solid
+    color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent);
+  border-radius: var(--md-sys-shape-corner-medium);
+  background: var(--md-sys-color-surface-container-low);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-body-medium-size);
+  line-height: 1.7;
+}
+
+.guide-warning > .icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--md-sys-color-primary);
+}
+
+.guide-warning strong {
+  color: var(--md-sys-color-on-surface);
 }
 
 .guide-section-head {
@@ -388,6 +419,7 @@
 
 .guide-back {
   justify-self: start;
+  min-height: 44px;
 }
 
 /* 正文区：步骤已经讲过的，正文只补充，不再复述 */
@@ -562,12 +594,19 @@
 
   .guide-layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--hw-space-5);
+    grid-template-areas:
+      "route"
+      "aside"
+      "notes";
+    row-gap: var(--hw-space-5);
   }
 
   .guide-aside {
     position: static;
-    order: -1;
+  }
+
+  .guide-notes {
+    margin-top: 0;
   }
 
   .step-nav {

@@ -3,7 +3,6 @@
 export const prerender = true;
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
-import ServerInfo from '../components/ServerInfo.astro';
 import PersonCard from '../components/PersonCard.astro';
 import GuideSteps from '../components/GuideSteps.astro';
 import { formatDate } from '../lib/format';
@@ -18,6 +17,11 @@ const site = await getSite();
 const people = await getPublishedPeople();
 const joinGuide = await getJoinGuide();
 const join = joinGuide.data;
+
+// 已在人物页有本地头像的玩家直接用本地图；其余在线玩家走 /api/avatar 代理
+const avatarByGameId = Object.fromEntries(
+  people.map((person) => [person.data.gameId.toLowerCase(), person.data.avatar])
+);
 
 // 三张卡都只复述站点信息里已有的确认事实，不额外造设定
 const facts = [
@@ -181,9 +185,38 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     </div>
   </section>
 
-  <div class="hw-shell server-info-wrap">
-    <ServerInfo site={site} />
-  </div>
+  <section class="hw-shell section online-section" aria-labelledby="online-title">
+    <header class="section-heading" data-reveal>
+      <div>
+        <p class="hw-eyebrow">Online</p>
+        <h2 id="online-title">现在在线</h2>
+        <p class="online-sub">服务器上正在玩的人。状态和名单每 60 秒自动刷新。</p>
+      </div>
+      <div class="online-tools">
+        <span class="assist-chip online-count" data-online-count>-- / --</span>
+        <button
+          class="icon-button online-refresh"
+          type="button"
+          data-online-refresh
+          aria-label="刷新在线玩家"
+          disabled
+        >
+          <Icon name="refresh" size={18} />
+        </button>
+      </div>
+    </header>
+
+    <div
+      class="online-body"
+      data-online-body
+      data-avatars={JSON.stringify(avatarByGameId)}
+      aria-live="polite"
+      aria-busy="true"
+    >
+      <p class="online-message" data-online-message>正在查询在线玩家…</p>
+      <div class="online-grid" data-online-grid hidden></div>
+    </div>
+  </section>
 
   {
     people.length > 0 && (
@@ -270,6 +303,11 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
 <script>
   type ServerState = 'checking' | 'online' | 'offline' | 'error';
 
+  interface StatusPayload {
+    online?: boolean;
+    players?: { online?: number; max?: number; names?: string[] };
+  }
+
   const labels: Record<ServerState, string> = {
     checking: '正在查询服务器状态',
     online: '在线',
@@ -280,6 +318,23 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
   const status = document.querySelector<HTMLElement>('[data-server-status]');
   const statusText = status?.querySelector<HTMLElement>('[data-server-status-text]');
   const refresh = document.querySelector<HTMLButtonElement>('[data-server-refresh]');
+  const onlineBody = document.querySelector<HTMLElement>('[data-online-body]');
+  const onlineMessage = document.querySelector<HTMLElement>('[data-online-message]');
+  const onlineGrid = document.querySelector<HTMLElement>('[data-online-grid]');
+  const onlineCount = document.querySelector<HTMLElement>('[data-online-count]');
+  const onlineRefresh = document.querySelector<HTMLButtonElement>('[data-online-refresh]');
+
+  const avatarByGameId: Record<string, string> = (() => {
+    try {
+      return JSON.parse(onlineBody?.dataset.avatars ?? '{}') as Record<string, string>;
+    } catch {
+      return {};
+    }
+  })();
+
+  const avatarSrc = (name: string): string =>
+    avatarByGameId[name.toLowerCase()] ?? `/api/avatar/${encodeURIComponent(name)}`;
+
   const host = status?.dataset.host;
   const port = status?.dataset.port;
   let running = false;
@@ -290,9 +345,64 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     status.setAttribute('aria-busy', state === 'checking' ? 'true' : 'false');
     if (statusText) statusText.textContent = labels[state];
     refresh?.toggleAttribute('disabled', state === 'checking');
+    onlineRefresh?.toggleAttribute('disabled', state === 'checking');
   };
 
-  const getJson = async (url: string): Promise<{ online?: unknown }> => {
+  const setCount = (count: string) => {
+    if (onlineCount) onlineCount.textContent = count;
+  };
+
+  const showMessage = (message: string) => {
+    onlineBody?.setAttribute('aria-busy', 'false');
+    if (onlineMessage) {
+      onlineMessage.textContent = message;
+      onlineMessage.hidden = false;
+    }
+    if (onlineGrid) {
+      onlineGrid.hidden = true;
+      onlineGrid.replaceChildren();
+    }
+  };
+
+  const showPlayers = (names: string[]) => {
+    if (!onlineGrid) return;
+    onlineBody?.setAttribute('aria-busy', 'false');
+    if (onlineMessage) onlineMessage.hidden = true;
+
+    const fragment = document.createDocumentFragment();
+    for (const name of names) {
+      const player = document.createElement('span');
+      player.className = 'online-player';
+
+      const avatar = document.createElement('img');
+      avatar.className = 'online-player-avatar';
+      avatar.src = avatarSrc(name);
+      avatar.alt = '';
+      avatar.width = 30;
+      avatar.height = 30;
+      avatar.loading = 'lazy';
+      avatar.decoding = 'async';
+      avatar.addEventListener(
+        'error',
+        () => {
+          avatar.src = '/images/avatars/default-steve.png';
+        },
+        { once: true }
+      );
+
+      const label = document.createElement('span');
+      label.className = 'online-player-name';
+      label.textContent = name;
+
+      player.append(avatar, label);
+      fragment.append(player);
+    }
+
+    onlineGrid.replaceChildren(fragment);
+    onlineGrid.hidden = false;
+  };
+
+  const getJson = async <T,>(url: string): Promise<T> => {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 8000);
     try {
@@ -302,44 +412,93 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
         headers: { Accept: 'application/json' },
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return (await response.json()) as { online?: unknown };
+      return (await response.json()) as T;
     } finally {
       window.clearTimeout(timer);
     }
   };
 
-  const check = async () => {
-    if (running) return;
-    if (!host || !port) {
-      render('error');
+  const applyStatus = (payload: StatusPayload) => {
+    const online = Boolean(payload.online);
+    render(online ? 'online' : 'offline');
+
+    if (!online) {
+      setCount('-- / --');
+      showMessage('服务器离线，恢复后这里会自动刷新。');
       return;
     }
 
-    running = true;
-    render('checking');
+    const current = payload.players?.online ?? 0;
+    const max = payload.players?.max ?? 0;
+    setCount(max > 0 ? `${current} / ${max}` : String(current));
+
+    const names = (payload.players?.names ?? []).filter(
+      (name): name is string => typeof name === 'string' && name.trim().length > 0
+    );
+    if (names.length > 0) showPlayers(names);
+    else showMessage('服务器在线，暂时没有公开的玩家名单。');
+  };
+
+  const externalOnline = async (): Promise<boolean | null> => {
+    if (!host || !port) return null;
 
     try {
-      let online: boolean | null = null;
-
-      try {
-        const primary = await getJson(
-          `https://api.mcsrvstat.us/3/${host}:${port}`
-        );
-        if (typeof primary.online === 'boolean') online = primary.online;
-      } catch {
-        /* 主数据源失败时回退到 mcstatus.io */
-      }
-
-      if (online === null) {
-        const fallback = await getJson(
-          `https://api.mcstatus.io/v2/status/java/${host}:${port}`
-        );
-        if (typeof fallback.online === 'boolean') online = fallback.online;
-      }
-
-      render(online === null ? 'error' : online ? 'online' : 'offline');
+      const primary = await getJson<{ online?: unknown }>(
+        `https://api.mcsrvstat.us/3/${host}:${port}`
+      );
+      if (typeof primary.online === 'boolean') return primary.online;
     } catch {
-      render('error');
+      /* 主数据源失败时回退到 mcstatus.io */
+    }
+
+    try {
+      const fallback = await getJson<{ online?: unknown }>(
+        `https://api.mcstatus.io/v2/status/java/${host}:${port}`
+      );
+      if (typeof fallback.online === 'boolean') return fallback.online;
+    } catch {
+      /* 两个都挂了就交给上层显示查询失败 */
+    }
+
+    return null;
+  };
+
+  const check = async () => {
+    if (running) return;
+    running = true;
+    render('checking');
+    showMessage('正在查询在线玩家…');
+    onlineBody?.setAttribute('aria-busy', 'true');
+
+    try {
+      // 优先走站内代理：一次拿到在线状态、人数、名单，也避免浏览器直连第三方被限流
+      try {
+        const response = await fetch('/api/status', {
+          cache: 'no-store',
+          headers: { Accept: 'application/json' },
+        });
+        if (response.ok) {
+          applyStatus((await response.json()) as StatusPayload);
+          return;
+        }
+      } catch {
+        /* 静态部署 / 接口不可用时回退到公开状态源 */
+      }
+
+      const online = await externalOnline();
+      if (online === null) {
+        render('error');
+        setCount('-- / --');
+        showMessage('暂时拿不到在线列表，过一会儿再试。');
+      } else if (!online) {
+        render('offline');
+        setCount('-- / --');
+        showMessage('服务器离线，恢复后这里会自动刷新。');
+      } else {
+        render('online');
+        setCount('--');
+        showMessage('服务器在线，但玩家名单暂时拿不到。');
+      }
     } finally {
       running = false;
     }
@@ -349,7 +508,16 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     void check();
   });
 
+  onlineRefresh?.addEventListener('click', () => {
+    void check();
+  });
+
   void check();
+
+  // 页面可见时每分钟刷新一次；后台标签页不占带宽
+  window.setInterval(() => {
+    if (document.visibilityState === 'visible') void check();
+  }, 60_000);
 </script>
 
 <style>
@@ -593,8 +761,85 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     line-height: 1.75;
   }
 
-  .server-info-wrap {
-    padding-block: clamp(36px, 5.5vw, 76px);
+  .online-section .section-heading {
+    margin-bottom: var(--hw-space-5);
+  }
+
+  .online-sub {
+    max-width: 46ch;
+    margin-top: 6px;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.7;
+  }
+
+  .online-tools {
+    display: flex;
+    align-items: center;
+    gap: var(--hw-space-2);
+  }
+
+  .online-count {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .online-refresh {
+    width: 44px;
+    height: 44px;
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  .online-body {
+    min-height: 76px;
+  }
+
+  .online-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 168px), 1fr));
+    gap: var(--hw-space-2);
+  }
+
+  /* 玩家卡片由浏览器创建，拿不到 Astro 的 scoped 属性，必须用全局选择器 */
+  :global(.online-player) {
+    display: flex;
+    align-items: center;
+    gap: var(--hw-space-3);
+    min-height: 52px;
+    padding: 8px 12px;
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-medium);
+    background: var(--md-sys-color-surface-container-lowest);
+  }
+
+  :global(.online-player-avatar) {
+    flex-shrink: 0;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--md-sys-shape-corner-small);
+    /* 代理查正版头像可能要几秒：先把官方默认头像垫在下面，加载完再覆盖 */
+    background: var(--md-sys-color-surface-container-high)
+      url('/images/avatars/default-steve.png') center / cover no-repeat;
+    image-rendering: pixelated;
+    object-fit: cover;
+  }
+
+  :global(.online-player-name) {
+    min-width: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+
+  .online-message {
+    padding-block: var(--hw-space-3);
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.7;
+  }
+
+  .online-refresh[disabled] {
+    opacity: 0.5;
   }
 
   .people-section {

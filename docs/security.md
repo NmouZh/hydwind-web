@@ -49,16 +49,19 @@ db.prepare(`select * from accounts where username = '${username}'`);
 
 `hydwind_session` 是 `base64url(payload).HMAC-SHA256` 的签名令牌，服务端无状态：
 
-- `HttpOnly` + `SameSite=Lax` + 生产环境 `Secure`，30 天过期；
+- `HttpOnly` + `SameSite=Lax` + `Secure`（由请求协议 / `X-Forwarded-Proto` 决定），30 天过期；
 - 签名密钥取 `SESSION_SECRET`，没有就退回 `ISSUE_ADMIN_TOKEN`，都缺时用开发密钥并告警；
-- 校验先比签名再解析 JSON，签名不对直接丢弃。
+- 校验先比签名再解析 JSON，签名不对直接丢弃；畸形 cookie 解析失败按未登录处理，不打 500。
 
 ## 5. 接口层的三道闸
 
-1. **同源**：带 `Origin` 的请求必须和本站同域，跨站 POST 直接 403（插件调用不带 Origin，放行）；
-2. **类型与体积**：只收 JSON，`content-length` 和实际长度都不能超过 1KB；
+1. **同源**：带 `Origin` 的请求必须和本站同域，跨站 POST 直接 403（插件调用不带 Origin，放行）。
+   反代必须透传真实 Host，并在 `astro.config.mjs` 的 `security.allowedDomains` 里登记域名；
+   否则 `request.url` 会回落成 localhost，所有浏览器登录都会被判成跨站。
+2. **类型与体积**：登录只收 JSON、上限 1KB；其余写接口由 Node 适配器的 `bodySizeLimit` 统一限制为 1MB；
 3. **限流**：`src/lib/rate-limit.ts` 的进程内滑动窗口，IP 10 次 / 10 分钟、账号 5 次 / 10 分钟，
    超出返回 429 并带 `retry-after`。重启即清空，多实例要换 Redis。
+   反代后面只有 Host 通过 `allowedDomains` 校验时才会信任 `X-Forwarded-For`，否则所有请求会挤进同一个 IP 桶。
 
 ## 6. 输出与前端
 

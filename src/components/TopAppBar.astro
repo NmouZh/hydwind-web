@@ -35,7 +35,8 @@ const links = NAV_ITEMS;
             data-nav-key={link.key}
             aria-current={current === link.key ? 'page' : undefined}
           >
-            {link.label}
+            <span class="nav-active-pill" aria-hidden="true"></span>
+            <span class="top-nav-label">{link.label}</span>
           </a>
         ))
       }
@@ -88,18 +89,19 @@ const links = NAV_ITEMS;
     top: 0;
     z-index: 60;
     border-bottom: 1px solid transparent;
-    background: color-mix(in srgb, var(--md-sys-color-surface) 86%, transparent);
-    backdrop-filter: blur(18px) saturate(1.4);
+    /* 实心表面：不用 backdrop-filter，换页快照里不会画成空白，滚动也更省 */
+    background: var(--md-sys-color-surface);
     transition:
       border-color var(--md-sys-motion-duration-short4)
         var(--md-sys-motion-easing-standard),
-      background-color var(--md-sys-motion-duration-short4)
+      box-shadow var(--md-sys-motion-duration-short4)
         var(--md-sys-motion-easing-standard);
   }
 
   .top-app-bar[data-scrolled] {
     border-bottom-color: var(--md-sys-color-outline-variant);
-    background: color-mix(in srgb, var(--md-sys-color-surface) 94%, transparent);
+    box-shadow: 0 10px 28px -28px
+      color-mix(in srgb, var(--md-sys-color-shadow) 55%, transparent);
   }
 
   .app-bar-inner {
@@ -168,31 +170,53 @@ const links = NAV_ITEMS;
   .top-nav {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 2px;
     margin-left: auto;
   }
 
   .top-nav a {
+    position: relative;
     display: inline-flex;
     align-items: center;
-    min-height: 38px;
+    min-height: 40px;
     padding: 0 14px;
     border-radius: var(--md-sys-shape-corner-full);
     color: var(--md-sys-color-on-surface-variant);
     font-size: var(--md-sys-typescale-label-large-size);
     font-weight: 600;
+    isolation: isolate;
+  }
+
+  .top-nav-label {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* 当前项胶囊：跨页时由 View Transition 作为共享元素滑动 */
+  .nav-active-pill {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    background: var(--md-sys-color-primary-container);
+    opacity: 0;
+    transform: scale(0.88);
     transition:
-      background-color var(--md-sys-motion-duration-short4)
+      opacity var(--md-sys-motion-duration-short4)
         var(--md-sys-motion-easing-standard),
-      color var(--md-sys-motion-duration-short4)
-        var(--md-sys-motion-easing-standard),
-      transform var(--md-sys-motion-duration-short3)
+      transform var(--md-sys-motion-duration-medium1)
         var(--md-sys-motion-easing-emphasized);
+    pointer-events: none;
   }
 
   .top-nav a[aria-current='page'] {
-    background: var(--md-sys-color-primary-container);
     color: var(--md-sys-color-on-primary-container);
+  }
+
+  .top-nav a[aria-current='page'] .nav-active-pill {
+    opacity: 1;
+    transform: none;
+    view-transition-name: nav-top-active;
   }
 
   .top-nav a[data-pressed] {
@@ -200,14 +224,9 @@ const links = NAV_ITEMS;
   }
 
   @media (hover: hover) and (pointer: fine) {
-    .top-nav a:hover {
+    .top-nav a:not([aria-current='page']):hover {
       background: var(--md-sys-color-surface-container);
       color: var(--md-sys-color-on-surface);
-    }
-
-    .top-nav a[aria-current='page']:hover {
-      background: var(--md-sys-color-primary-container);
-      color: var(--md-sys-color-on-primary-container);
     }
   }
 
@@ -218,8 +237,8 @@ const links = NAV_ITEMS;
   }
 
   .theme-toggle {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     color: var(--md-sys-color-on-surface-variant);
   }
 
@@ -236,7 +255,7 @@ const links = NAV_ITEMS;
   }
 
   .join-button {
-    min-height: 40px;
+    min-height: 44px;
     padding: 0 16px;
     font-size: var(--md-sys-typescale-label-medium-size);
   }
@@ -258,6 +277,13 @@ const links = NAV_ITEMS;
 
     .brand-sub {
       display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-active-pill,
+    .brand-mark {
+      transition: none;
     }
   }
 </style>

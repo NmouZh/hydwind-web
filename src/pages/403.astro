@@ -1,0 +1,22 @@
+---
+// 静态错误页：需要站务权限的入口可以重定向到这里
+export const prerender = true;
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ErrorPage from '../components/ErrorPage.astro';
+import '../styles/error.css';
+---
+
+<BaseLayout
+  title="没有权限 · 氢风 Hydwind"
+  description="当前账号没有权限访问这个页面。如果你觉得自己应该有权限，去官方 QQ 群找服主确认一下。"
+  current="home"
+  noindex
+>
+  <ErrorPage
+    code="403"
+    eyebrow="Forbidden"
+    title="这扇门只对站务开放。"
+    description="当前账号没有权限访问这个页面。如果你觉得自己应该有权限，去官方 QQ 群找服主确认一下。"
+    secondary={{ href: '/account/', label: '登录账号', icon: 'login' }}
+  />
+</BaseLayout>

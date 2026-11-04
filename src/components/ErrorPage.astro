@@ -1,0 +1,60 @@
+---
+import Icon from './Icon.astro';
+
+interface Action {
+  href: string;
+  label: string;
+  icon?: string;
+}
+
+interface Props {
+  code: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  /** 主操作，默认回首页 */
+  primary?: Action;
+  /** 次操作，默认看进服指南 */
+  secondary?: Action;
+}
+
+const {
+  code,
+  eyebrow,
+  title,
+  description,
+  primary = { href: '/', label: '回到首页', icon: 'home' },
+  secondary = { href: '/guides/', label: '看进服指南', icon: 'book' },
+} = Astro.props;
+---
+
+<div class="hw-shell page-shell error-page">
+  <div class="error-hero enter">
+    <div class="error-numeral" aria-hidden="true">{code}</div>
+
+    <div class="error-copy">
+      <p class="hw-eyebrow">{eyebrow}</p>
+      <h1 class="error-title">{title}</h1>
+      <p class="error-text">{description}</p>
+
+      <div class="error-actions">
+        <a class="filled-button" href={primary.href}>
+          {primary.icon && <Icon name={primary.icon} size={18} />}
+          {primary.label}
+        </a>
+        <a class="outlined-button" href={secondary.href}>
+          {secondary.icon && <Icon name={secondary.icon} size={18} />}
+          {secondary.label}
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="error-help" data-reveal>
+    <span class="hw-label">常用入口</span>
+    <a href="/guides/">指南 <Icon name="arrow_forward" size={16} /></a>
+    <a href="/issues/">议题 <Icon name="arrow_forward" size={16} /></a>
+    <a href="/people/">人物 <Icon name="arrow_forward" size={16} /></a>
+    <a href="/account/">账号 <Icon name="arrow_forward" size={16} /></a>
+  </div>
+</div>

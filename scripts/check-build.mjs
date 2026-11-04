@@ -89,6 +89,8 @@ const main = async () => {
     ['guides/index.html', '指南索引 /guides/'],
     [`guides/${JOIN_GUIDE_ID}/index.html`, `进服指南 /guides/${JOIN_GUIDE_ID}/`],
     ['account/index.html', '账号页 /account/'],
+    ['403/index.html', '无权限页 /403/'],
+    ['404.html', '页面不存在 /404/'],
   ];
 
   const pages = new Map();
@@ -100,6 +102,20 @@ const main = async () => {
   const home = pages.get('index.html');
   const joinGuide = pages.get(`guides/${JOIN_GUIDE_ID}/index.html`);
   const account = pages.get('account/index.html');
+  const forbiddenPage = pages.get('403/index.html');
+  const notFound = pages.get('404.html');
+
+  // —— 错误页：状态码、人话说明、可用出口，缺一个都算没做完 ——
+  if (forbiddenPage) {
+    expectText(forbiddenPage, '403', '无权限状态码');
+    expectText(forbiddenPage, '站务', '无权限说明');
+    expectText(forbiddenPage, '回到首页', '无权限页回首页出口');
+  }
+  if (notFound) {
+    expectText(notFound, '404', '404 状态码');
+    expectText(notFound, '进服指南', '404 页进服指南出口');
+    expectText(notFound, '回到首页', '404 页回首页出口');
+  }
 
   // —— 一级导航：进服已并入指南，账号是独立入口 ——
   if (home) {
@@ -280,6 +296,24 @@ const main = async () => {
     }
   } else {
     fail('缺少本地头像 dist/images/nz-173.png');
+  }
+
+  // 在线玩家没有正版头像时的兜底，必须是官方默认皮肤裁出的本地 PNG
+  for (const [file, label] of [
+    ['default-steve.png', 'Steve 默认头像'],
+    ['default-alex.png', 'Alex 默认头像'],
+  ]) {
+    const fallbackPath = path.join(dist, 'images', 'avatars', file);
+    if (!existsSync(fallbackPath)) {
+      fail(`缺少默认头像 dist/images/avatars/${file}`);
+      continue;
+    }
+    const buffer = await readFile(fallbackPath);
+    if (buffer.subarray(0, 8).toString('hex') === '89504e470d0a1a0a') {
+      pass(`${label}已保存为本地 PNG`);
+    } else {
+      fail(`${label}不是有效 PNG`);
+    }
   }
   const allHtml = (
     await Promise.all(htmlFiles.map((file) => readFile(file, 'utf8')))

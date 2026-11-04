@@ -19,6 +19,7 @@ const { current = 'home' } = Astro.props;
         class="state-layer"
       >
         <span class="nav-indicator">
+          <span class="nav-active-pill" aria-hidden="true"></span>
           <Icon name={item.icon} size={22} />
         </span>
         <span class="nav-label">{item.label}</span>
@@ -44,15 +45,12 @@ const { current = 'home' } = Astro.props;
       gap: 2px;
       padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
       border-top: 1px solid var(--md-sys-color-outline-variant);
-      background: color-mix(
-        in srgb,
-        var(--md-sys-color-surface) 92%,
-        transparent
-      );
-      backdrop-filter: blur(18px) saturate(1.4);
+      /* 实心底：底栏不再依赖毛玻璃，换页快照不会整条消失 */
+      background: var(--md-sys-color-surface);
     }
 
     .bottom-nav a {
+      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -61,28 +59,38 @@ const { current = 'home' } = Astro.props;
       min-height: 58px;
       border-radius: var(--md-sys-shape-corner-medium);
       color: var(--md-sys-color-on-surface-variant);
-      font-size: var(--md-sys-typescale-label-small-size);
+      font-size: var(--md-sys-typescale-label-medium-size);
       font-weight: 600;
-      transition:
-        color var(--md-sys-motion-duration-short4)
-          var(--md-sys-motion-easing-standard),
-        transform var(--md-sys-motion-duration-short3)
-          var(--md-sys-motion-easing-emphasized);
+      isolation: isolate;
+      transition: color var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard);
     }
 
     .nav-indicator {
+      position: relative;
       display: grid;
       place-items: center;
       width: 58px;
       height: 30px;
       border-radius: var(--md-sys-shape-corner-full);
+      isolation: isolate;
+    }
+
+    /* 当前项胶囊：跨页时作为共享元素滑动，图标和文字不动 */
+    .nav-active-pill {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: inherit;
+      background: var(--md-sys-color-primary-container);
+      opacity: 0;
+      transform: scale(0.8);
       transition:
-        background-color var(--md-sys-motion-duration-short4)
-          var(--md-sys-motion-easing-standard),
-        color var(--md-sys-motion-duration-short4)
+        opacity var(--md-sys-motion-duration-short4)
           var(--md-sys-motion-easing-standard),
         transform var(--md-sys-motion-duration-medium1)
           var(--md-sys-motion-easing-emphasized);
+      pointer-events: none;
     }
 
     .bottom-nav a[aria-current='page'] {
@@ -90,13 +98,23 @@ const { current = 'home' } = Astro.props;
     }
 
     .bottom-nav a[aria-current='page'] .nav-indicator {
-      background: var(--md-sys-color-primary-container);
       color: var(--md-sys-color-on-primary-container);
-      transform: translateY(-1px);
+    }
+
+    .bottom-nav a[aria-current='page'] .nav-active-pill {
+      opacity: 1;
+      transform: none;
+      view-transition-name: nav-bottom-active;
     }
 
     .bottom-nav a[data-pressed] {
       transform: scale(0.94);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .nav-active-pill {
+        transition: none;
+      }
     }
   }
 </style>

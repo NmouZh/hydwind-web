@@ -76,6 +76,16 @@
 正文 + 粘性侧栏：外层 `detail-layout`，正文放 `prose`，信息放 `detail-aside`（内含 `meta-list`）。
 移动端侧栏自动落到正文上方。
 
+### 错误页
+
+403 / 404 共用 `ErrorPage.astro` + `src/styles/error.css`：
+
+- 左侧一个巨大的状态码当视觉锚点，右侧一句人话 + 两个出口；下面一行常用入口，不堆链接。
+- 主操作默认「回到首页」，次操作默认「看进服指南」；403 的次操作换成「登录账号」。
+- 错误页不加导航高亮语义（`current` 只是让页头保持完整），也不要做「敬请期待」式空话；
+  说明里必须告诉用户下一步能做什么。
+- 新增错误页要同步加到 `scripts/check-build.mjs` 的 `requiredPages` 和文案断言里。
+
 ### 指南页
 
 指南是「路线」，允许比普通内容页更重的刊头，样式集中在 `src/styles/guides.css`：
@@ -167,10 +177,13 @@ CSS 侧也要有对应的兜底（`.enter` 关动画、`data-reveal` 直接可�
 站内跳转是原生导航，不接客户端路由，三层各管一件事，不要重复实现：
 
 - **预取**：`astro.config.mjs` 的 `prefetch`（`prefetchAll` + `viewport` 策略）。手机没有 hover 也能提前抓到 HTML；不要再手写 `<link rel="prefetch">` 或自己的 fetch 预取。
-- **过渡**：`base.css` 的 `@view-transition { navigation: auto }`。`main` 单独一份快照（`view-transition-name: hw-page`）负责「抬起 + 淡入」，root 快照**完全不参与动画**；不支持的浏览器就是普通跳转。
-  - root 不许做淡出淡入：它带着整页底色，淡到一半、新快照还没开始时底下是空的，会直接露出浏览器白底（深色模式下整页透明闪一下）。页头页脚跨页几乎没变化，直接换掉看不出接缝。
+- **过渡**：`base.css` 的 `@view-transition { navigation: auto }`。**常驻 chrome（页头、页脚、底栏）留在 root 快照里，root 不做任何动画**；`main` 单独命名 `hw-page`，负责「抬起 + 淡入」。不支持的浏览器就是普通跳转。
+  - **不要**再给页头/底栏加 `view-transition-name`，也不要用 1ms 定格 + `data-vt-flat` 摘毛玻璃。这条链路依赖 `pagereveal` 时序，实测会偶发残留，导致毛玻璃整页失效；`backdrop-filter` 也可能被快照画成空白。页头/底栏用实心表面，直接并进 root。
+  - 唯一命名的是当前项胶囊：`nav-top-active` / `nav-bottom-active`。旧胶囊隐藏、新胶囊显示，由 group 补间位置，跨页滑到新位置；别把整条导航拖进快照。
   - 时间轴是**两段式**：旧内容先淡出（`--hw-vt-out-duration`），新内容晚 `--hw-vt-in-delay` 再入场，中间看到的是 root 快照的底色。别改回同时淡入淡出——两段重叠时旧文字会以半透明状态压在新文字上，看起来像「旧文字慢一步才消失」的残影。但新内容也别拖太久：空内容区一旦超过一眨眼，就又像闪了。
-  - **跨文档过渡期间进场动画要让位**：浏览器在新页面首次渲染时就截快照，`.enter` 这时还在 `opacity: 0`，截到的就是空页。所以 `BaseLayout` 在 `pagereveal` 里给 `html` 挂 `data-vt="cross"`（关掉 `.enter`），把过渡对象挂在 `window.hydwindViewTransition` 上；`initMotion()` 等 `finished` 之后再跑。新页面的入场交给过渡本身。
+  - **跨文档过渡期间进场动画要让位**：浏览器在新页面首次渲染时就截快照，`.enter` 这时还在 `opacity: 0`，截到的就是空页。`BaseLayout` 在 `pagereveal` 挂 `data-vt="cross"`，过渡结束后改成 `data-vt="settled"`；两种状态都关掉 `.enter`，避免结束之后二次入场。动效层等 `window.__hwViewTransition` resolve 后再接管。
+  - **主题切换**：`setTheme` 先给 `html` 挂 `data-theme-switching` 停掉颜色过渡，两帧后再移除，避免「浅色底 + 深色页头」的半主题混合帧。
+- **开发工具栏**：`astro.config.mjs` 里 `devToolbar.enabled = false`。390px 视口下它会盖住底栏中间三项，真实点击会被吃掉。
 - **点击反馈**：`src/scripts/navigation.ts` 在点击瞬间点亮顶部进度条、给导航项按下态。它不接管路由，浏览器前进后退、右键新开标签都不受影响。
 
 ## 8.5 人物传记区块

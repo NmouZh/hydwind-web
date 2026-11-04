@@ -1,6 +1,11 @@
 import type { APIRoute } from 'astro';
 import { addIssueReply, getIssue } from '../../../../lib/issues';
-import { requireAdmin } from '../../../../lib/auth';
+import { isAdmin, requireAdmin } from '../../../../lib/auth';
+import { readSessionFromRequest } from '../../../../lib/session';
+
+/** 站务令牌或已登录的管理员账号，都算站务。 */
+const isStaff = (request: Request): boolean =>
+  isAdmin(request) || readSessionFromRequest(request)?.role === 'admin';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -39,9 +44,10 @@ export const GET: APIRoute = async ({ params, request }) => {
   if (!Number.isInteger(id) || id <= 0) return json({ error: '议题编号不合法' }, 400);
 
   const issue = await getIssue(id);
-  if (!issue || issue.status === 'pending') {
-    if (!issue?.replies.length) return json({ error: '议题不存在' }, 404);
-  }
   if (!issue) return json({ error: '议题不存在' }, 404);
+  // 待审议题对外不可见：正文 404，回复也必须 404，不能因为“有回复”反而公开
+  if (issue.status === 'pending' && !isStaff(request)) {
+    return json({ error: '议题不存在' }, 404);
+  }
   return json({ replies: issue.replies });
 };
