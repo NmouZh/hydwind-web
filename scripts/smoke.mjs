@@ -223,7 +223,7 @@ const main = async () => {
     await page.click('header nav[aria-label="主导航"] a[href="/guides/"]');
     await page.waitForURL('**/guides/', { timeout: 5000 });
     check(
-      (await page.locator('h1').first().innerText()).includes('第一次进服'),
+      (await page.locator('h1').first().innerText()).includes('Wiki'),
       '顶部导航进入指南页'
     );
 
@@ -306,7 +306,7 @@ const main = async () => {
     );
     await mobilePage.waitForURL('**/guides/', { timeout: 5000 });
     check(
-      (await mobilePage.locator('h1').first().innerText()).includes('第一次进服'),
+      (await mobilePage.locator('h1').first().innerText()).includes('Wiki'),
       '底部导航进入指南页'
     );
 

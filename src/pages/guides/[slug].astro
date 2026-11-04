@@ -7,8 +7,16 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
 import ServerInfo from '../../components/ServerInfo.astro';
 import GuideSteps from '../../components/GuideSteps.astro';
+import WikiNav from '../../components/WikiNav.astro';
+import WikiToc from '../../components/WikiToc.astro';
 import { formatDate } from '../../lib/format';
-import { JOIN_GUIDE_ID, getAllGuides, getSite } from '../../lib/content';
+import {
+  JOIN_GUIDE_ID,
+  getAllGuides,
+  getGuides,
+  getSite,
+  guideExcerpt,
+} from '../../lib/content';
 import '../../styles/guides.css';
 
 export async function getStaticPaths() {
@@ -24,91 +32,148 @@ interface Props {
 }
 
 const { guide } = Astro.props;
-const { Content } = await render(guide);
+const { Content, headings } = await render(guide);
 
+const guides = await getGuides();
 const site = await getSite();
 const isJoinGuide = guide.id === JOIN_GUIDE_ID;
+
+const category = guide.data.category;
+const summary = guide.data.summary.trim() || guideExcerpt(guide, 160);
+const updated = guide.data.updated ? formatDate(guide.data.updated) : null;
+const steps = guide.data.steps ?? [];
+const hasToc = headings.some((heading) => heading.depth >= 2 && heading.depth <= 3);
+
+const currentIndex = guides.findIndex((entry) => entry.id === guide.id);
+const previous = currentIndex > 0 ? guides[currentIndex - 1] : undefined;
+const next =
+  currentIndex >= 0 && currentIndex < guides.length - 1
+    ? guides[currentIndex + 1]
+    : undefined;
+
+const editUrl = `/edit?page=${encodeURIComponent(guide.id)}`;
+const description = summary || `${guide.data.title} · 氢风 Wiki`;
 ---
 
 <BaseLayout
-  title={`${guide.data.title} · 指南 · 氢风 Hydwind`}
-  description={guide.data.summary}
+  title={`${guide.data.title} · 指南 · 氢风 Wiki`}
+  description={description}
   current="guides"
 >
-  <div class="hw-shell page-shell guide-detail">
+  <div class="hw-shell page-shell wiki-detail">
     <nav class="breadcrumb" aria-label="面包屑">
       <a href="/guides/">指南</a>
+      <span aria-hidden="true">/</span>
+      <span>{category}</span>
       <span aria-hidden="true">/</span>
       <span>{guide.data.title}</span>
     </nav>
 
-    <header class="guide-hero guide-hero--detail enter">
-      <p class="hw-eyebrow">Guide · 指南</p>
-      <h1 class="guide-title">{guide.data.title}</h1>
-      <p class="guide-lead">{guide.data.summary}</p>
-      <div class="guide-meta">
-        <span class="assist-chip">{guide.data.steps.length} 个步骤</span>
-        <span class="assist-chip">更新于 {formatDate(guide.data.updated)}</span>
-      </div>
-    </header>
+    <div class="wiki-layout">
+      <aside class="wiki-sidebar" aria-label="Wiki 页面">
+        <p class="hw-label">全部页面</p>
+        <WikiNav guides={guides} currentId={guide.id} />
+      </aside>
 
-    <div class="guide-layout">
-      <section class="guide-section guide-route-section" aria-labelledby="steps-title">
-        <div class="guide-section-head">
-          <div>
-            <p class="hw-eyebrow">Route</p>
-            <h2 id="steps-title">按顺序完成</h2>
+      <div class="wiki-main">
+        <header class="page-head wiki-head enter">
+          <div class="page-head-copy">
+            <p class="hw-eyebrow">{category}</p>
+            <h1>{guide.data.title}</h1>
+            {summary && <p class="page-head-sub">{summary}</p>}
+            {
+              (updated || guide.data.tags.length > 0) && (
+                <div class="wiki-meta">
+                  {updated && <span>更新于 {updated}</span>}
+                  {guide.data.tags.map((tag) => (
+                    <span class="tag-chip">{tag}</span>
+                  ))}
+                </div>
+              )
+            }
           </div>
-          <span class="guide-section-count">{guide.data.steps.length} 步</span>
-        </div>
+        </header>
+
+        <details class="wiki-mobile-nav">
+          <summary>
+            全部页面
+            <span class="wiki-count">{guides.length}</span>
+          </summary>
+          <WikiNav guides={guides} currentId={guide.id} />
+        </details>
 
         {
-          isJoinGuide && (
-            <p class="guide-warning">
-              <Icon name="info" size={18} class="icon" />
-              <span>
-                <strong>测试期提示：</strong>
-                {site.testingNotice}。
-              </span>
-            </p>
+          hasToc && (
+            <details class="wiki-toc-mobile">
+              <summary>本页目录</summary>
+              <WikiToc headings={headings} />
+            </details>
           )
         }
 
-        <GuideSteps steps={guide.data.steps} variant="route" />
-      </section>
+        {
+          steps.length > 0 && (
+            <section class="wiki-steps" aria-labelledby="steps-title" data-reveal>
+              <div class="section-heading">
+                <div>
+                  <p class="hw-eyebrow">Route</p>
+                  <h2 id="steps-title">按顺序完成</h2>
+                </div>
+                <span class="wiki-count">{steps.length} 步</span>
+              </div>
 
-      <aside class="guide-aside" aria-label="本页信息">
-        {isJoinGuide && <ServerInfo site={site} />}
+              {isJoinGuide && (
+                <p class="guide-warning">
+                  <Icon name="info" size={18} class="icon" />
+                  <span>
+                    <strong>测试期提示：</strong>
+                    {site.testingNotice}。
+                  </span>
+                </p>
+              )}
 
-        <nav class="step-nav" aria-label="本页步骤">
-          <p class="hw-label">本页步骤</p>
-          {
-            guide.data.steps.map((step, index) => (
-              <a href={`#step-${index + 1}`}>
-                <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-                {step.title}
-              </a>
-            ))
-          }
-        </nav>
+              <GuideSteps steps={steps} variant="route" />
+            </section>
+          )
+        }
 
-        <a class="text-button guide-back" href="/guides/">
-          <Icon name="arrow_back" size={18} />
-          返回指南
-        </a>
-      </aside>
+        {isJoinGuide && <div class="wiki-server"><ServerInfo site={site} /></div>}
 
-      <section class="guide-section guide-notes" aria-labelledby="notes-title" data-reveal>
-        <div class="guide-section-head">
-          <div>
-            <p class="hw-eyebrow">Notes</p>
-            <h2 id="notes-title">补充说明</h2>
-          </div>
-        </div>
-        <article class="prose">
+        <article class="prose wiki-prose">
           <Content />
         </article>
-      </section>
+
+        <footer class="wiki-footer">
+          <a
+            class="text-button is-compact"
+            href={editUrl}
+            rel="nofollow noopener"
+            target="_blank"
+          >
+            <Icon name="edit" size={16} />
+            编辑此页
+          </a>
+
+          <nav class="wiki-pager" aria-label="上一篇 / 下一篇">
+            {previous && (
+              <a href={`/guides/${previous.id}/`}>
+                <Icon name="arrow_back" size={16} />
+                {previous.data.title}
+              </a>
+            )}
+            {next && (
+              <a href={`/guides/${next.id}/`}>
+                {next.data.title}
+                <Icon name="arrow_forward" size={16} />
+              </a>
+            )}
+          </nav>
+        </footer>
+      </div>
+
+      <aside class="wiki-toc-rail" aria-label="本页目录">
+        <WikiToc headings={headings} />
+      </aside>
     </div>
   </div>
 </BaseLayout>

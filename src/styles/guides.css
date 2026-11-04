@@ -1,276 +1,360 @@
 /* ==========================================================================
-   指南：路线式排版
-   逻辑只有两份内容：/guides/ 是入口，/guides/:slug/ 是路线。
-   视觉上要解决三件事：标题层级、步骤主次、信息不要重复四遍。
-   颜色/间距/圆角全部取 token，规矩见 docs/ui-rules.md。
+   Wiki 指南
+   首页是页面索引 + 搜索；详情页是左侧页面树、中间正文、右侧目录。
+   颜色 / 间距 / 圆角全部取 token，结构复用 hw-shell / page-head / list-rows / prose。
    ========================================================================== */
 
-/* —— 刊头：比内容页的紧凑刊头更放得开，指南需要一个真正的视觉重心 —— */
+/* —— 首页 —— */
 
-.guide-hero {
-  display: grid;
-  gap: var(--hw-space-4);
-  padding-bottom: clamp(28px, 4vw, 44px);
+.wiki-home .page-head .hw-eyebrow {
+  margin-bottom: 6px;
 }
 
-.guide-hero .hw-eyebrow {
-  letter-spacing: 0.12em;
+.wiki-home .page-head-actions .text-button {
+  min-height: 44px;
 }
 
-.guide-title {
-  max-width: 18em;
-  font-size: clamp(2.4rem, 5.2vw, 3.8rem);
-  font-weight: 700;
-  line-height: 1.08;
-  letter-spacing: -0.045em;
-  text-wrap: balance;
-}
-
-.guide-lead {
-  max-width: 52ch;
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: var(--md-sys-typescale-body-large-size);
-  line-height: var(--hw-leading-body);
-}
-
-.guide-meta {
+.wiki-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hw-space-4);
+  margin-top: var(--hw-space-5);
+  padding-bottom: var(--hw-space-4);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.wiki-search {
+  display: flex;
+  flex: 1;
+  align-items: center;
   gap: var(--hw-space-2);
-  margin-top: var(--hw-space-1);
-}
-
-.guide-meta .assist-chip {
-  font-size: var(--md-sys-typescale-label-medium-size);
-}
-
-/* —— 入口页：一张有分量的起点卡，不再是一条孤零零的列表行 —— */
-
-.guide-feature {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: clamp(24px, 4vw, 56px);
-  margin-top: clamp(28px, 4vw, 48px);
-  padding: clamp(24px, 4vw, 44px);
-  overflow: hidden;
-  border-radius: var(--md-sys-shape-corner-extra-large);
-  background: var(--md-sys-color-primary-container);
-  color: var(--md-sys-color-on-primary-container);
-  isolation: isolate;
-}
-
-.guide-feature::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  right: -12%;
-  bottom: -45%;
-  width: 22rem;
-  height: 22rem;
+  max-width: 30rem;
+  min-height: 44px;
+  padding: 0 var(--hw-space-4);
+  border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-full);
-  background: color-mix(
-    in srgb,
-    var(--md-sys-color-primary) 16%,
-    transparent
-  );
-  pointer-events: none;
+  background: var(--md-sys-color-surface-container-lowest);
+  color: var(--md-sys-color-on-surface-variant);
+  transition:
+    border-color var(--md-sys-motion-duration-short4)
+      var(--md-sys-motion-easing-standard),
+    box-shadow var(--md-sys-motion-duration-short4)
+      var(--md-sys-motion-easing-standard);
 }
 
-.guide-feature-copy {
-  display: grid;
-  align-content: start;
-  gap: var(--hw-space-3);
+.wiki-search:focus-within {
+  border-color: var(--md-sys-color-primary);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+}
+
+.wiki-search input {
+  flex: 1;
   min-width: 0;
-}
-
-.guide-feature-index {
-  font-size: clamp(2.6rem, 5vw, 4rem);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  letter-spacing: -0.06em;
-  opacity: 0.38;
-}
-
-.guide-feature h2 {
-  margin: 0;
-  color: inherit;
-  font-size: clamp(1.6rem, 3vw, 2.25rem);
-  font-weight: 700;
-  line-height: 1.15;
-  letter-spacing: -0.03em;
-}
-
-.guide-feature-text {
-  max-width: 40ch;
-  color: var(--md-sys-color-on-primary-container);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--md-sys-color-on-surface);
+  font: inherit;
   font-size: var(--md-sys-typescale-body-medium-size);
-  line-height: 1.75;
+  outline: none;
 }
 
-.guide-feature-actions {
+.wiki-search input::placeholder {
+  color: var(--md-sys-color-on-surface-variant);
+  opacity: 0.8;
+}
+
+.wiki-count {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-medium-size);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.wiki-group {
+  margin-top: clamp(32px, 5vw, 56px);
+}
+
+.wiki-group .section-heading {
+  margin-bottom: 0;
+}
+
+.wiki-group .section-heading h2 {
+  margin-top: 0;
+}
+
+.wiki-group .list-rows {
+  border-top: 0;
+}
+
+.wiki-row-heading {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--hw-space-3);
+  gap: var(--hw-space-2);
+}
+
+.wiki-row-tags {
   margin-top: var(--hw-space-2);
 }
 
-.guide-feature .text-button {
-  color: var(--md-sys-color-on-primary-container);
+.wiki-empty {
+  margin-top: var(--hw-space-6);
+  padding: var(--hw-space-6) 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-body-medium-size);
 }
 
-/* —— 四个站点：横向读成一条路线，而不是四行说明 —— */
+/* —— 详情布局 —— */
 
-.guide-mini-route {
+.wiki-layout {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-content: start;
-  gap: 0;
-  margin: 0;
+  grid-template-columns: 14rem minmax(0, 1fr) 11rem;
+  align-items: start;
+  gap: clamp(24px, 4vw, 56px);
+  margin-top: var(--hw-space-6);
+}
+
+.wiki-sidebar {
+  position: sticky;
+  top: calc(var(--hw-bar-height) + 24px);
+  display: grid;
+  gap: var(--hw-space-3);
+}
+
+.wiki-toc-rail {
+  position: sticky;
+  top: calc(var(--hw-bar-height) + 24px);
+}
+
+.wiki-main {
+  min-width: 0;
+}
+
+.wiki-head {
+  padding-bottom: var(--hw-space-4);
+}
+
+.wiki-head .page-head-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.wiki-head .hw-eyebrow {
+  margin-bottom: 2px;
+}
+
+.wiki-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hw-space-2) var(--hw-space-3);
+  margin-top: var(--hw-space-2);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-medium-size);
+}
+
+/* —— 页面树 —— */
+
+.wiki-nav-group + .wiki-nav-group {
+  margin-top: var(--hw-space-5);
+}
+
+.wiki-nav ul {
+  display: grid;
+  gap: 2px;
+  margin: var(--hw-space-2) 0 0;
   padding: 0;
   list-style: none;
 }
 
-.guide-mini-step {
-  display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr);
-  align-items: start;
-  gap: var(--hw-space-3);
-  padding: var(--hw-space-3) 0;
-  border-top: 1px solid
-    color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 16%,
-      transparent
-    );
-}
-
-.guide-mini-step:nth-child(-n + 2) {
-  border-top: 0;
-}
-
-.guide-mini-step:nth-child(2n) {
-  border-left: 1px solid
-    color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 16%,
-      transparent
-    );
-  padding-left: var(--hw-space-4);
-}
-
-.guide-mini-number {
-  display: grid;
-  place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: var(--md-sys-shape-corner-full);
-  background: color-mix(
-    in srgb,
-    var(--md-sys-color-on-primary-container) 12%,
-    transparent
-  );
-  font-size: var(--md-sys-typescale-label-medium-size);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.guide-mini-title {
-  font-size: var(--md-sys-typescale-title-medium-size);
+.wiki-nav a {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--md-sys-shape-corner-small);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-large-size);
   font-weight: 600;
-  line-height: 1.45;
+  line-height: 1.4;
+  transition:
+    background-color var(--md-sys-motion-duration-short4)
+      var(--md-sys-motion-easing-standard),
+    color var(--md-sys-motion-duration-short4)
+      var(--md-sys-motion-easing-standard);
 }
 
-/* —— 服务器事实条：入口页的实用信息，一屏内可复制 —— */
+.wiki-nav a:hover {
+  background: var(--md-sys-color-surface-container);
+  color: var(--md-sys-color-on-surface);
+}
 
-.guide-facts {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: clamp(28px, 4vw, 44px);
+.wiki-nav a[aria-current='page'] {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+}
+
+/* —— 手机端折叠的页面树 / 目录 —— */
+
+.wiki-mobile-nav,
+.wiki-toc-mobile {
+  display: none;
   border: 1px solid var(--md-sys-color-outline-variant);
   border-radius: var(--md-sys-shape-corner-large);
-  overflow: hidden;
+  background: var(--md-sys-color-surface-container-low);
 }
 
-.guide-fact {
+.wiki-mobile-nav {
+  margin-bottom: var(--hw-space-4);
+}
+
+.wiki-toc-mobile {
+  margin-block: var(--hw-space-4);
+}
+
+.wiki-mobile-nav summary,
+.wiki-toc-mobile summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hw-space-3);
+  min-height: 48px;
+  padding: 0 var(--hw-space-4);
+  cursor: pointer;
+  color: var(--md-sys-color-on-surface);
+  font-size: var(--md-sys-typescale-label-large-size);
+  font-weight: 600;
+  list-style: none;
+}
+
+.wiki-mobile-nav summary::-webkit-details-marker,
+.wiki-toc-mobile summary::-webkit-details-marker {
+  display: none;
+}
+
+.wiki-mobile-nav summary::after,
+.wiki-toc-mobile summary::after {
+  content: "+";
+  color: var(--md-sys-color-primary);
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.wiki-mobile-nav[open] summary::after,
+.wiki-toc-mobile[open] summary::after {
+  content: "−";
+}
+
+.wiki-mobile-nav .wiki-nav {
+  padding: 0 var(--hw-space-2) var(--hw-space-3);
+}
+
+.wiki-mobile-nav .wiki-nav a {
+  min-height: 44px;
+}
+
+.wiki-toc-mobile .wiki-toc {
+  padding: 0 var(--hw-space-4) var(--hw-space-3);
+}
+
+/* 手机端 summary 已经写了「本页目录」，不再重复一遍标签 */
+.wiki-toc-mobile .wiki-toc > .hw-label {
+  display: none;
+}
+
+/* —— 本页目录 —— */
+
+.wiki-toc ul {
   display: grid;
-  align-content: start;
-  gap: var(--hw-space-2);
-  min-width: 0;
-  padding: var(--hw-space-4);
+  gap: 2px;
+  margin: var(--hw-space-2) 0 0;
+  padding: 0;
+  list-style: none;
 }
 
-.guide-fact + .guide-fact {
-  border-left: 1px solid var(--md-sys-color-outline-variant);
-}
-
-.guide-fact-label {
+.wiki-toc a {
+  display: block;
+  padding: 6px 0;
   color: var(--md-sys-color-on-surface-variant);
   font-size: var(--md-sys-typescale-label-medium-size);
-  font-weight: 500;
-}
-
-.guide-fact-value {
-  font-size: 0.9375rem;
-  font-weight: 600;
   line-height: 1.5;
-  overflow-wrap: anywhere;
 }
 
-.guide-fact-value code {
-  font-size: 0.9375rem;
-  font-weight: 600;
+.wiki-toc a:hover {
+  color: var(--md-sys-color-primary);
 }
 
-.guide-fact-copy {
+.wiki-toc .is-sub a {
+  padding-left: var(--hw-space-3);
+  font-size: var(--md-sys-typescale-label-small-size);
+}
+
+/* —— 步骤 / 正文 / 页脚 —— */
+
+.wiki-steps {
+  margin-top: clamp(28px, 4vw, 48px);
+  padding-top: var(--hw-space-4);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.wiki-steps .section-heading {
+  margin-bottom: var(--hw-space-4);
+}
+
+.wiki-steps .section-heading h2 {
+  margin-top: var(--hw-space-2);
+}
+
+.wiki-server {
+  margin-top: clamp(24px, 3vw, 40px);
+}
+
+.wiki-server .server-card {
+  max-width: 40rem;
+}
+
+.wiki-prose {
+  max-width: var(--hw-measure);
+  margin-top: clamp(28px, 4vw, 44px);
+}
+
+.wiki-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hw-space-3) var(--hw-space-5);
+  margin-top: clamp(36px, 5vw, 64px);
+  padding-top: var(--hw-space-4);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.wiki-footer .text-button {
+  min-height: 44px;
+}
+
+.wiki-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hw-space-2) var(--hw-space-5);
+}
+
+.wiki-pager a {
   display: inline-flex;
   align-items: center;
-  justify-self: start;
   gap: 6px;
-  width: fit-content;
   min-height: 44px;
-  margin-left: -8px;
-  padding: 0 8px;
   color: var(--md-sys-color-primary);
-  font-size: var(--md-sys-typescale-label-medium-size);
+  font-size: var(--md-sys-typescale-label-large-size);
   font-weight: 600;
 }
 
-/* —— 详情页：左边路线，右边事实 —— */
+/* —— 测试期提示：放在路线最前面，比塞进服务器卡里更该被看见 —— */
 
-.guide-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 17.5rem);
-  grid-template-areas:
-    "route aside"
-    "notes aside";
-  align-items: start;
-  column-gap: clamp(32px, 5vw, 72px);
-  margin-top: clamp(28px, 4vw, 48px);
-}
-
-.guide-route-section {
-  grid-area: route;
-  min-width: 0;
-}
-
-.guide-notes {
-  grid-area: notes;
-  min-width: 0;
-  margin-top: clamp(36px, 5vw, 64px);
-}
-
-.guide-aside {
-  grid-area: aside;
-  position: sticky;
-  top: calc(var(--hw-bar-height) + 24px);
-  display: grid;
-  gap: var(--hw-space-4);
-}
-
-/* 测试期提示：放在路线最前面，比塞进服务器卡里更该被看见 */
 .guide-warning {
   display: flex;
   align-items: flex-start;
@@ -296,30 +380,8 @@
   color: var(--md-sys-color-on-surface);
 }
 
-.guide-section-head {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--hw-space-4);
-  margin-bottom: var(--hw-space-5);
-}
+/* —— 路线步骤（GuideSteps variant="route"） —— */
 
-.guide-section-head h2 {
-  margin-top: var(--hw-space-3);
-  color: var(--md-sys-color-on-surface);
-  font-size: clamp(1.375rem, 2.4vw, 1.75rem);
-  font-weight: 700;
-  letter-spacing: -0.03em;
-}
-
-.guide-section-count {
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: var(--md-sys-typescale-label-medium-size);
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* 步骤：整页最该被看见的东西 */
 .guide-route {
   margin: 0;
   padding: 0;
@@ -376,62 +438,7 @@
   line-height: 1.75;
 }
 
-/* 页内步骤导航：只在桌面出现，手机靠滚动，别再多占一屏 */
-.step-nav {
-  display: grid;
-  gap: 2px;
-  padding: var(--hw-space-3);
-  border-radius: var(--md-sys-shape-corner-large);
-  background: var(--md-sys-color-surface-container-low);
-}
-
-.step-nav .hw-label {
-  padding: 6px 10px 8px;
-  font-size: var(--md-sys-typescale-label-medium-size);
-}
-
-.step-nav a {
-  display: flex;
-  align-items: center;
-  gap: var(--hw-space-2);
-  min-height: 40px;
-  padding: 0 10px;
-  border-radius: var(--md-sys-shape-corner-small);
-  color: var(--md-sys-color-on-surface-variant);
-  font-size: var(--md-sys-typescale-label-large-size);
-  font-weight: 600;
-  transition:
-    background-color var(--md-sys-motion-duration-short4)
-      var(--md-sys-motion-easing-standard),
-    color var(--md-sys-motion-duration-short4)
-      var(--md-sys-motion-easing-standard);
-}
-
-.step-nav a:hover {
-  background: var(--md-sys-color-surface-container-high);
-  color: var(--md-sys-color-on-surface);
-}
-
-.step-nav a span {
-  color: var(--md-sys-color-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.guide-back {
-  justify-self: start;
-  min-height: 44px;
-}
-
-/* 正文区：步骤已经讲过的，正文只补充，不再复述 */
-.guide-notes .prose {
-  max-width: 62ch;
-}
-
-.guide-notes .prose h2 {
-  font-size: clamp(1.25rem, 2vw, 1.5rem);
-}
-
-/* —— 服务器信息：从“五种字段的表格”收成一张可复制的事实卡 —— */
+/* —— 服务器信息卡（ServerInfo） —— */
 
 .server-card {
   display: grid;
@@ -547,16 +554,6 @@
   line-height: 1.7;
 }
 
-.server-card-note strong {
-  color: var(--md-sys-color-on-surface);
-}
-
-.server-card .notice {
-  padding: 10px 12px;
-  font-size: var(--md-sys-typescale-label-large-size);
-  line-height: 1.65;
-}
-
 .server-card [data-live-status][data-state='online'] {
   background: var(--md-sys-color-primary-container);
   color: var(--md-sys-color-on-primary-container);
@@ -568,49 +565,49 @@
   color: var(--md-sys-color-on-error-container);
 }
 
-/* —— 响应式：两个断点，和全站一致 —— */
+/* —— 响应式 —— */
+
+@media (max-width: 1099px) {
+  .wiki-layout {
+    grid-template-columns: 13rem minmax(0, 1fr);
+  }
+
+  .wiki-toc-rail {
+    display: none;
+  }
+
+  .wiki-toc-mobile {
+    display: block;
+  }
+
+  .wiki-toc a {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+    padding: 0;
+  }
+}
 
 @media (max-width: 839px) {
-  .guide-feature {
+  .wiki-layout {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--hw-space-5);
+    gap: 0;
   }
 
-  .guide-mini-route {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .guide-facts {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .guide-fact:nth-child(3) {
-    border-left: 0;
-  }
-
-  .guide-fact:nth-child(n + 3) {
-    border-top: 1px solid var(--md-sys-color-outline-variant);
-  }
-
-  .guide-layout {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "route"
-      "aside"
-      "notes";
-    row-gap: var(--hw-space-5);
-  }
-
-  .guide-aside {
-    position: static;
-  }
-
-  .guide-notes {
-    margin-top: 0;
-  }
-
-  .step-nav {
+  .wiki-sidebar {
     display: none;
+  }
+
+  .wiki-mobile-nav {
+    display: block;
+  }
+
+  .wiki-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .wiki-search {
+    max-width: none;
   }
 
   .guide-route-item {
@@ -622,42 +619,5 @@
   .guide-route-number {
     width: 2.5rem;
     height: 2.5rem;
-  }
-}
-
-@media (max-width: 599px) {
-  .guide-title {
-    font-size: clamp(2.1rem, 10vw, 2.6rem);
-  }
-
-  .guide-facts {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .guide-fact + .guide-fact {
-    border-top: 1px solid var(--md-sys-color-outline-variant);
-    border-left: 0;
-  }
-
-  .guide-mini-route {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .guide-mini-step {
-    border-top: 1px solid
-      color-mix(
-        in srgb,
-        var(--md-sys-color-on-primary-container) 16%,
-        transparent
-      );
-  }
-
-  .guide-mini-step:nth-child(2n) {
-    border-left: 0;
-    padding-left: 0;
-  }
-
-  .guide-mini-step:first-child {
-    border-top: 0;
   }
 }

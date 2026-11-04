@@ -331,7 +331,7 @@ const main = async () => {
 
   // —— 每个页面的站内链接都必须解析到构建产物 ——
   // /issues/ 与 /login 是服务端路由，没有静态产物，单独放行。
-  const serverRenderedRoutes = new Set(['/issues/', '/login', '/login/']);
+  const serverRenderedRoutes = new Set(['/issues/', '/login', '/login/', '/edit', '/edit/']);
   const hrefPattern = /href="([^"]+)"/g;
   for (const file of htmlFiles) {
     const relative = path.relative(dist, file);

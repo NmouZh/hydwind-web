@@ -3,118 +3,157 @@
 export const prerender = true;
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
-import GuideCard from '../../components/GuideCard.astro';
 import { formatDate } from '../../lib/format';
-import { JOIN_GUIDE_ID, getGuides, getJoinGuide, getSite } from '../../lib/content';
+import {
+  JOIN_GUIDE_ID,
+  getGuides,
+  groupGuides,
+  guideExcerpt,
+} from '../../lib/content';
 import '../../styles/guides.css';
 
-const [site, guides, join] = await Promise.all([getSite(), getGuides(), getJoinGuide()]);
-const others = guides.filter((guide) => guide.id !== JOIN_GUIDE_ID);
+const guides = await getGuides();
+const groups = groupGuides(guides);
 
 const description =
-  '氢风的进服指南：客户端版本、服务器地址、QQ 群和测试期注意事项，按顺序做完就能进服。';
+  '氢风 Wiki：进服、玩法、规则和常见问题的持续更新指南。内容由服主维护，可随时补充。';
 ---
 
-<BaseLayout title="指南 · 氢风 Hydwind" description={description} current="guides">
-  <div class="hw-shell page-shell guides-page">
-    <header class="guide-hero enter">
-      <p class="hw-eyebrow">Guide · 指南</p>
-      <h1 class="guide-title">从第一次进服开始</h1>
-      <p class="guide-lead">
-        客户端、服务器地址、QQ 群和测试期注意事项，一次说清楚。按顺序做完，就能进服。
-      </p>
-      <div class="guide-meta">
-        <span class="assist-chip">{guides.length} 篇指南</span>
-        <span class="assist-chip">{join.data.steps.length} 个步骤</span>
-        <span class="assist-chip">更新于 {formatDate(join.data.updated)}</span>
+<BaseLayout title="指南 · 氢风 Wiki" description={description} current="guides">
+  <div class="hw-shell page-shell wiki-home">
+    <header class="page-head enter">
+      <div class="page-head-copy">
+        <p class="hw-eyebrow">Wiki · 指南</p>
+        <h1>氢风 Wiki</h1>
+        <p class="page-head-sub">
+          进服、玩法、规则和常见问题。内容会随着服务器变化持续更新；找不到答案就去 QQ 群问。
+        </p>
+      </div>
+      <div class="page-head-actions">
+        <a
+          class="text-button is-compact"
+          href="/edit"
+          rel="nofollow noopener"
+          target="_blank"
+        >
+          <Icon name="edit" size={16} />
+          编辑指南
+        </a>
       </div>
     </header>
 
-    <section class="guide-feature" aria-labelledby="start-title" data-reveal>
-      <div class="guide-feature-copy">
-        <span class="guide-feature-index" aria-hidden="true">01</span>
-        <h2 id="start-title">{join.data.title}</h2>
-        <p class="guide-feature-text">{join.data.summary}</p>
-        <div class="guide-feature-actions">
-          <a class="filled-button" href={`/guides/${join.id}/`}>
-            开始进服
-            <Icon name="arrow_forward" size={18} />
-          </a>
-        </div>
-      </div>
-
-      <ol class="guide-mini-route" aria-label="进服步骤">
-        {
-          join.data.steps.map((step, index) => (
-            <li class="guide-mini-step">
-              <span class="guide-mini-number" aria-hidden="true">
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <span class="guide-mini-title">{step.title}</span>
-            </li>
-          ))
-        }
-      </ol>
-    </section>
-
-    <section
-      class="guide-facts"
-      aria-label="进服前要确认的服务器信息"
-      data-reveal
-      style="--reveal-delay: 80ms"
-    >
-      <div class="guide-fact">
-        <span class="guide-fact-label">服务器地址</span>
-        <span class="guide-fact-value"><code>{site.address}</code></span>
-        <button
-          class="guide-fact-copy"
-          type="button"
-          data-copy={site.address}
-          aria-label={`复制服务器地址 ${site.address}`}
-        >
-          <Icon name="copy" size={16} />
-          复制
-        </button>
-      </div>
-      <div class="guide-fact">
-        <span class="guide-fact-label">客户端版本</span>
-        <span class="guide-fact-value">Java 版 {site.clientVersions}</span>
-      </div>
-      <div class="guide-fact">
-        <span class="guide-fact-label">验证方式</span>
-        <span class="guide-fact-value">{site.authentication}</span>
-      </div>
-      <div class="guide-fact">
-        <span class="guide-fact-label">QQ 群</span>
-        <span class="guide-fact-value"><code>{site.qqGroup}</code></span>
-        <button
-          class="guide-fact-copy"
-          type="button"
-          data-copy={site.qqGroup}
-          aria-label={`复制 QQ 群号 ${site.qqGroup}`}
-        >
-          <Icon name="copy" size={16} />
-          复制
-        </button>
-      </div>
-    </section>
+    <div class="wiki-toolbar" data-reveal>
+      <label class="wiki-search">
+        <Icon name="search" size={18} />
+        <input
+          type="search"
+          placeholder="搜索标题、摘要或标签"
+          data-wiki-search
+          aria-label="搜索指南"
+        />
+      </label>
+      <span class="wiki-count" data-wiki-count aria-live="polite">{guides.length} 篇</span>
+    </div>
 
     {
-      others.length > 0 && (
-        <section class="guide-section" style="margin-top: clamp(36px, 5vw, 64px)">
-          <div class="guide-section-head">
+      groups.map((group, groupIndex) => (
+        <section
+          class="wiki-group"
+          data-wiki-group
+          data-reveal
+          style={`--reveal-delay: ${groupIndex * 60}ms`}
+        >
+          <div class="section-heading">
             <div>
-              <p class="hw-eyebrow">More</p>
-              <h2>更多指南</h2>
+              <h2>{group.category}</h2>
             </div>
+            <span class="wiki-count">{group.pages.length} 篇</span>
           </div>
+
           <div class="list-rows">
-            {others.map((guide, index) => (
-              <GuideCard guide={guide} index={index} delay={80 + index * 60} />
-            ))}
+            {group.pages.map((guide, index) => {
+              const excerpt = guideExcerpt(guide);
+              const search = `${guide.data.title} ${excerpt} ${group.category} ${guide.data.tags.join(' ')}`.toLowerCase();
+
+              return (
+                <a
+                  class="list-row wiki-row"
+                  href={`/guides/${guide.id}/`}
+                  data-wiki-row
+                  data-search={search}
+                >
+                  <span class="list-row-index" aria-hidden="true">
+                    {String(index + 1).padStart(2, '0')}
+                  </span>
+                  <div>
+                    <div class="wiki-row-heading">
+                      <h3 class="list-row-title">{guide.data.title}</h3>
+                      {guide.id === JOIN_GUIDE_ID && (
+                        <span class="tag-chip">从这里开始</span>
+                      )}
+                    </div>
+                    {excerpt && <p class="list-row-text">{excerpt}</p>}
+                    {guide.data.tags.length > 0 && (
+                      <div class="chip-row wiki-row-tags">
+                        {guide.data.tags.map((tag) => (
+                          <span class="tag-chip">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div class="list-row-meta">
+                    {guide.data.updated && (
+                      <span>更新于 {formatDate(guide.data.updated)}</span>
+                    )}
+                    <span class="list-row-cta">
+                      阅读
+                      <Icon name="arrow_forward" size={16} />
+                    </span>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         </section>
-      )
+      ))
     }
+
+    <p class="wiki-empty" data-wiki-empty hidden>
+      没有匹配的指南。换个关键词试试，或者去 QQ 群问。
+    </p>
   </div>
 </BaseLayout>
+
+<script>
+  const input = document.querySelector<HTMLInputElement>('[data-wiki-search]');
+  const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-wiki-row]'));
+  const groups = Array.from(document.querySelectorAll<HTMLElement>('[data-wiki-group]'));
+  const count = document.querySelector<HTMLElement>('[data-wiki-count]');
+  const empty = document.querySelector<HTMLElement>('[data-wiki-empty]');
+
+  if (input) {
+    const apply = () => {
+      const query = input.value.trim().toLowerCase();
+      let visible = 0;
+
+      for (const row of rows) {
+        const match = !query || (row.dataset.search ?? '').includes(query);
+        row.hidden = !match;
+        if (match) visible += 1;
+      }
+
+      for (const group of groups) {
+        const hasVisible = Array.from(
+          group.querySelectorAll<HTMLElement>('[data-wiki-row]')
+        ).some((row) => !row.hidden);
+        group.hidden = !hasVisible;
+      }
+
+      if (count) count.textContent = `${visible} 篇`;
+      if (empty) empty.hidden = visible > 0;
+    };
+
+    input.addEventListener('input', apply);
+    apply();
+  }
+</script>

@@ -51,13 +51,20 @@ const people = defineCollection({
     }),
 });
 
+/**
+ * 指南是 Wiki：一个 Markdown 文件就是一页，可以自由新增。
+ * 只有标题和正文是必填；分类、摘要、标签、步骤、更新时间都可以留空。
+ */
 const guides = defineCollection({
   loader: glob({ pattern: '**/*.md', base: './src/content/guides' }),
   schema: z.object({
     title: z.string().min(1),
-    summary: z.string().min(1),
+    summary: z.string().default(''),
+    category: z.string().min(1).default('其他'),
+    tags: z.array(z.string()).default([]),
     order: z.number().default(0),
-    updated: z.coerce.date(),
+    updated: z.coerce.date().optional(),
+    draft: z.boolean().default(false),
     steps: z
       .array(
         z.object({
@@ -65,7 +72,7 @@ const guides = defineCollection({
           text: z.string().min(1),
         })
       )
-      .min(1),
+      .optional(),
   }),
 });
 

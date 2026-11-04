@@ -86,16 +86,19 @@
   说明里必须告诉用户下一步能做什么。
 - 新增错误页要同步加到 `scripts/check-build.mjs` 的 `requiredPages` 和文案断言里。
 
-### 指南页
+### Wiki 指南
 
-指南是「路线」，允许比普通内容页更重的刊头，样式集中在 `src/styles/guides.css`：
+指南是 Wiki，不是一次性路线页。样式集中在 `src/styles/guides.css`，结构尽量复用共享原语：
 
-- `/guides/`：`guide-hero` 刊头 + 一张 `guide-feature` 起点卡（底色 primary-container）+ `guide-facts` 事实条。
-  只有一篇指南时不要再用「刊头按钮 + 单条列表行」重复同一件事。
-- `/guides/:slug/`：`guide-layout` 两栏。左侧 `guide-route` 用大号序号和标题组织步骤（`GuideSteps variant="route"`），
-  步骤标题必须比 `prose` 正文更醒目；右侧 `guide-aside` 放 `server-card` 和页内步骤导航。
-- 服务器事实只在 `server-card` 里详细展示一次，步骤和正文不复述「上方服务器信息」。
-- 手机端 `guide-aside` 落到路线之前，页内步骤导航隐藏；触控目标不小于 44px。
+- `/guides/`：标准 `page-head` + 搜索框 + 按 `category` 分组的 `list-rows`。不要再做独立的大色块刊头，
+  也不要让刊头 CTA 和列表行重复同一个入口。
+- `/guides/:slug/`：`wiki-layout` 三栏——左侧 `WikiNav` 页面树，中间 `page-head` + 可选步骤 + `prose`，
+  右侧 `WikiToc` 本页目录。≤1099px 隐藏右栏、目录折叠到正文上方；≤839px 隐藏左栏、页面树折叠。
+- 一个 Markdown 文件就是一页，`category` 决定分组，`order` 决定组内顺序；`steps` 可选，
+  只有“按顺序做”的页面才用 `GuideSteps variant="route"`。
+- 服务器信息只在带 `steps` 的进服页用 `server-card` 展示一次，正文不复述。
+- 每页底部有「编辑此页」GitHub 链接；新增页面可通过 Pages CMS 或直接加 `src/content/guides/<slug>.md`。
+- 触控目标不小于 44px；手机端页面树/目录用 `<details>`，不要塞成第二个固定栏。
 
 ## 3. 导航只有一处数据源
 

@@ -1,0 +1,34 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { groupGuides } from '../lib/content';
+
+interface Props {
+  guides: CollectionEntry<'guides'>[];
+  currentId?: string;
+}
+
+const { guides, currentId } = Astro.props;
+const groups = groupGuides(guides);
+---
+
+<nav class="wiki-nav" aria-label="指南页面">
+  {
+    groups.map((group) => (
+      <div class="wiki-nav-group">
+        <p class="hw-label">{group.category}</p>
+        <ul>
+          {group.pages.map((page) => (
+            <li>
+              <a
+                href={`/guides/${page.id}/`}
+                aria-current={currentId === page.id ? 'page' : undefined}
+              >
+                {page.data.title}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))
+  }
+</nav>

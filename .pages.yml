@@ -155,7 +155,7 @@ content:
         required: true
 
   - name: guides
-    label: 指南
+    label: Wiki 指南
     type: collection
     path: src/content/guides
     format: yaml-frontmatter
@@ -171,28 +171,47 @@ content:
         label: 标题
         type: string
         required: true
+      - name: category
+        label: 分类
+        type: string
+        required: true
+        default: 开始
+        description: 同一分类归到一组，例如“开始”“玩法”“规则”“常见问题”
       - name: summary
         label: 摘要
         type: text
-        required: true
+        description: 留空会自动从正文截取
+      - name: tags
+        label: 标签
+        type: string
+        list: true
+        description: 可选，用于搜索和页面角标
       - name: order
         label: 排序
         type: number
         default: 0
+        description: 数字小的排前面；分类顺序取组内最小值
       - name: updated
         label: 更新时间
         type: date
-        required: true
         options:
           format: yyyy-MM-dd
+        description: 不确定就留空
+      - name: draft
+        label: 草稿
+        type: boolean
+        default: false
+        description: 打开后不会出现在网站和构建产物里
       - name: steps
-        label: 步骤
+        label: 步骤（可选）
         type: object
+        required: false
         list:
-          min: 1
+          min: 0
           collapsible:
             collapsed: false
             summary: "{title}"
+        description: 只有“按顺序做”的页面才需要；普通 Wiki 页面留空
         fields:
           - name: title
             label: 步骤标题

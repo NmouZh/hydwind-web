@@ -1,6 +1,10 @@
 ---
 title: 第一次进服
 summary: 确认客户端、添加服务器、加入官方 QQ 群，然后进入测试。
+category: 开始
+tags:
+  - 进服
+  - 客户端
 order: 1
 updated: 2026-10-31
 steps:

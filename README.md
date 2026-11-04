@@ -62,6 +62,17 @@
 配置位于根目录 `.pages.yml`。图片上传到 `public/images/`，页面路径为 `/images/…`。
 没有仓库写权限的 GitHub 账号只能查看，不能保存。
 
+### 新增 Wiki 页面
+
+「指南」是 Wiki，一个 Markdown 文件就是一页：
+
+1. Pages CMS →「Wiki 指南」→ 新建。文件名就是 URL，例如 `rules` → `/guides/rules/`。
+2. 必填只有标题和正文；分类、摘要、标签、排序、更新时间、步骤都可以留空。
+   摘要留空会自动从正文截一段。
+3. `draft` 打开时不会进构建产物；写完再关掉。
+4. 也可以直接新建 `src/content/guides/<slug>.md`，frontmatter 见 `src/content.config.ts`。
+5. 每页底部有「编辑此页」链接，直接指向 GitHub 上的 Markdown 文件。
+
 ## 相关文档
 
 - Astro 文档：<https://docs.astro.build>
