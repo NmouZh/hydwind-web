@@ -8,7 +8,13 @@ import path from 'node:path';
  * 和 issues.ts 一样用 JSON 文件 + 串行写队列 + 原子写入，适合单实例 Node 部署。
  * 账号来源只有一条链路：群内 @机器人 发送「注册」→ 插件调 /api/auth/register
  * → 这里生成账号密码 → 插件私信玩家。站点上不开放自助注册。
+ *
+ * 关于注入：这一层没有 SQL，账号名在进库前就走 normalizeUsername 的白名单
+ * （只留字母数字下划线、限长），所以不存在拼接式注入面。以后若要换成
+ * SQLite/Postgres，所有查询必须用占位符参数（`?` / `$1`），不要把字符串拼进 SQL。
  */
+
+const SCRYPT_OPTIONS = { N: 16384, r: 8, p: 1, maxmem: 64 * 1024 * 1024 } as const;
 
 export const ACCOUNT_ROLES = ['admin', 'player'] as const;
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];
@@ -67,7 +73,7 @@ const writeFileData = async (data: AccountFile): Promise<void> => {
 
 const hashPassword = (password: string): string => {
   const salt = randomBytes(16).toString('hex');
-  const hash = scryptSync(password, salt, 64).toString('hex');
+  const hash = scryptSync(password, salt, 64, SCRYPT_OPTIONS).toString('hex');
   return `scrypt$${salt}$${hash}`;
 };
 
@@ -75,9 +81,20 @@ const verifyHash = (password: string, stored: string): boolean => {
   const [scheme, salt, hash] = stored.split('$');
   if (scheme !== 'scrypt' || !salt || !hash) return false;
   const expected = Buffer.from(hash, 'hex');
-  const actual = scryptSync(password, salt, expected.length);
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
+  if (expected.length !== 64) return false;
+  const actual = scryptSync(password, salt, expected.length, SCRYPT_OPTIONS);
+  return timingSafeEqual(expected, actual);
 };
+
+/**
+ * 账号不存在时也跑一次 scrypt，让「没这个号」和「密码错」的耗时接近，
+ * 免得有人靠响应时间把站内账号一个个试出来。
+ */
+let dummyHash: string | null = null;
+const getDummyHash = (): string => (dummyHash ??= hashPassword(randomBytes(16).toString('hex')));
+
+/** 密码上限：scrypt 不拒绝长输入，但没必要为一个 10KB 的「密码」耗 CPU。 */
+const MAX_PASSWORD_LENGTH = 200;
 
 /** 去掉容易混淆的 0/O/1/l/I，密码留给玩家手抄。 */
 const PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -145,7 +162,11 @@ export const registerAccount = (input: RegisterInput): Promise<ValidationResult<
       ? (input.role as AccountRole)
       : 'player';
     const providedPassword =
-      typeof input.password === 'string' && input.password.length >= 6 ? input.password : '';
+      typeof input.password === 'string' &&
+      input.password.length >= 6 &&
+      input.password.length <= MAX_PASSWORD_LENGTH
+        ? input.password
+        : '';
 
     if (!platformId) return { ok: false, message: '缺少平台身份（QQ 号）' };
     if (!isValidUsername(username)) {
@@ -196,11 +217,20 @@ export const registerAccount = (input: RegisterInput): Promise<ValidationResult<
 export const verifyLogin = (username: string, password: string): Promise<Account | null> =>
   serialize(async () => {
     const data = await readFileData();
-    const account = data.accounts.find(
-      (item) => item.username.toLowerCase() === normalizeUsername(username).toLowerCase()
-    );
-    if (!account) return null;
-    if (!verifyHash(password, account.passwordHash)) return null;
+    const name = normalizeUsername(username).toLowerCase();
+    const account = name
+      ? data.accounts.find((item) => item.username.toLowerCase() === name)
+      : undefined;
+
+    // 空密码和超长密码不交给 scrypt，但仍然比对一次哈希，耗时和正常失败保持一致
+    const candidate =
+      password.length > 0 && password.length <= MAX_PASSWORD_LENGTH
+        ? password
+        : randomBytes(12).toString('hex');
+    const matched = verifyHash(candidate, account?.passwordHash ?? getDummyHash());
+
+    if (!account || !matched) return null;
+    if (password.length === 0 || password.length > MAX_PASSWORD_LENGTH) return null;
 
     account.lastLoginAt = new Date().toISOString();
     await writeFileData(data);
