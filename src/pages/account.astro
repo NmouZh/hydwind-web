@@ -4,6 +4,9 @@
 export const prerender = true;
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
+import { getSite } from '../lib/content';
+
+const site = await getSite();
 
 const description =
   '氢风（Hydwind）账号中心：登录站内账号，查看身份与最近登录；账号由群内 @机器人 注册后私信发放。';
@@ -26,7 +29,7 @@ const description =
           <div class="account-view" data-view="guest">
             <div class="account-intro">
               <h2>用游戏 ID 登录</h2>
-              <p>账号和初始密码由群内机器人私信，第一次登录后建议先改掉。</p>
+              <p>账号和初始密码由群内机器人私信；忘了或想改密码，同样私信机器人处理。</p>
             </div>
 
             <form class="form-stack account-form" data-form novalidate>
@@ -62,6 +65,8 @@ const description =
                     maxlength="200"
                     required
                     placeholder="私信里给你的密码"
+                    aria-describedby="account-password-hint"
+                    enterkeyhint="go"
                   />
                   <button
                     class="field-action"
@@ -75,7 +80,12 @@ const description =
                   </button>
                 </span>
               </label>
-              <p class="field-note" data-caps-lock hidden>大写锁定开着，密码会不一样。</p>
+              <p class="field-hint" id="account-password-hint">
+                密码是群内机器人私信给你的那串字符。
+              </p>
+              <p class="field-note" data-caps-lock role="status" aria-live="polite" hidden>
+                大写锁定开着，密码会不一样。
+              </p>
 
               <button class="filled-button account-submit" type="submit" data-submit data-magnetic>
                 登录
@@ -83,10 +93,29 @@ const description =
               <p class="form-status" data-status role="status" aria-live="polite"></p>
             </form>
 
-            <p class="account-foot">
-              还没有账号？在群里 @机器人 发「注册 你的游戏 ID」，
-              <a class="text-link" href="/guides/join/">看进服指南</a>。
-            </p>
+            <div class="notice account-help">
+              <div>
+                <p class="hw-label">还没有账号 / 忘了密码</p>
+                <p>
+                  在官方 QQ 群 @机器人 发「注册 你的游戏ID」，机器人会把账号和初始密码私信给你。
+                </p>
+              </div>
+              <div class="account-help-actions">
+                <code>{site.qqGroup}</code>
+                <button
+                  class="text-button is-compact"
+                  type="button"
+                  data-copy={site.qqGroup}
+                  aria-label={`复制 QQ 群号 ${site.qqGroup}`}
+                >
+                  <Icon name="copy" size={16} />
+                  复制群号
+                </button>
+                <a class="text-link" href="/guides/join/">看进服指南</a>
+              </div>
+            </div>
+
+            <p class="account-foot">账号和密码只在群内发放，不会公开发在群里。</p>
           </div>
 
           <div class="account-view" data-view="member" hidden>
@@ -243,9 +272,10 @@ const description =
   .field-action {
     display: grid;
     place-items: center;
-    width: 32px;
-    height: 32px;
-    margin-inline-end: calc(var(--hw-space-1) * -1);
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    margin-inline-end: calc(var(--hw-space-2) * -1);
     border: 0;
     border-radius: var(--md-sys-shape-corner-full);
     background: transparent;
@@ -315,6 +345,44 @@ const description =
 
   .account-submit[aria-busy='true'] {
     cursor: progress;
+  }
+
+  .account-help {
+    display: grid;
+    gap: var(--hw-space-3);
+    margin-top: var(--hw-space-5);
+  }
+
+  .account-help .hw-label {
+    margin-bottom: 4px;
+    font-size: var(--md-sys-typescale-label-medium-size);
+  }
+
+  .account-help p {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.7;
+  }
+
+  .account-help-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--hw-space-2) var(--hw-space-3);
+  }
+
+  .account-help-actions code {
+    color: var(--md-sys-color-on-surface);
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+
+  .account-help .text-button,
+  .account-help .text-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--md-sys-color-primary);
   }
 
   .account-foot {
@@ -463,6 +531,16 @@ const description =
     else input?.removeAttribute('aria-invalid');
   };
 
+  // 一开始改输入就收掉上一次的错误，别让红框和旧提示一直跟着
+  const clearFeedback = () => {
+    setStatus(status, '');
+    markInvalid(usernameField, false);
+    markInvalid(passwordField, false);
+  };
+
+  usernameInput?.addEventListener('input', clearFeedback);
+  passwordInput?.addEventListener('input', clearFeedback);
+
   const formatTime = (value: string | null): string => {
     if (!value) return '还没有记录';
     const date = new Date(value);
@@ -608,12 +686,30 @@ const description =
     }
   });
 
-  document.querySelector('[data-logout]')?.addEventListener('click', async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setStatus(memberStatus, '');
-    showGuest();
-    usernameInput?.focus();
-  });
+  const logoutButton = document.querySelector<HTMLButtonElement>('[data-logout]');
+
+  if (logoutButton) {
+    logoutButton.addEventListener('click', async () => {
+      const original = logoutButton.textContent ?? '退出登录';
+      logoutButton.disabled = true;
+      logoutButton.setAttribute('aria-busy', 'true');
+      logoutButton.textContent = '正在退出…';
+      setStatus(memberStatus, '');
+
+      try {
+        const response = await fetch('/api/auth/logout', { method: 'POST' });
+        if (!response.ok) throw new Error('logout failed');
+        showGuest();
+        usernameInput?.focus();
+      } catch {
+        setStatus(memberStatus, '退出失败，稍后再试');
+      } finally {
+        logoutButton.disabled = false;
+        logoutButton.removeAttribute('aria-busy');
+        logoutButton.textContent = original;
+      }
+    });
+  }
 
   // 桌面端进入页面直接把光标放在账号框，手机端不主动唤起键盘
   if (window.matchMedia('(min-width: 840px)').matches) {

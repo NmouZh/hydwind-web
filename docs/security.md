@@ -51,7 +51,9 @@ db.prepare(`select * from accounts where username = '${username}'`);
 
 - `HttpOnly` + `SameSite=Lax` + `Secure`（由请求协议 / `X-Forwarded-Proto` 决定），30 天过期；
 - 签名密钥取 `SESSION_SECRET`，没有就退回 `ISSUE_ADMIN_TOKEN`，都缺时用开发密钥并告警；
-- 校验先比签名再解析 JSON，签名不对直接丢弃；畸形 cookie 解析失败按未登录处理，不打 500。
+- 校验先比签名再解析 JSON，签名不对直接丢弃；畸形 cookie 解析失败按未登录处理，不打 500；
+- **cookie 里的 role 只用于展示**：站务判定和传记编辑权限每次回查账号文件，降权立即生效，
+  不用等 30 天会话过期。
 
 ## 5. 接口层的三道闸
 
@@ -74,4 +76,5 @@ db.prepare(`select * from accounts where username = '${username}'`);
 
 - 登录成功/失败的结构化审计日志（时间、IP、账号，不含密码）；
 - 多实例部署时把限流换成 Redis，并把会话密钥轮换方案写出来；
-- 给 `/api/*` 加一层宽松 CSP 和统一安全响应头的中间件。
+- 给 `/api/*` 加一层宽松 CSP 和统一安全响应头的中间件；
+- 密码通过机器人重置后，让旧会话立即失效（账号里加 `sessionVersion`，登录时写进 cookie，鉴权时比对）。

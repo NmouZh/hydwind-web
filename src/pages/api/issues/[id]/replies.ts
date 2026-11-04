@@ -1,11 +1,6 @@
 import type { APIRoute } from 'astro';
 import { addIssueReply, getIssue } from '../../../../lib/issues';
-import { isAdmin, requireAdmin } from '../../../../lib/auth';
-import { readSessionFromRequest } from '../../../../lib/session';
-
-/** 站务令牌或已登录的管理员账号，都算站务。 */
-const isStaff = (request: Request): boolean =>
-  isAdmin(request) || readSessionFromRequest(request)?.role === 'admin';
+import { isStaffRequest } from '../../../../lib/auth';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -15,8 +10,9 @@ const json = (body: unknown, status = 200) =>
 
 /** POST /api/issues/:id/replies —— 站务回复，插件在群里发的进展也走这里 */
 export const POST: APIRoute = async ({ params, request }) => {
-  const denied = requireAdmin(request);
-  if (denied) return denied;
+  if (!(await isStaffRequest(request))) {
+    return json({ error: '需要站务权限' }, 401);
+  }
 
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) return json({ error: '议题编号不合法' }, 400);
@@ -46,7 +42,7 @@ export const GET: APIRoute = async ({ params, request }) => {
   const issue = await getIssue(id);
   if (!issue) return json({ error: '议题不存在' }, 404);
   // 待审议题对外不可见：正文 404，回复也必须 404，不能因为“有回复”反而公开
-  if (issue.status === 'pending' && !isStaff(request)) {
+  if (issue.status === 'pending' && !(await isStaffRequest(request))) {
     return json({ error: '议题不存在' }, 404);
   }
   return json({ replies: issue.replies });

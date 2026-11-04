@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { createIssue, listIssues, validateNewIssue } from '../../lib/issues';
-import { isAdmin } from '../../lib/auth';
-import { readSessionFromRequest } from '../../lib/session';
+import { isStaffRequest } from '../../lib/auth';
 import { consumeRateLimit } from '../../lib/rate-limit';
 
 const json = (body: unknown, status = 200) =>
@@ -10,13 +9,9 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json; charset=utf-8' },
   });
 
-/** 站务令牌或已登录的管理员账号，都算站务。 */
-const isStaff = (request: Request): boolean =>
-  isAdmin(request) || readSessionFromRequest(request)?.role === 'admin';
-
 /** GET /api/issues —— 匿名只看公开议题，站务额外拿到 pending。 */
 export const GET: APIRoute = async ({ request }) => {
-  const staff = isStaff(request);
+  const staff = await isStaffRequest(request);
   const issues = await listIssues({ includePending: staff });
 
   return new Response(

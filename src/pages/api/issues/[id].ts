@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getIssue, isIssueStatus, updateIssueStatus } from '../../../lib/issues';
-import { isAdmin } from '../../../lib/auth';
-import { readSessionFromRequest } from '../../../lib/session';
+import { isStaffRequest } from '../../../lib/auth';
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -9,12 +8,8 @@ const json = (body: unknown, status = 200) =>
     headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
   });
 
-/** 站务令牌或已登录的管理员账号，都算站务。 */
-const isStaff = (request: Request): boolean =>
-  isAdmin(request) || readSessionFromRequest(request)?.role === 'admin';
-
-const requireStaff = (request: Request): Response | null =>
-  isStaff(request) ? null : json({ error: '需要站务权限' }, 401);
+const requireStaff = async (request: Request): Promise<Response | null> =>
+  (await isStaffRequest(request)) ? null : json({ error: '需要站务权限' }, 401);
 
 const parseId = (raw: string | undefined): number | null => {
   const id = Number(raw);
@@ -28,7 +23,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   const issue = await getIssue(id);
   // 待审议题对外不可见，避免未审核内容被直接访问
-  if (!issue || (issue.status === 'pending' && !isStaff(request))) {
+  if (!issue || (issue.status === 'pending' && !(await isStaffRequest(request)))) {
     return json({ error: '议题不存在' }, 404);
   }
   return json({ issue });
@@ -36,7 +31,7 @@ export const GET: APIRoute = async ({ params, request }) => {
 
 /** PATCH /api/issues/:id { status } —— 站务改状态（通过 / 驳回 / 完成） */
 export const PATCH: APIRoute = async ({ params, request }) => {
-  const denied = requireStaff(request);
+  const denied = await requireStaff(request);
   if (denied) return denied;
 
   const id = parseId(params.id);

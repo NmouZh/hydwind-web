@@ -48,10 +48,15 @@ export const GET: APIRoute = async ({ params, request }) => {
   const biography = await getBiography(personId);
   // 一次请求把「谁能改」也带回去：前端不用再打一趟 /api/auth/me，入口不用等第二次往返
   const session = readSessionFromRequest(request);
-  const canEdit = canEditBiography(biography, session);
+  // 角色以账号文件为准，别让 cookie 里的旧 role 拖到会话过期才失效
+  const account = session ? await findAccount(session.username) : undefined;
+  const canEdit = canEditBiography(
+    biography,
+    account ? { username: account.username, role: account.role } : null
+  );
 
   return json({
-    signedIn: Boolean(session),
+    signedIn: Boolean(account),
     canEdit,
     limits: { min: MIN_BIO_BODY, max: MAX_BIO_BODY, refs: MAX_BIO_REFS },
     biography: biography
@@ -71,6 +76,9 @@ export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
   const session = readSessionFromRequest(request);
   if (!session) return json({ error: '先登录再写传记' }, 401);
 
+  const account = await findAccount(session.username);
+  if (!account) return json({ error: '账号已不存在，请重新登录' }, 401);
+
   const personId = params.id ?? '';
   const { byGameId, byId } = await loadPeople();
   if (!byId.has(personId)) return json({ error: '没有这个人物' }, 404);
@@ -79,7 +87,7 @@ export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
   if (!limit.ok) return json({ error: '保存太频繁啦，过几分钟再试' }, 429);
 
   const existing = await getBiography(personId);
-  if (!canEditBiography(existing, session)) {
+  if (!canEditBiography(existing, { username: account.username, role: account.role })) {
     return json({ error: `这篇传记是 ${existing?.author ?? '别人'} 写的，只有作者本人能改` }, 403);
   }
 
@@ -90,14 +98,13 @@ export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
     return json({ error: '请求体不是合法 JSON' }, 400);
   }
 
-  const account = await findAccount(session.username);
   const resolver: MentionResolver = { byGameId };
   const parsed = validateBiography(
     {
       personId,
       body: (payload as { body?: unknown })?.body,
-      author: account?.nickname || session.username,
-      authorUsername: session.username,
+      author: account.nickname || account.username,
+      authorUsername: account.username,
     },
     resolver,
     personId

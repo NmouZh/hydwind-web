@@ -63,7 +63,7 @@ PORT=4321
 
 ### `GET /api/issues`
 
-公开议题列表（不含 `pending`）。带 `?includePending=1` 且带站务令牌时返回全部。
+公开议题列表（不含 `pending`）。带 `?includePending=1` 且带站务权限（令牌或 admin 账号）时返回全部。
 
 ### `POST /api/issues`
 
@@ -77,15 +77,15 @@ PORT=4321
 
 ### `GET /api/issues/:id`
 
-单个议题（`pending` 仅站务令牌可见）。
+单个议题（`pending` 仅站务权限可见）。
 
 ### `PATCH /api/issues/:id`
 
-站务改状态：`{ "status": "open" | "rejected" | "done" }`，需要令牌。
+站务改状态：`{ "status": "open" | "rejected" | "done" }`，需要站务权限（令牌或 admin 账号）。
 
 ### `POST /api/issues/:id/replies`
 
-站务回复：`{ "body": "…", "author": "可选" }`，需要令牌。插件把群里的处理进展同步到这里。
+站务回复：`{ "body": "…", "author": "可选" }`，需要站务权限（令牌或 admin 账号）。插件把群里的处理进展同步到这里。
 
 ### `GET /api/people/:id/biography`
 
@@ -191,4 +191,6 @@ PORT=4321
   登录的同源校验会直接 403，`X-Forwarded-For` 也不会被信任（限流会按代理 IP 分桶）。换域名时记得同步这份名单。
 - 所有写接口的请求体在适配器层统一限制为 1MB（`bodySizeLimit`）；登录接口另有 1KB 的更严限制。
 - 会话是无状态签名 cookie，`Secure` 由请求协议 / `X-Forwarded-Proto` 决定，重启服务不会踢人；`SESSION_SECRET` 一换所有人都会掉线。
+- 角色以账号文件为准：降权后现有会话的站务/传记权限立即失效，不用等 30 天。
+- `/account/` 的账号帮助区会直接给出官方 QQ 群号和复制按钮；忘记密码按 `docs/backend-api.md` 的注册流程找机器人重置。
 - 想无状态部署时，把 `src/lib/issues.ts` 和 `src/lib/accounts.ts` 换成 MySQL / D1 / KV 实现即可，接口层不用动。
