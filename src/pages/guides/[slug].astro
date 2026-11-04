@@ -9,6 +9,7 @@ import ServerInfo from '../../components/ServerInfo.astro';
 import GuideSteps from '../../components/GuideSteps.astro';
 import { formatDate } from '../../lib/format';
 import { JOIN_GUIDE_ID, getAllGuides, getSite } from '../../lib/content';
+import '../../styles/guides.css';
 
 export async function getStaticPaths() {
   const guides = await getAllGuides();
@@ -34,86 +35,69 @@ const isJoinGuide = guide.id === JOIN_GUIDE_ID;
   description={guide.data.summary}
   current="guides"
 >
-  <div class="hw-shell page-shell">
+  <div class="hw-shell page-shell guide-detail">
     <nav class="breadcrumb" aria-label="面包屑">
       <a href="/guides/">指南</a>
       <span aria-hidden="true">/</span>
       <span>{guide.data.title}</span>
     </nav>
 
-    <header class="page-head enter">
-      <div class="page-head-copy">
-        <h1>{guide.data.title}</h1>
-        <p class="page-head-sub">{guide.data.summary}</p>
-      </div>
-      <div class="page-head-actions">
-        <a class="outlined-button is-compact" href="/guides/">
-          <Icon name="arrow_back" size={16} />
-          返回指南
-        </a>
+    <header class="guide-hero guide-hero--detail enter">
+      <p class="hw-eyebrow">Guide · 指南</p>
+      <h1 class="guide-title">{guide.data.title}</h1>
+      <p class="guide-lead">{guide.data.summary}</p>
+      <div class="guide-meta">
+        <span class="assist-chip">{guide.data.steps.length} 个步骤</span>
+        <span class="assist-chip">更新于 {formatDate(guide.data.updated)}</span>
       </div>
     </header>
 
-    {
-      isJoinGuide && (
-        <div class="server-info-wrap">
-          <ServerInfo site={site} />
-        </div>
-      )
-    }
-
-    <div class="detail-layout">
-      <div class="detail-main">
-        <section class="steps-section" aria-labelledby="steps-title">
-          <h2 id="steps-title">按顺序完成</h2>
-          <GuideSteps steps={guide.data.steps} />
+    <div class="guide-layout">
+      <div class="guide-main">
+        <section class="guide-section" aria-labelledby="steps-title">
+          <div class="guide-section-head">
+            <div>
+              <p class="hw-eyebrow">Route</p>
+              <h2 id="steps-title">按顺序完成</h2>
+            </div>
+            <span class="guide-section-count">{guide.data.steps.length} 步</span>
+          </div>
+          <GuideSteps steps={guide.data.steps} variant="route" />
         </section>
 
-        <article class="prose">
-          <Content />
-        </article>
+        <section class="guide-section guide-notes" aria-labelledby="notes-title" data-reveal>
+          <div class="guide-section-head">
+            <div>
+              <p class="hw-eyebrow">Notes</p>
+              <h2 id="notes-title">补充说明</h2>
+            </div>
+          </div>
+          <article class="prose">
+            <Content />
+          </article>
+        </section>
       </div>
 
-      <aside class="detail-aside">
-        <p class="hw-label">本页信息</p>
-        <dl class="meta-list">
-          <div>
-            <dt>章节</dt>
-            <dd>{guide.data.steps.length} 个步骤</dd>
-          </div>
-          <div>
-            <dt>更新于</dt>
-            <dd>{formatDate(guide.data.updated)}</dd>
-          </div>
-        </dl>
-        <a class="text-button" href="/">
-          回到首页
-          <Icon name="arrow_forward" size={18} />
+      <aside class="guide-aside" aria-label="本页信息">
+        {isJoinGuide && <ServerInfo site={site} />}
+
+        <nav class="step-nav" aria-label="本页步骤">
+          <p class="hw-label">本页步骤</p>
+          {
+            guide.data.steps.map((step, index) => (
+              <a href={`#step-${index + 1}`}>
+                <span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                {step.title}
+              </a>
+            ))
+          }
+        </nav>
+
+        <a class="text-button guide-back" href="/guides/">
+          <Icon name="arrow_back" size={18} />
+          返回指南
         </a>
       </aside>
     </div>
   </div>
 </BaseLayout>
-
-<style>
-  .server-info-wrap {
-    margin-top: var(--hw-space-7);
-  }
-
-  .steps-section {
-    padding-bottom: var(--hw-space-7);
-    border-bottom: 1px solid var(--md-sys-color-outline-variant);
-  }
-
-  .steps-section h2 {
-    font-size: var(--md-sys-typescale-headline-medium-size);
-  }
-
-  .prose {
-    margin-top: var(--hw-space-7);
-  }
-
-  .detail-aside .text-button {
-    justify-self: start;
-  }
-</style>

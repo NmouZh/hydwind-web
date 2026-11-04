@@ -76,6 +76,17 @@
 正文 + 粘性侧栏：外层 `detail-layout`，正文放 `prose`，信息放 `detail-aside`（内含 `meta-list`）。
 移动端侧栏自动落到正文上方。
 
+### 指南页
+
+指南是「路线」，允许比普通内容页更重的刊头，样式集中在 `src/styles/guides.css`：
+
+- `/guides/`：`guide-hero` 刊头 + 一张 `guide-feature` 起点卡（底色 primary-container）+ `guide-facts` 事实条。
+  只有一篇指南时不要再用「刊头按钮 + 单条列表行」重复同一件事。
+- `/guides/:slug/`：`guide-layout` 两栏。左侧 `guide-route` 用大号序号和标题组织步骤（`GuideSteps variant="route"`），
+  步骤标题必须比 `prose` 正文更醒目；右侧 `guide-aside` 放 `server-card` 和页内步骤导航。
+- 服务器事实只在 `server-card` 里详细展示一次，步骤和正文不复述「上方服务器信息」。
+- 手机端 `guide-aside` 落到路线之前，页内步骤导航隐藏；触控目标不小于 44px。
+
 ## 3. 导航只有一处数据源
 
 一级导航写在 `src/lib/nav.ts` 的 `NAV_ITEMS`，`TopAppBar` 和 `BottomNav` 都读它。规矩：

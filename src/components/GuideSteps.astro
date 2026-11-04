@@ -6,32 +6,53 @@ interface Step {
 
 interface Props {
   steps: Step[];
-  /** cards：指南详情页的卡片布局；join：首页进服区的情境布局。 */
-  variant?: 'cards' | 'join';
+  /** route：指南详情页的路线布局；join：首页进服区的情境布局。 */
+  variant?: 'route' | 'join';
 }
 
-const { steps, variant = 'cards' } = Astro.props;
+const { steps, variant = 'route' } = Astro.props;
 ---
 
-<ol class:list={['guide-steps', `guide-steps--${variant}`]}>
-  {
-    steps.map((step, index) => (
-      <li>
-        <span class="step-number">{String(index + 1).padStart(2, '0')}</span>
-        <div>
-          <strong>{step.title}</strong>
-          <p>{step.text}</p>
-        </div>
-      </li>
-    ))
-  }
-</ol>
+{
+  variant === 'route' ? (
+    <ol class="guide-route">
+      {steps.map((step, index) => (
+        <li
+          class="guide-route-item"
+          id={`step-${index + 1}`}
+          data-reveal
+          style={`--reveal-delay: ${index * 70}ms`}
+        >
+          <span class="guide-route-number" aria-hidden="true">
+            {String(index + 1).padStart(2, '0')}
+          </span>
+          <div>
+            <h3 class="guide-route-title">{step.title}</h3>
+            <p class="guide-route-text">{step.text}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  ) : (
+    <ol class="guide-steps guide-steps--join">
+      {steps.map((step, index) => (
+        <li>
+          <span class="step-number">{String(index + 1).padStart(2, '0')}</span>
+          <div>
+            <strong>{step.title}</strong>
+            <p>{step.text}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  )
+}
 
 <style>
+  /* 首页进服区专用的紧凑步骤；路线变体的样式在 src/styles/guides.css */
   .guide-steps {
     display: grid;
     gap: 0;
-    margin-top: var(--hw-space-4);
   }
 
   .guide-steps li {
@@ -41,7 +62,11 @@ const { steps, variant = 'cards' } = Astro.props;
   }
 
   .step-number {
-    color: var(--md-sys-color-primary);
+    color: color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 66%,
+      transparent
+    );
     font-size: var(--md-sys-typescale-label-small-size);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.1em;
@@ -50,25 +75,16 @@ const { steps, variant = 'cards' } = Astro.props;
 
   .guide-steps strong {
     display: block;
-    font-size: var(--md-sys-typescale-title-large-size);
+    font-size: 0.9375rem;
     font-weight: 600;
     line-height: 1.4;
   }
 
   .guide-steps p {
     margin-top: 3px;
-    color: var(--md-sys-color-on-surface-variant);
+    color: var(--md-sys-color-on-primary-container);
     font-size: var(--md-sys-typescale-body-medium-size);
     line-height: 1.7;
-  }
-
-  .guide-steps--cards li {
-    padding-block: var(--hw-space-4);
-    border-top: 1px solid var(--md-sys-color-outline-variant);
-  }
-
-  .guide-steps--cards li:first-child {
-    border-top: 0;
   }
 
   .guide-steps--join {
@@ -88,22 +104,6 @@ const { steps, variant = 'cards' } = Astro.props;
   .guide-steps--join li:first-child {
     padding-top: 0;
     border-top: 0;
-  }
-
-  .guide-steps--join .step-number {
-    color: color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 66%,
-      transparent
-    );
-  }
-
-  .guide-steps--join strong {
-    font-size: 0.9375rem;
-  }
-
-  .guide-steps--join p {
-    color: var(--md-sys-color-on-primary-container);
   }
 
   @media (max-width: 839px) {

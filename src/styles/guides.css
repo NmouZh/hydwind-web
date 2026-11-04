@@ -1,0 +1,624 @@
+/* ==========================================================================
+   指南：路线式排版
+   逻辑只有两份内容：/guides/ 是入口，/guides/:slug/ 是路线。
+   视觉上要解决三件事：标题层级、步骤主次、信息不要重复四遍。
+   颜色/间距/圆角全部取 token，规矩见 docs/ui-rules.md。
+   ========================================================================== */
+
+/* —— 刊头：比内容页的紧凑刊头更放得开，指南需要一个真正的视觉重心 —— */
+
+.guide-hero {
+  display: grid;
+  gap: var(--hw-space-4);
+  padding-bottom: clamp(28px, 4vw, 44px);
+}
+
+.guide-hero .hw-eyebrow {
+  letter-spacing: 0.12em;
+}
+
+.guide-title {
+  max-width: 18em;
+  font-size: clamp(2.4rem, 5.2vw, 3.8rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+
+.guide-lead {
+  max-width: 52ch;
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-body-large-size);
+  line-height: var(--hw-leading-body);
+}
+
+.guide-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hw-space-2);
+  margin-top: var(--hw-space-1);
+}
+
+.guide-meta .assist-chip {
+  font-size: var(--md-sys-typescale-label-medium-size);
+}
+
+/* —— 入口页：一张有分量的起点卡，不再是一条孤零零的列表行 —— */
+
+.guide-feature {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  margin-top: clamp(28px, 4vw, 48px);
+  padding: clamp(24px, 4vw, 44px);
+  overflow: hidden;
+  border-radius: var(--md-sys-shape-corner-extra-large);
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  isolation: isolate;
+}
+
+.guide-feature::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  right: -12%;
+  bottom: -45%;
+  width: 22rem;
+  height: 22rem;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-primary) 16%,
+    transparent
+  );
+  pointer-events: none;
+}
+
+.guide-feature-copy {
+  display: grid;
+  align-content: start;
+  gap: var(--hw-space-3);
+  min-width: 0;
+}
+
+.guide-feature-index {
+  font-size: clamp(2.6rem, 5vw, 4rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  opacity: 0.38;
+}
+
+.guide-feature h2 {
+  margin: 0;
+  color: inherit;
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+}
+
+.guide-feature-text {
+  max-width: 40ch;
+  color: color-mix(
+    in srgb,
+    var(--md-sys-color-on-primary-container) 78%,
+    transparent
+  );
+  font-size: var(--md-sys-typescale-body-medium-size);
+  line-height: 1.75;
+}
+
+.guide-feature-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hw-space-3);
+  margin-top: var(--hw-space-2);
+}
+
+.guide-feature .text-button {
+  color: var(--md-sys-color-on-primary-container);
+}
+
+/* —— 四个站点：横向读成一条路线，而不是四行说明 —— */
+
+.guide-mini-route {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-mini-step {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--hw-space-3);
+  padding: var(--hw-space-3) 0;
+  border-top: 1px solid
+    color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 16%,
+      transparent
+    );
+}
+
+.guide-mini-step:nth-child(-n + 2) {
+  border-top: 0;
+}
+
+.guide-mini-step:nth-child(2n) {
+  border-left: 1px solid
+    color-mix(
+      in srgb,
+      var(--md-sys-color-on-primary-container) 16%,
+      transparent
+    );
+  padding-left: var(--hw-space-4);
+}
+
+.guide-mini-number {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: color-mix(
+    in srgb,
+    var(--md-sys-color-on-primary-container) 12%,
+    transparent
+  );
+  font-size: var(--md-sys-typescale-label-medium-size);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-mini-title {
+  font-size: var(--md-sys-typescale-title-medium-size);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+/* —— 服务器事实条：入口页的实用信息，一屏内可复制 —— */
+
+.guide-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: clamp(28px, 4vw, 44px);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  overflow: hidden;
+}
+
+.guide-fact {
+  display: grid;
+  align-content: start;
+  gap: var(--hw-space-2);
+  min-width: 0;
+  padding: var(--hw-space-4);
+}
+
+.guide-fact + .guide-fact {
+  border-left: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.guide-fact-label {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-medium-size);
+  font-weight: 500;
+}
+
+.guide-fact-value {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.guide-fact-value code {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.guide-fact-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-left: -8px;
+  padding: 0 8px;
+  color: var(--md-sys-color-primary);
+  font-size: var(--md-sys-typescale-label-medium-size);
+  font-weight: 600;
+}
+
+/* —— 详情页：左边路线，右边事实 —— */
+
+.guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 17.5rem);
+  align-items: start;
+  gap: clamp(32px, 5vw, 72px);
+  margin-top: clamp(28px, 4vw, 48px);
+}
+
+.guide-main {
+  min-width: 0;
+}
+
+.guide-aside {
+  position: sticky;
+  top: calc(var(--hw-bar-height) + 24px);
+  display: grid;
+  gap: var(--hw-space-4);
+}
+
+.guide-section + .guide-section {
+  margin-top: clamp(36px, 5vw, 64px);
+}
+
+.guide-section-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--hw-space-4);
+  margin-bottom: var(--hw-space-5);
+}
+
+.guide-section-head h2 {
+  margin-top: var(--hw-space-3);
+  color: var(--md-sys-color-on-surface);
+  font-size: clamp(1.375rem, 2.4vw, 1.75rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.guide-section-count {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-medium-size);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 步骤：整页最该被看见的东西 */
+.guide-route {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.guide-route-item {
+  position: relative;
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr);
+  gap: var(--hw-space-4);
+  padding-block: var(--hw-space-5);
+  scroll-margin-top: calc(var(--hw-bar-height) + 24px);
+}
+
+.guide-route-item + .guide-route-item {
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.guide-route-number {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  font-size: var(--md-sys-typescale-label-large-size);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: transform var(--md-sys-motion-duration-medium1)
+    var(--md-sys-motion-easing-emphasized);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .guide-route-item:hover .guide-route-number {
+    transform: translateY(-2px);
+  }
+}
+
+.guide-route-title {
+  margin: 0;
+  font-size: clamp(1.125rem, 1.9vw, 1.375rem);
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+}
+
+.guide-route-text {
+  max-width: 52ch;
+  margin-top: var(--hw-space-2);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+/* 页内步骤导航：只在桌面出现，手机靠滚动，别再多占一屏 */
+.step-nav {
+  display: grid;
+  gap: 2px;
+  padding: var(--hw-space-3);
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.step-nav .hw-label {
+  padding: 6px 10px 8px;
+  font-size: var(--md-sys-typescale-label-medium-size);
+}
+
+.step-nav a {
+  display: flex;
+  align-items: center;
+  gap: var(--hw-space-2);
+  min-height: 40px;
+  padding: 0 10px;
+  border-radius: var(--md-sys-shape-corner-small);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-large-size);
+  font-weight: 600;
+  transition:
+    background-color var(--md-sys-motion-duration-short4)
+      var(--md-sys-motion-easing-standard),
+    color var(--md-sys-motion-duration-short4)
+      var(--md-sys-motion-easing-standard);
+}
+
+.step-nav a:hover {
+  background: var(--md-sys-color-surface-container-high);
+  color: var(--md-sys-color-on-surface);
+}
+
+.step-nav a span {
+  color: var(--md-sys-color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.guide-back {
+  justify-self: start;
+}
+
+/* 正文区：步骤已经讲过的，正文只补充，不再复述 */
+.guide-notes .prose {
+  max-width: 62ch;
+}
+
+.guide-notes .prose h2 {
+  font-size: clamp(1.25rem, 2vw, 1.5rem);
+}
+
+/* —— 服务器信息：从“五种字段的表格”收成一张可复制的事实卡 —— */
+
+.server-card {
+  display: grid;
+  gap: var(--hw-space-3);
+  padding: var(--hw-space-4);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-sys-shape-corner-large);
+  background: var(--md-sys-color-surface-container-low);
+}
+
+.server-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hw-space-2);
+}
+
+.server-card-head .hw-eyebrow {
+  font-size: var(--md-sys-typescale-label-small-size);
+  letter-spacing: 0.12em;
+}
+
+.server-card-head h2 {
+  margin-top: 4px;
+  color: var(--md-sys-color-on-surface);
+  font-size: var(--md-sys-typescale-title-large-size);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.server-card-head .assist-chip {
+  flex-shrink: 0;
+  font-size: var(--md-sys-typescale-label-small-size);
+}
+
+.server-card-live {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-medium-size);
+  line-height: 1.6;
+}
+
+.server-card-primary {
+  padding-top: var(--hw-space-3);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.server-card-label {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-medium-size);
+  font-weight: 500;
+}
+
+.server-card-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hw-space-2);
+  margin-top: 2px;
+}
+
+.server-card-value code {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.server-card-copy {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: var(--md-sys-shape-corner-full);
+  color: var(--md-sys-color-primary);
+  font-size: var(--md-sys-typescale-label-medium-size);
+  font-weight: 600;
+  transition: background-color var(--md-sys-motion-duration-short4)
+    var(--md-sys-motion-easing-standard);
+}
+
+.server-card-copy:hover {
+  background: var(--md-sys-color-surface-container-high);
+}
+
+.server-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hw-space-3);
+  margin: 0;
+  padding-top: var(--hw-space-3);
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.server-card-grid dt {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-medium-size);
+  font-weight: 500;
+}
+
+.server-card-grid dd {
+  margin: 2px 0 0;
+  font-size: var(--md-sys-typescale-body-medium-size);
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.server-card-note {
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-large-size);
+  line-height: 1.7;
+}
+
+.server-card-note strong {
+  color: var(--md-sys-color-on-surface);
+}
+
+.server-card .notice {
+  padding: 10px 12px;
+  font-size: var(--md-sys-typescale-label-large-size);
+  line-height: 1.65;
+}
+
+.server-card [data-live-status][data-state='online'] {
+  background: var(--md-sys-color-primary-container);
+  color: var(--md-sys-color-on-primary-container);
+  border-color: transparent;
+}
+
+.server-card [data-live-status][data-state='offline'] {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+}
+
+/* —— 响应式：两个断点，和全站一致 —— */
+
+@media (max-width: 839px) {
+  .guide-feature {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--hw-space-5);
+  }
+
+  .guide-mini-route {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .guide-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .guide-fact:nth-child(3) {
+    border-left: 0;
+  }
+
+  .guide-fact:nth-child(n + 3) {
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .guide-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--hw-space-5);
+  }
+
+  .guide-aside {
+    position: static;
+    order: -1;
+  }
+
+  .step-nav {
+    display: none;
+  }
+
+  .guide-route-item {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: var(--hw-space-3);
+    padding-block: var(--hw-space-4);
+  }
+
+  .guide-route-number {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+}
+
+@media (max-width: 599px) {
+  .guide-title {
+    font-size: clamp(2.1rem, 10vw, 2.6rem);
+  }
+
+  .guide-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guide-fact + .guide-fact {
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    border-left: 0;
+  }
+
+  .guide-mini-route {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .guide-mini-step {
+    border-top: 1px solid
+      color-mix(
+        in srgb,
+        var(--md-sys-color-on-primary-container) 16%,
+        transparent
+      );
+  }
+
+  .guide-mini-step:nth-child(2n) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .guide-mini-step:first-child {
+    border-top: 0;
+  }
+}

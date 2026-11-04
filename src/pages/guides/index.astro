@@ -4,47 +4,117 @@ export const prerender = true;
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
 import GuideCard from '../../components/GuideCard.astro';
-import { JOIN_GUIDE_ID, getGuides } from '../../lib/content';
+import { formatDate } from '../../lib/format';
+import { JOIN_GUIDE_ID, getGuides, getJoinGuide, getSite } from '../../lib/content';
+import '../../styles/guides.css';
 
-const guides = await getGuides();
+const [site, guides, join] = await Promise.all([getSite(), getGuides(), getJoinGuide()]);
+const others = guides.filter((guide) => guide.id !== JOIN_GUIDE_ID);
+
+const description =
+  '氢风的进服指南：客户端版本、服务器地址、QQ 群和测试期注意事项，按顺序做完就能进服。';
 ---
 
-<BaseLayout
-  title="指南 · 氢风 Hydwind"
-  description="氢风的进服指南与测试期说明：客户端版本、服务器地址、QQ 群与注意事项。"
-  current="guides"
->
-  <div class="hw-shell page-shell">
-    <header class="page-head enter">
-      <div class="page-head-copy">
-        <h1>从第一次进服开始</h1>
-        <p class="page-head-sub">
-          先确认客户端和服务器地址，再加入 QQ 群获取测试安排。指南内容以 Markdown 维护，可通过 Pages CMS 更新。
-        </p>
-      </div>
-      <div class="page-head-actions">
-        <a class="filled-button is-compact" href={`/guides/${JOIN_GUIDE_ID}/`}>
-          <Icon name="login" size={16} />
-          第一次进服
-        </a>
+<BaseLayout title="指南 · 氢风 Hydwind" description={description} current="guides">
+  <div class="hw-shell page-shell guides-page">
+    <header class="guide-hero enter">
+      <p class="hw-eyebrow">Guide · 指南</p>
+      <h1 class="guide-title">从第一次进服开始</h1>
+      <p class="guide-lead">
+        客户端、服务器地址、QQ 群和测试期注意事项，一次说清楚。按顺序做完，就能进服。
+      </p>
+      <div class="guide-meta">
+        <span class="assist-chip">{guides.length} 篇指南</span>
+        <span class="assist-chip">{join.data.steps.length} 个步骤</span>
+        <span class="assist-chip">更新于 {formatDate(join.data.updated)}</span>
       </div>
     </header>
 
-    {
-      guides.length > 0 && (
-        <div class="list-rows guides-list">
-          {guides.map((guide, index) => (
-            <GuideCard guide={guide} index={index} delay={80 + index * 60} />
-          ))}
+    <section class="guide-feature" aria-labelledby="start-title" data-reveal>
+      <div class="guide-feature-copy">
+        <span class="guide-feature-index" aria-hidden="true">01</span>
+        <h2 id="start-title">{join.data.title}</h2>
+        <p class="guide-feature-text">{join.data.summary}</p>
+        <div class="guide-feature-actions">
+          <a class="filled-button" href={`/guides/${join.id}/`}>
+            开始进服
+            <Icon name="arrow_forward" size={18} />
+          </a>
         </div>
+      </div>
+
+      <ol class="guide-mini-route" aria-label="进服步骤">
+        {
+          join.data.steps.map((step, index) => (
+            <li class="guide-mini-step">
+              <span class="guide-mini-number" aria-hidden="true">
+                {String(index + 1).padStart(2, '0')}
+              </span>
+              <span class="guide-mini-title">{step.title}</span>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <section
+      class="guide-facts"
+      aria-label="进服前要确认的服务器信息"
+      data-reveal
+      style="--reveal-delay: 80ms"
+    >
+      <div class="guide-fact">
+        <span class="guide-fact-label">服务器地址</span>
+        <span class="guide-fact-value"><code>{site.address}</code></span>
+        <button
+          class="guide-fact-copy"
+          type="button"
+          data-copy={site.address}
+          aria-label={`复制服务器地址 ${site.address}`}
+        >
+          <Icon name="copy" size={16} />
+          复制
+        </button>
+      </div>
+      <div class="guide-fact">
+        <span class="guide-fact-label">客户端版本</span>
+        <span class="guide-fact-value">Java 版 {site.clientVersions}</span>
+      </div>
+      <div class="guide-fact">
+        <span class="guide-fact-label">验证方式</span>
+        <span class="guide-fact-value">{site.authentication}</span>
+      </div>
+      <div class="guide-fact">
+        <span class="guide-fact-label">QQ 群</span>
+        <span class="guide-fact-value"><code>{site.qqGroup}</code></span>
+        <button
+          class="guide-fact-copy"
+          type="button"
+          data-copy={site.qqGroup}
+          aria-label={`复制 QQ 群号 ${site.qqGroup}`}
+        >
+          <Icon name="copy" size={16} />
+          复制
+        </button>
+      </div>
+    </section>
+
+    {
+      others.length > 0 && (
+        <section class="guide-section" style="margin-top: clamp(36px, 5vw, 64px)">
+          <div class="guide-section-head">
+            <div>
+              <p class="hw-eyebrow">More</p>
+              <h2>更多指南</h2>
+            </div>
+          </div>
+          <div class="list-rows">
+            {others.map((guide, index) => (
+              <GuideCard guide={guide} index={index} delay={80 + index * 60} />
+            ))}
+          </div>
+        </section>
       )
     }
   </div>
 </BaseLayout>
-
-<style>
-  .guides-list {
-    margin-top: var(--hw-space-5);
-    border-top: 0;
-  }
-</style>
