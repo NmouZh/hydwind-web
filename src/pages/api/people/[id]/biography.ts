@@ -1,120 +1,144 @@
 import type { APIRoute } from 'astro';
 import { findAccount } from '../../../../lib/accounts';
-import { json } from '../../../../lib/api-response.ts';
+import { isJson, json } from '../../../../lib/api-response.ts';
 import {
-  MAX_BIO_BODY,
-  MAX_BIO_REFS,
-  MIN_BIO_BODY,
   canEditBiography,
-  getBiography,
-  saveBiography,
-  validateBiography,
-  type MentionResolver,
+  defaultMainTitle,
+  findBiographyByGameId,
+  resolvePersonBySlug,
+  updateBiography,
+  type ResolvedPerson,
+  type StaticPersonRef,
 } from '../../../../lib/biographies';
-import { getPublishedPeople } from '../../../../lib/content';
 import { consumeRateLimit } from '../../../../lib/rate-limit';
 import { readSessionFromRequest } from '../../../../lib/session';
 
 /**
- * 人物传记接口。
+ * GET/PUT /api/people/[id]/biography
  *
- * 人物页是构建期静态产物，传记要能随时改，所以正文由浏览器拉这一条接口渲染，
- * 和议题列表同一个思路：静态壳 + 运行时数据。
+ * `[id]` 是 slug：静态人物 entry id 优先（`/people/nz-173/` 保持不变），
+ * 其次匹配账号 username（忽略大小写）。传记按账号 gameId 存，一个玩家一篇。
+ *
+ * GET 公开：返回 gameId / mainTitle / body / canEdit / updatedAt。合法人物或
+ * 账号还没写传记时返回默认空传记而不是 404，页面可以直接显示空状态。
+ * PUT 仅本人或管理员；校验标题 2–40、正文 0–4000，所有错误都在这里分层。
  */
 
-/** 人物 id ↔ 游戏 ID 的映射，正文里的 `@游戏ID` 靠它落到具体人物。 */
-const loadPeople = async () => {
-  const people = await getPublishedPeople();
-  const byGameId = new Map<string, string>();
-  const byId = new Map<string, string>();
-  for (const person of people) {
-    byGameId.set(person.data.gameId, person.id);
-    byId.set(person.id, person.data.gameId);
+const MAX_BODY_BYTES = 64 * 1024;
+const SAVE_WINDOW_MS = 10 * 60_000;
+const SAVE_LIMIT = 12;
+
+/**
+ * 静态人物来自 Astro 内容集合。测试环境（node:test）没有 `astro:content`
+ * 虚拟模块，动态导入会以 ERR_UNSUPPORTED_ESM_URL_SCHEME 失败；此时退回空列表，
+ * 账号 slug 仍能照常解析。生产构建里这个动态导入由 Vite 正常解析。
+ */
+const loadStaticPeople = async (): Promise<StaticPersonRef[]> => {
+  try {
+    const { getPublishedPeople } = await import('../../../../lib/content');
+    const people = await getPublishedPeople();
+    return people.map(({ id, data }) => ({ id, gameId: data.gameId }));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ERR_UNSUPPORTED_ESM_URL_SCHEME') {
+      return [];
+    }
+    throw error;
   }
-  return { people, byGameId, byId };
 };
+
+const resolveSlug = async (slug: string): Promise<ResolvedPerson | null> =>
+  resolvePersonBySlug(slug, {
+    staticPeople: await loadStaticPeople(),
+    findAccount,
+  });
+
+const biographyPayload = (
+  resolved: ResolvedPerson,
+  biography: Awaited<ReturnType<typeof findBiographyByGameId>>,
+  canEdit: boolean
+) => ({
+  gameId: resolved.gameId,
+  mainTitle: biography?.mainTitle ?? defaultMainTitle(resolved.gameId),
+  body: biography?.body ?? '',
+  canEdit,
+  updatedAt: biography?.updatedAt ?? null,
+});
 
 export const GET: APIRoute = async ({ params, request }) => {
-  const personId = params.id ?? '';
-  const { byId } = await loadPeople();
-  const gameId = byId.get(personId);
-  if (!gameId) return json({ error: '没有这个人物' }, 404);
+  const resolved = await resolveSlug(params.id ?? '');
+  if (!resolved) return json({ error: '没有这个人物' }, 404);
 
-  const biography = await getBiography(personId);
-  // 一次请求把「谁能改」也带回去：前端不用再打一趟 /api/auth/me，入口不用等第二次往返
+  const biography = await findBiographyByGameId(resolved.gameId);
+
+  // 角色以账号文件为准，不信任 cookie 里的旧 role。
   const session = readSessionFromRequest(request);
-  // 角色以账号文件为准，别让 cookie 里的旧 role 拖到会话过期才失效
   const account = session ? await findAccount(session.username) : undefined;
   const canEdit = canEditBiography(
-    biography,
-    account ? { username: account.username, role: account.role } : null
+    account ? { username: account.username, role: account.role } : null,
+    resolved.gameId
   );
 
-  return json({
-    signedIn: Boolean(account),
-    canEdit,
-    limits: { min: MIN_BIO_BODY, max: MAX_BIO_BODY, refs: MAX_BIO_REFS },
-    biography: biography
-      ? {
-          body: biography.body,
-          author: biography.author,
-          createdAt: biography.createdAt,
-          updatedAt: biography.updatedAt,
-          refs: biography.refs.map((id) => ({ personId: id, gameId: byId.get(id) ?? id })),
-        }
-      : null,
-  });
+  return json(biographyPayload(resolved, biography, canEdit));
 };
 
-/** PUT /api/people/:id/biography → 保存（没有就新建，有就覆盖） */
 export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
+  if (!isJson(request)) return json({ error: '请求体必须是 JSON' }, 415);
+
   const session = readSessionFromRequest(request);
   if (!session) return json({ error: '先登录再写传记' }, 401);
 
   const account = await findAccount(session.username);
   if (!account) return json({ error: '账号已不存在，请重新登录' }, 401);
 
-  const personId = params.id ?? '';
-  const { byGameId, byId } = await loadPeople();
-  if (!byId.has(personId)) return json({ error: '没有这个人物' }, 404);
+  const resolved = await resolveSlug(params.id ?? '');
+  if (!resolved) return json({ error: '没有这个人物' }, 404);
 
-  const limit = consumeRateLimit(`bio:${session.username}:${clientAddress ?? '-'}`, 12, 10 * 60_000);
-  if (!limit.ok) return json({ error: '保存太频繁啦，过几分钟再试' }, 429);
-
-  const existing = await getBiography(personId);
-  if (!canEditBiography(existing, { username: account.username, role: account.role })) {
-    return json({ error: `这篇传记是 ${existing?.author ?? '别人'} 写的，只有作者本人能改` }, 403);
+  // 权限只看「账号 ↔ 目标 gameId」，和传记是否已存在无关：
+  // 这样普通登录用户不能抢着创建别人的第一篇。
+  if (!canEditBiography({ username: account.username, role: account.role }, resolved.gameId)) {
+    return json({ error: '只能编辑自己的传记' }, 403);
   }
+
+  const declared = Number(request.headers.get('content-length') ?? 0);
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return json({ error: '请求体太大' }, 413);
+  }
+
+  const raw = await request.text();
+  if (raw.length > MAX_BODY_BYTES) return json({ error: '请求体太大' }, 413);
 
   let payload: unknown;
   try {
-    payload = await request.json();
+    payload = JSON.parse(raw);
   } catch {
     return json({ error: '请求体不是合法 JSON' }, 400);
   }
 
-  const resolver: MentionResolver = { byGameId };
-  const parsed = validateBiography(
-    {
-      personId,
-      body: (payload as { body?: unknown })?.body,
-      author: account.nickname || account.username,
-      authorUsername: account.username,
-    },
-    resolver,
-    personId
-  );
-  if (!parsed.ok) return json({ error: parsed.message }, 422);
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return json({ error: '请求体格式不对' }, 400);
+  }
 
-  const saved = await saveBiography(parsed.value);
+  const limit = consumeRateLimit(
+    `bio:${account.username.toLowerCase()}:${clientAddress ?? '-'}`,
+    SAVE_LIMIT,
+    SAVE_WINDOW_MS
+  );
+  if (!limit.ok) {
+    return json({ error: '保存太频繁啦，过几分钟再试' }, 429, {
+      'retry-after': String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))),
+    });
+  }
+
+  const { mainTitle, body } = payload as { mainTitle?: unknown; body?: unknown };
+  const saved = await updateBiography(resolved.gameId, { mainTitle, body });
+  if (!saved.ok) return json({ error: saved.message }, 400);
+
   return json({
-    biography: {
-      body: saved.body,
-      author: saved.author,
-      createdAt: saved.createdAt,
-      updatedAt: saved.updatedAt,
-      refs: saved.refs.map((id) => ({ personId: id, gameId: byId.get(id) ?? id })),
-    },
+    gameId: saved.value.gameId,
+    mainTitle: saved.value.mainTitle,
+    body: saved.value.body,
+    canEdit: true,
+    updatedAt: saved.value.updatedAt,
     message: '传记保存好了',
   });
 };

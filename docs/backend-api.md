@@ -137,41 +137,39 @@ HydwindGate 插件校验玩家从 `/gate` 页面拿到的登录码，**只接受
 
 ### `GET /api/people/:id/biography`
 
-人物传记（`id` 是内容集合里的 slug，例如 `nz-173`）。没写过时 `biography` 是 `null`。
-正文里用 `@游戏ID` 引用其他玩家，`refs` 会带上引用对象，前端据此渲染人物链接。
+公开读取一份人物传记。`id` 是 slug：先匹配静态人物 entry id（例如 `nz-173` 保持不变），
+再匹配账号 `username`（忽略大小写）。
 
-除了正文，这条还把**当前请求者能不能改**一起带回来：页面上的入口（写一篇 / 编辑 / 只读）
-据此切换，不用再额外打一趟 `/api/auth/me`。
+合法人物 / 账号还没写传记时**不返回 404**，而是返回默认空传记：
+`mainTitle` 是「<gameId>的人物传记」，`body` 为空，`updatedAt` 为 `null`。
+slug 既不是静态人物也不是账号时返回 `404 { "error": "..." }`。
 
 ```json
 {
-  "signedIn": true,
+  "gameId": "Nz_173",
+  "mainTitle": "Nz_173的人物传记",
+  "body": "……",
   "canEdit": true,
-  "limits": { "min": 20, "max": 4000, "refs": 12 },
-  "biography": {
-    "body": "……@Nz_173 在……",
-    "author": "写的人昵称",
-    "createdAt": "2026-11-03T05:00:00.000Z",
-    "updatedAt": "2026-11-03T05:00:00.000Z",
-    "refs": [{ "personId": "nz-173", "gameId": "Nz_173" }]
-  }
+  "updatedAt": "2026-11-03T05:00:00.000Z"
 }
 ```
 
-`canEdit` 的判定：未登录为 `false`；登录后没有传记或自己是作者、或角色是 `admin` 为 `true`。
-
-人物页是构建期渲染的，**传记正文在构建时就写进 HTML**（构建机读同一份 `HYDWIND_DATA_DIR`），
-所以打开页面第一屏就有内容；浏览器再拉这条接口刷新最新版本，内容没变就不重画。
-改了传记要等下一次构建才会进静态 HTML，期间靠接口补。
+`canEdit` 的判定：未登录为 `false`；账号 `username` 与 `gameId` 忽略大小写相等，
+或账号角色是 `admin` 为 `true`。角色每次都从账号文件回查，不信任 cookie 里的旧值。
 
 ### `PUT /api/people/:id/biography`
 
-保存传记，**需要登录会话**（`hydwind_session` cookie），请求体 `{ "body": "……" }`。
+保存传记，**需要登录会话**（`hydwind_session` cookie），请求体
+`{ "mainTitle": "……", "body": "……" }`。
 
-- 校验：正文 20～4000 字；`@游戏ID` 必须是已发布人物，最多引用 12 位；引用自己不重复计入
-- 一个玩家只有一篇传记，存在就覆盖；只有作者本人和站点管理员能改
+- 只有传记主人（账号 `username` 与目标 `gameId` 忽略大小写相等）或管理员能写；
+  传记尚不存在时也一样，普通登录用户不能给别人创建第一篇
+- 校验：主标题 2～40 字，空串回退「<gameId>的人物传记」；正文 0～4000 字，允许为空
+- 一个玩家只有一篇传记，存在就覆盖
 - 同一账号 10 分钟最多 12 次
-- 成功返回同 GET 结构 + `message`
+- 错误：`401` 未登录、`403` 无权限、`404` slug 不存在、`400` 参数 / JSON 错误、
+  `415` 不是 JSON、`413` 请求体过大、`429` 限流
+- 成功返回与 GET 相同的字段 + `message`
 
 ### `GET /api/admin/pending.json`
 
