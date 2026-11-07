@@ -744,6 +744,17 @@ const browserSmoke = async () => {
     await desktop.route('**/api.mcstatus.io/**', fulfillStatus);
 
     const page = await desktop.newPage();
+    page.on('pageerror', (error) => {
+      console.error(`浏览器页面脚本错误：${error.message}`);
+    });
+    page.on('console', (message) => {
+      if (message.type() === 'error') console.error(`浏览器 console：${message.text()}`);
+    });
+    page.on('response', (response) => {
+      if (response.url().includes('/comments')) {
+        console.log(`评论接口 ${response.request().method()} ${response.status()} ${response.url()}`);
+      }
+    });
     await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
     check(await waitForStatus(page, '离线'), '桌面首页显示离线状态');
     check(await hasNoHorizontalOverflow(page), '桌面首页 1280 视口无横向溢出');
@@ -832,16 +843,25 @@ const browserSmoke = async () => {
 
     await page.fill('[data-comment-input]', '浏览器评论一条');
     await page.click('[data-comment-submit]');
-    check(
-      await waitForText(page, '[data-comment-list]', '浏览器评论一条'),
-      '登录后可以通过界面发表评论'
-    );
+    const commented = await waitForText(page, '[data-comment-list]', '浏览器评论一条');
+    if (!commented) {
+      console.error(
+        `评论未出现；状态：${await page.locator('[data-comment-status]').innerText().catch(() => '')}`
+      );
+    }
+    check(commented, '登录后可以通过界面发表评论');
 
-    await page.locator('[data-comment-delete]').first().click();
-    check(
-      await waitForText(page, '[data-comment-list]', '浏览器评论一条', false),
-      '评论作者可以通过界面删除自己的评论'
-    );
+    const deleteButtons = page.locator('[data-comment-delete]');
+    const deleteCount = await deleteButtons.count();
+    if (deleteCount > 0) {
+      await deleteButtons.first().click();
+      check(
+        await waitForText(page, '[data-comment-list]', '浏览器评论一条', false),
+        '评论作者可以通过界面删除自己的评论'
+      );
+    } else {
+      check(false, '评论作者可以看到删除按钮');
+    }
 
     // 静态人物尚无运行期传记：评论接口会先 ensure 空传记，不能 404。
     await page.goto(`${origin}/people/nz-173/`, { waitUntil: 'networkidle' });
