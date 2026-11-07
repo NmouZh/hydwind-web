@@ -9,9 +9,8 @@
  * 不可用时只跳过浏览器检查，不影响 API 冒烟结果。
  */
 import { spawn } from 'node:child_process';
-import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
@@ -41,48 +40,6 @@ let browserSkipReason = null;
 const skipBrowser = (reason) => {
   browserSkipReason = reason;
   console.log(`跳过浏览器冒烟：${reason}`);
-};
-
-const MIME = {
-  '.html': 'text/html; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-};
-
-const startStaticServer = async () => {
-  const server = createServer(async (request, response) => {
-    const urlPath = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
-    let filePath = path.join(dist, urlPath);
-
-    try {
-      if (!filePath.startsWith(dist)) throw new Error('outside dist');
-      const info = await stat(filePath).catch(() => null);
-      if (info?.isDirectory() || (!info && !path.extname(filePath))) {
-        filePath = path.join(filePath, 'index.html');
-      }
-      const body = await readFile(filePath);
-      response.writeHead(200, {
-        'Content-Type': MIME[path.extname(filePath)] ?? 'application/octet-stream',
-      });
-      response.end(body);
-    } catch {
-      response.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      response.end('Not found');
-    }
-  });
-
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
-  return server;
 };
 
 const findExecutable = () => {
@@ -148,24 +105,18 @@ const waitForHttp = async (url, timeoutMs = 20000) => {
 };
 
 /**
- * API 冒烟：真实启动 standalone server，所有状态都通过 HTTP 验证。
- * 不依赖 Chromium，CI 里一定能跑；账号与登录码写在临时数据目录，测完删除。
+ * 启动真实 standalone server，使用临时数据目录，返回 origin 和关闭函数。
+ * SSR 页面（/people/）和 API 都必须走这个服务，静态文件服务已经不够用了。
  */
-const apiSmoke = async () => {
+const startStandaloneServer = async (env = {}) => {
   const entry = path.join(buildDir, 'server', 'entry.mjs');
   if (!existsSync(entry)) {
-    failures.push('/api 冒烟：找不到 dist/server/entry.mjs（先 npm run build）');
-    return;
+    throw new Error('找不到 dist/server/entry.mjs（先 npm run build）');
   }
 
   const dataDir = await mkdtemp(path.join(os.tmpdir(), 'hydwind-smoke-'));
   const port = await freePort();
   const origin = `http://127.0.0.1:${port}`;
-  const pluginToken = 'smoke-plugin-token';
-  const adminToken = 'smoke-admin-token';
-  const username = 'SmokePlayer';
-  const uuid = '123e4567-e89b-12d3-a456-426614174000';
-
   const child = spawn(process.execPath, [entry], {
     cwd: root,
     env: {
@@ -173,9 +124,7 @@ const apiSmoke = async () => {
       HOST: '127.0.0.1',
       PORT: String(port),
       HYDWIND_DATA_DIR: dataDir,
-      PLUGIN_TOKEN: pluginToken,
-      ISSUE_ADMIN_TOKEN: adminToken,
-      SESSION_SECRET: 'smoke-session-secret-0123456789',
+      ...env,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -185,6 +134,51 @@ const apiSmoke = async () => {
   child.stderr.on('data', (chunk) => {
     stderr += String(chunk);
   });
+
+  const close = async () => {
+    child.kill('SIGTERM');
+    await new Promise((resolve) => {
+      const timer = setTimeout(resolve, 3000);
+      child.once('exit', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+    await rm(dataDir, { recursive: true, force: true });
+  };
+
+  try {
+    await waitForHttp(`${origin}/api/health`);
+  } catch (error) {
+    await close();
+    throw error;
+  }
+
+  return { origin, close, stderr: () => stderr };
+};
+
+/**
+ * API 冒烟：真实启动 standalone server，所有状态都通过 HTTP 验证。
+ * 不依赖 Chromium，CI 里一定能跑；账号与登录码写在临时数据目录，测完删除。
+ */
+const apiSmoke = async () => {
+  const pluginToken = 'smoke-plugin-token';
+  const adminToken = 'smoke-admin-token';
+  const username = 'SmokePlayer';
+  const uuid = '123e4567-e89b-12d3-a456-426614174000';
+
+  let server;
+  try {
+    server = await startStandaloneServer({
+      PLUGIN_TOKEN: pluginToken,
+      ISSUE_ADMIN_TOKEN: adminToken,
+      SESSION_SECRET: 'smoke-session-secret-0123456789',
+    });
+  } catch (error) {
+    failures.push(`/api 冒烟：${String(error).split('\n')[0]}`);
+    return;
+  }
+  const { origin } = server;
 
   const verify = async (token, body) => {
     const headers = { 'content-type': 'application/json' };
@@ -298,19 +292,29 @@ const apiSmoke = async () => {
       invalid.status === 409 && invalid.body?.reason === 'invalid_code',
       '/api/plugin/login/verify 未知码返回 409 invalid_code'
     );
+
+    // /people/ 已改为 SSR：构建期没有静态 HTML，必须从真实服务取到合并结果。
+    const peoplePage = await fetch(`${origin}/people/`);
+    const peopleHtml = await peoplePage.text();
+    check(peoplePage.status === 200, '/people/ SSR 返回 200');
+    check(
+      peopleHtml.includes('服务器里真实存在的人'),
+      '/people/ SSR 渲染页面标题'
+    );
+    check(
+      peopleHtml.includes('Nz_173'),
+      '/people/ SSR 合并静态人物'
+    );
+    check(
+      peopleHtml.includes(username),
+      '/people/ SSR 列出已注册账号'
+    );
   } catch (error) {
     failures.push(`/api 冒烟执行失败：${String(error).split('\n')[0]}`);
+    const stderr = server.stderr();
     if (stderr.trim()) console.error(stderr.trim().split('\n').slice(-10).join('\n'));
   } finally {
-    child.kill('SIGTERM');
-    await new Promise((resolve) => {
-      const timer = setTimeout(resolve, 3000);
-      child.once('exit', () => {
-        clearTimeout(timer);
-        resolve();
-      });
-    });
-    await rm(dataDir, { recursive: true, force: true });
+    await server.close();
   }
 };
 
@@ -334,9 +338,17 @@ const browserSmoke = async () => {
     return;
   }
 
-  const server = await startStaticServer();
-  const { port } = server.address();
-  const origin = `http://127.0.0.1:${port}`;
+  // 浏览器也走真实 standalone server：/people/ 是 SSR，静态文件服务取不到。
+  let server;
+  try {
+    server = await startStandaloneServer({
+      SESSION_SECRET: 'smoke-session-secret-0123456789',
+    });
+  } catch (error) {
+    failures.push(`浏览器冒烟服务启动失败：${String(error).split('\n')[0]}`);
+    return;
+  }
+  const { origin } = server;
 
   let browser;
   try {
@@ -346,7 +358,7 @@ const browserSmoke = async () => {
       args: ['--no-sandbox'],
     });
   } catch (error) {
-    server.close();
+    await server.close();
     skipBrowser(`Chromium 无法启动（${String(error).split('\n')[0]}）`);
     return;
   }
@@ -543,7 +555,7 @@ const browserSmoke = async () => {
     await mobile.close();
   } finally {
     await browser.close();
-    await new Promise((resolve) => server.close(resolve));
+    await server.close();
   }
 };
 
