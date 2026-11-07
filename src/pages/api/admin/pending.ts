@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import { json } from '../../../lib/api-response.ts';
 import { listIssues } from '../../../lib/issues';
 import { requireAdmin } from '../../../lib/auth';
 
@@ -13,7 +14,5 @@ export const GET: APIRoute = async ({ request }) => {
   const issues = await listIssues({ includePending: true });
   const pending = issues.filter((issue) => issue.status === 'pending');
 
-  return new Response(JSON.stringify({ pending }), {
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-  });
+  return json({ pending });
 };

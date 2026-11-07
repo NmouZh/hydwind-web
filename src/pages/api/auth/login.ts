@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { normalizeUsername, publicAccount, verifyLogin } from '../../../lib/accounts';
+import { isJson, json } from '../../../lib/api-response.ts';
 import { consumeRateLimit } from '../../../lib/rate-limit';
 import { createSessionCookie } from '../../../lib/session';
 
@@ -12,16 +13,6 @@ import { createSessionCookie } from '../../../lib/session';
  * - 双维度限流：IP 挡脚本刷，账号挡换 IP 撞同一个号，两条命中任意一条就 429。
  * - 失败文案统一：不区分「没这个号」和「密码错」，日志里也不留密码。
  */
-
-const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
-      ...headers,
-    },
-  });
 
 const MAX_BODY_BYTES = 1024;
 const WINDOW_MS = 10 * 60_000;
@@ -38,9 +29,6 @@ const isSameOrigin = (request: Request): boolean => {
     return false;
   }
 };
-
-const isJson = (request: Request): boolean =>
-  (request.headers.get('content-type') ?? '').toLowerCase().includes('application/json');
 
 const tooMany = (retryAfterMs: number) =>
   json({ error: '尝试太多次了，过几分钟再来' }, 429, {

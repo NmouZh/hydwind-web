@@ -1,12 +1,7 @@
 import type { APIRoute } from 'astro';
 import { findAccount, publicAccount } from '../../../lib/accounts';
+import { json } from '../../../lib/api-response.ts';
 import { readSessionFromRequest } from '../../../lib/session';
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-  });
 
 /** GET /api/auth/me → 当前登录账号，未登录返回 401 */
 export const GET: APIRoute = async ({ request }) => {

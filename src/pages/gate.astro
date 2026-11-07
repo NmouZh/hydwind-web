@@ -7,6 +7,7 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import { findAccount } from '../lib/accounts';
 import { getSite } from '../lib/content';
+import { gateView } from '../lib/gate';
 import { generateLoginCodes, LOGIN_CODE_TTL_MS } from '../lib/login-codes';
 import { readSession } from '../lib/session';
 
@@ -30,6 +31,8 @@ if (account) {
   }
 }
 
+const view = gateView({ signedIn: Boolean(account), hasCodes: Boolean(codes) });
+
 const description =
   '氢风（Hydwind）进服验证：登录网站账号后获取一次性登录码，粘贴进游戏对话框即可解除冻结。';
 ---
@@ -41,9 +44,9 @@ const description =
         <h1>进服验证</h1>
         <p class="page-head-sub">
           {
-            codes
+            view === 'codes'
               ? '把这组码填进游戏里的登录对话框，服务器确认是你本人后就会放行。'
-              : account
+              : view === 'error'
                 ? '你已登录，但登录码暂时生成不出来，稍等片刻刷新本页即可。'
                 : '登录网站账号后才能拿到登录码；还没注册的话，先在官方 QQ 群找机器人。'
           }
@@ -52,7 +55,7 @@ const description =
     </header>
 
     {
-      codes ? (
+      view === 'codes' ? (
         <div class="hw-grid gate-grid">
           <section class="hw-span-8 hero-card gate-code-card" aria-labelledby="gate-code-title">
             <div class="gate-code-head">
@@ -120,7 +123,7 @@ const description =
             </div>
           </aside>
         </div>
-      ) : account ? (
+      ) : view === 'guest' ? (
         <div class="hw-grid gate-grid">
           <section class="hw-span-6 panel gate-guest-card">
             <p class="hw-label">已经注册</p>
@@ -257,8 +260,7 @@ const description =
 
   .gate-fallback {
     padding-top: var(--hw-space-4);
-    border-top: 1px solid
-      color-mix(in srgb, var(--md-sys-color-on-primary-container) 16%, transparent);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
   }
 
   .gate-fallback-row {

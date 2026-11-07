@@ -6,6 +6,7 @@ import test, { type TestContext } from 'node:test';
 
 import { registerAccount } from '../src/lib/accounts.ts';
 import { generateLoginCodes } from '../src/lib/login-codes.ts';
+import { useEnv } from './helpers.ts';
 import { POST } from '../src/pages/api/plugin/login/verify.ts';
 
 /**
@@ -22,23 +23,6 @@ const ADMIN_TOKEN = 'admin-secret-value';
 const UUID = '123e4567-e89b-12d3-a456-426614174000';
 
 const ENDPOINT = 'http://localhost/api/plugin/login/verify';
-
-/** 设置环境变量，测试结束后恢复，避免用例互相污染。 */
-const useEnv = (t: TestContext, values: Record<string, string | undefined>): void => {
-  const saved: Record<string, string | undefined> = {};
-  for (const [key, value] of Object.entries(values)) {
-    saved[key] = process.env[key];
-    if (value === undefined) delete process.env[key];
-    else process.env[key] = value;
-  }
-
-  t.after(() => {
-    for (const [key, value] of Object.entries(saved)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-  });
-};
 
 /** 账号存储指到临时目录，避免碰仓库里的 data/。 */
 const useTempDataDir = async (t: TestContext): Promise<void> => {
@@ -219,7 +203,11 @@ test('409：游戏 ID 与码绑定的 ID 不符返回 game_id_mismatch', async (
   const result = await call({ body: { code, gameId: 'SomeoneElse', uuid: UUID } });
 
   assert.equal(result.status, 409);
-  assert.deepEqual(result.body, { ok: false, reason: 'game_id_mismatch' });
+  assert.deepEqual(result.body, {
+    ok: false,
+    reason: 'game_id_mismatch',
+    expectedGameId: 'MismatchW4',
+  });
 });
 
 test('409：码本身有效但 gameId 与账号 username 不一致，也返回 game_id_mismatch', async (t) => {
@@ -234,7 +222,11 @@ test('409：码本身有效但 gameId 与账号 username 不一致，也返回 g
   const result = await call({ body: { code, gameId: 'othergame', uuid: UUID } });
 
   assert.equal(result.status, 409);
-  assert.deepEqual(result.body, { ok: false, reason: 'game_id_mismatch' });
+  assert.deepEqual(result.body, {
+    ok: false,
+    reason: 'game_id_mismatch',
+    expectedGameId: 'AccountW4',
+  });
 });
 
 test('409：码有效但账号存储里没有这个账号，按 invalid_code 处理', async (t) => {
@@ -249,7 +241,28 @@ test('409：码有效但账号存储里没有这个账号，按 invalid_code 处
   assert.deepEqual(result.body, { ok: false, reason: 'invalid_code' });
 });
 
-test('429：同一游戏 ID 连续失败后返回 rate_limited 与 retryAfterMs', async (t) => {
+test('409：账号不存在时不烧码，注册后同一个码仍可验证', async (t) => {
+  useEnv(t, { PLUGIN_TOKEN, ISSUE_ADMIN_TOKEN: ADMIN_TOKEN });
+  await useTempDataDir(t);
+
+  const username = 'LateW4';
+  const { code } = generateLoginCodes({ username });
+
+  const before = await call({ body: { code, gameId: username, uuid: UUID } });
+  assert.equal(before.status, 409);
+  assert.deepEqual(before.body, { ok: false, reason: 'invalid_code' });
+
+  // 账号存在性检查失败发生在 markUsed 之前，码必须保持未使用
+  await createAccount(username);
+  const after = await call({ body: { code, gameId: username, uuid: UUID } });
+  assert.equal(after.status, 200);
+  assert.deepEqual(after.body, {
+    ok: true,
+    account: { username, nickname: username, role: 'player' },
+  });
+});
+
+test('429：同一游戏 ID 连续失败后返回 rate_limited、retryAfterMs 与 attemptsRemaining', async (t) => {
   useEnv(t, { PLUGIN_TOKEN, ISSUE_ADMIN_TOKEN: ADMIN_TOKEN });
   await useTempDataDir(t);
 
@@ -270,6 +283,7 @@ test('429：同一游戏 ID 连续失败后返回 rate_limited 与 retryAfterMs'
   assert.equal(limited.body.reason, 'rate_limited');
   assert.equal(typeof limited.body.retryAfterMs, 'number');
   assert.ok((limited.body.retryAfterMs as number) > 0);
+  assert.equal(limited.body.attemptsRemaining, 0);
 });
 
 test('400/413/415：请求体大小、格式与字段类型都有明确拒绝', async (t) => {

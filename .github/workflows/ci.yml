@@ -4,9 +4,11 @@ on:
   push:
     branches:
       - feat/login-gate
+      - main
   pull_request:
     branches:
       - feat/login-gate
+      - main
 
 permissions:
   contents: read
@@ -33,3 +35,9 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # API 冒烟会真实启动 dist/server/entry.mjs，用临时数据目录覆盖
+      # /api/health 与 /api/plugin/login/verify 的 200/401/409。
+      # Chromium 不可用时只跳过浏览器部分，API 部分仍会执行。
+      - name: Smoke
+        run: npm run smoke

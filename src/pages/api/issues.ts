@@ -1,13 +1,8 @@
 import type { APIRoute } from 'astro';
 import { createIssue, listIssues, validateNewIssue } from '../../lib/issues';
 import { isStaffRequest } from '../../lib/auth';
+import { json } from '../../lib/api-response.ts';
 import { consumeRateLimit } from '../../lib/rate-limit';
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  });
 
 /** GET /api/issues —— 匿名只看公开议题，站务额外拿到 pending。 */
 export const GET: APIRoute = async ({ request }) => {
