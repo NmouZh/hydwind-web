@@ -84,7 +84,7 @@ const main = async () => {
 
   const requiredPages = [
     ['index.html', '首页 /'],
-    ['people/index.html', '人物索引 /people/'],
+    // /people/ 已改为 SSR，构建期不再产出 people/index.html
     ['people/nz-173/index.html', '人物详情 /people/nz-173/'],
     ['guides/index.html', '指南索引 /guides/'],
     [`guides/${JOIN_GUIDE_ID}/index.html`, `进服指南 /guides/${JOIN_GUIDE_ID}/`],
@@ -330,8 +330,9 @@ const main = async () => {
   }
 
   // —— 每个页面的站内链接都必须解析到构建产物 ——
-  // /issues/、/login、/gate 是服务端路由，没有静态产物，单独放行。
+  // /issues/、/login、/gate 和改用 SSR 的 /people/ 没有静态产物，单独放行。
   const serverRenderedRoutes = new Set([
+    '/people/',
     '/issues/',
     '/login',
     '/login/',

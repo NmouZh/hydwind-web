@@ -3,39 +3,66 @@ import Icon from './Icon.astro';
 import PlayerAvatar from './PlayerAvatar.astro';
 import { formatDate } from '../lib/format';
 import type { PublishedPerson } from '../lib/content';
+import type { PersonListItem } from '../lib/people-list';
 
+/**
+ * 人物列表行。两种输入：
+ * - `person`：构建期静态人物（首页仍在用），标题就是 gameId。
+ * - `item`：/people 运行时合并后的条目，标题可能是玩家编辑的主标题。
+ */
 interface Props {
-  person: PublishedPerson;
+  person?: PublishedPerson;
+  item?: PersonListItem;
   headingLevel?: 2 | 3;
   delay?: number;
 }
 
-const { person, headingLevel = 3, delay = 0 } = Astro.props;
+const { person, item, headingLevel = 3, delay = 0 } = Astro.props;
+if (!person && !item) {
+  throw new Error('PersonCard 需要 person 或 item');
+}
+
 const Heading = headingLevel === 2 ? 'h2' : 'h3';
+const slug = item?.slug ?? person!.id;
+const gameId = item?.gameId ?? person!.data.gameId;
+const mainTitle = item?.mainTitle ?? gameId;
+const avatar = item?.avatar ?? person!.data.avatar;
+const role = item?.role ?? person!.data.role;
+const tags = item?.tags ?? person!.data.tags;
+const nickname = item?.nickname ?? '';
+const hasBody = item ? item.hasBody : true;
+const commentCount = item?.commentCount ?? 0;
+const updatedAt = item?.updatedAt ?? person!.data.updated.toISOString();
+
+const subline = [gameId];
+if (nickname && nickname.toLowerCase() !== gameId.toLowerCase()) subline.push(nickname);
+if (role) subline.push(role);
 ---
 
 <a
   class="list-row person-row enter"
-  href={`/people/${person.id}/`}
+  href={`/people/${slug}/`}
   style={`--enter-delay: ${delay}ms`}
 >
-  <PlayerAvatar gameId={person.data.gameId} src={person.data.avatar} />
+  <PlayerAvatar gameId={gameId} src={avatar} />
   <div>
     <span class="list-row-index">人物传记</span>
-    <Heading class="list-row-title">{person.data.gameId}</Heading>
-    <p class="list-row-text">{person.data.role}</p>
+    <Heading class="list-row-title">{mainTitle}</Heading>
+    <p class="list-row-text">{subline.join(' · ')}</p>
     {
-      person.data.tags.length > 0 && (
+      (tags.length > 0 || (item && !hasBody)) && (
         <div class="chip-row">
-          {person.data.tags.map((tag) => (
+          {tags.map((tag) => (
             <span class="tag-chip">{tag}</span>
           ))}
+          {item && !hasBody && <span class="tag-chip">尚未填写</span>}
         </div>
       )
     }
   </div>
   <div class="list-row-meta">
-    <span>更新于 {formatDate(person.data.updated)}</span>
+    {updatedAt && <span>更新于 {formatDate(new Date(updatedAt))}</span>}
+    {commentCount > 0 && <span>{commentCount} 条评论</span>}
     <span class="list-row-cta">
       人物页
       <Icon name="arrow_forward" size={16} />
