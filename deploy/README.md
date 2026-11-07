@@ -7,7 +7,7 @@
 | --- | --- |
 | `hydwind-web.service` | 主服务：开机自启，崩溃/退出后 5 秒拉起 |
 | `hydwind-restart.path` | 监听 `/run/hydwind/restart-request` |
-| `hydwind-restart.service` | 请求文件出现后删除它并重启主服务（oneshot） |
+| `hydwind-restart.service` | 请求文件出现后重启主服务，成功后再删除请求文件（oneshot） |
 
 ## 1. 安装
 
@@ -84,7 +84,8 @@ touch /run/hydwind/restart-request && rm /run/hydwind/restart-request
 
 1. 插件探活失败后，以自身用户创建 `/run/hydwind/restart-request`。
 2. `hydwind-restart.path` 检测到文件存在，启动 `hydwind-restart.service`。
-3. 该 oneshot 服务删除请求文件，执行 `systemctl restart hydwind-web.service`。
+3. 该 oneshot 服务先执行 `systemctl restart hydwind-web.service`，**重启成功后才**
+   删除请求文件；重启失败则保留文件，让 path 单元再次触发重试。
 4. `Restart=always` + `RestartSec=5` 继续兜底意外退出。
 
 插件的冷却与次数上限在插件侧控制，systemd 只负责执行。

@@ -1,47 +1,26 @@
 /**
- * /gate 页面的纯逻辑。
+ * /gate 页面的纯逻辑入口。
  *
- * 这里不碰 Astro、不碰 DOM，方便用 node:test 直接测；
- * 页面与 /account/ 的客户端脚本只负责把结果写进界面。
+ * 具体实现拆在 gate-redirect.ts（返回路径校验）和 gate-format.ts（倒计时文案）；
+ * 这里保留统一导出，并放页面主内容的分支判断，方便 node:test 直接测。
  */
-
-// 路径里出现的控制字符（NUL、换行等）一律拒绝。
-const CONTROL_CHARS = new RegExp('[\\u0000-\\u001f\\u007f]');
+export { safeNextPath } from './gate-redirect.ts';
+export { formatRemaining } from './gate-format.ts';
 
 /**
- * 校验登录后要跳回的站内路径。
- *
- * `?next=` 只允许以单个 `/` 开头的同源路径：拒绝 `//host`、`/\host`、
- * `javascript:` 和带控制字符的输入，避免登录页变成开放重定向。
- * 非法输入返回 `fallback`（默认空串，表示维持原来的登录后行为）。
+ * 页面主内容的三条路径：
+ * - 未登录 → 登录入口 + QQ 群注册指引（guest）
+ * - 已登录且成功生成 → 展示登录码（codes）
+ * - 已登录但生成失败 → 可重试的错误提示，不能把已登录用户当访客再引导登录（error）
  */
-export const safeNextPath = (input: unknown, fallback = ''): string => {
-  if (typeof input !== 'string') return fallback;
+export type GateView = 'codes' | 'error' | 'guest';
 
-  const value = input.trim();
-  if (!value.startsWith('/')) return fallback;
-  if (value.startsWith('//') || value.startsWith('/\\')) return fallback;
-  if (CONTROL_CHARS.test(value)) return fallback;
+export interface GateViewInput {
+  signedIn: boolean;
+  hasCodes: boolean;
+}
 
-  try {
-    const url = new URL(value, 'http://hydwind.invalid');
-    if (url.origin !== 'http://hydwind.invalid') return fallback;
-    return `${url.pathname}${url.search}${url.hash}`;
-  } catch {
-    return fallback;
-  }
-};
-
-/**
- * 把剩余毫秒格式化成倒计时文字：`5:00`、`1:01`、`9 秒`。
- * 已到期或输入非法时返回空串，由页面决定显示什么过期文案。
- */
-export const formatRemaining = (remainingMs: number): string => {
-  if (!Number.isFinite(remainingMs) || remainingMs <= 0) return '';
-
-  const totalSeconds = Math.ceil(remainingMs / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-
-  return minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')}` : `${seconds} 秒`;
+export const gateView = ({ signedIn, hasCodes }: GateViewInput): GateView => {
+  if (!signedIn) return 'guest';
+  return hasCodes ? 'codes' : 'error';
 };

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { isPluginRequest, requirePlugin } from '../src/lib/plugin-auth.ts';
+import { useEnv } from './helpers.ts';
 
 const PLUGIN_TOKEN = 'plugin-secret-value';
 const ADMIN_TOKEN = 'admin-secret-value';
@@ -11,21 +12,6 @@ const pluginRequest = (token?: string): Request =>
   });
 
 /** 改环境变量并在测试结束后恢复，避免用例互相污染。 */
-const useEnv = (t: test.TestContext, values: Record<string, string | undefined>): void => {
-  const saved: Record<string, string | undefined> = {};
-  for (const [key, value] of Object.entries(values)) {
-    saved[key] = process.env[key];
-    if (value === undefined) delete process.env[key];
-    else process.env[key] = value;
-  }
-
-  t.after(() => {
-    for (const [key, value] of Object.entries(saved)) {
-      if (value === undefined) delete process.env[key];
-      else process.env[key] = value;
-    }
-  });
-};
 
 test('PLUGIN_TOKEN 正确时放行', (t) => {
   useEnv(t, { PLUGIN_TOKEN, ISSUE_ADMIN_TOKEN: ADMIN_TOKEN });

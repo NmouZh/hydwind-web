@@ -1,12 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getIssue, isIssueStatus, updateIssueStatus } from '../../../lib/issues';
 import { isStaffRequest } from '../../../lib/auth';
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-  });
+import { json } from '../../../lib/api-response.ts';
 
 const requireStaff = async (request: Request): Promise<Response | null> =>
   (await isStaffRequest(request)) ? null : json({ error: '需要站务权限' }, 401);

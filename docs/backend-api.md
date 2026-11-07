@@ -10,6 +10,8 @@
 | `PLUGIN_TOKEN` | 游戏插件必填 | HydwindGate 插件专用密钥，只用于 `/api/plugin/*`。与 `ISSUE_ADMIN_TOKEN` 完全分离：插件令牌不能调议题 / 账号接口，站务令牌也不能调插件接口。不设置则插件接口一律 401。 |
 | `SESSION_SECRET` | 上线必填 | 登录会话 cookie 的 HMAC 密钥，至少 16 字符。不配会退回 `ISSUE_ADMIN_TOKEN`，两者都没有时用开发密钥并打警告。 |
 | `HYDWIND_DATA_DIR` | 否 | 议题与账号 JSON 的存放目录，默认 `<cwd>/data`。 |
+| `LOGIN_CODE_KAOMOJI_POOL` | 否 | 登录码颜文字候选池，逗号分隔；默认内置 24 个。空值退回默认池，重复项自动去重。 |
+| `LOGIN_CODE_FALLBACK_PREFIX` | 否 | ASCII 备用码前缀，默认 `HWG`；匹配规则随前缀自动派生，大小写不敏感。 |
 | `STATUS_ENDPOINT` | 否 | 服务器状态数据源，默认 `https://api.mcstatus.io/v2/status/java`。以后插件自建 HTTP 状态接口，把它指过去即可。 |
 | `HOST` / `PORT` | 否 | `node ./dist/server/entry.mjs` 的监听地址，默认 `0.0.0.0:4321`。 |
 
@@ -57,6 +59,7 @@ HydwindGate 插件校验玩家从 `/gate` 页面拿到的登录码，**只接受
 ```
 
 请求体上限 1KB，三个字段都必须是字符串，`uuid` 必须是标准 UUID 格式。
+`uuid` 不参与鉴权，只作为成功校验的审计上下文写入服务端日志；契约里保留这个字段。
 
 成功：
 
@@ -68,11 +71,16 @@ HydwindGate 插件校验玩家从 `/gate` 页面拿到的登录码，**只接受
 
 - `400` 请求体格式 / 字段类型不对，`413` 请求体过大，`415` 不是 JSON
 - `401` 令牌错误
-- `409 { "ok": false, "reason": "invalid_code | expired | used | game_id_mismatch" }`
-- `429 { "ok": false, "reason": "rate_limited", "retryAfterMs": 12345 }`
+- `409 { "ok": false, "reason": "invalid_code | expired | used" }`
+- `409 { "ok": false, "reason": "game_id_mismatch", "expectedGameId": "Nz_173" }`
+- `429 { "ok": false, "reason": "rate_limited", "retryAfterMs": 12345, "attemptsRemaining": 0 }`
+  （同时带 `Retry-After` 响应头，单位秒）
 
 `gameId` 必须等于账号 `username`（忽略大小写）；码有效但账号不存在按
 `invalid_code` 处理。码一次性、5 分钟过期；同一游戏 ID 5 分钟内最多 5 次尝试。
+
+账号存在性和 `gameId` 匹配检查发生在作废登录码之前：任一检查失败都不会
+烧掉码，玩家改对游戏 ID 后可以继续用同一个码。
 
 ### `GET /api/status`
 

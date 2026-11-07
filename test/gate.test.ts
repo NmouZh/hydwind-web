@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { formatRemaining, safeNextPath } from '../src/lib/gate.ts';
+import { formatRemaining, gateView, safeNextPath } from '../src/lib/gate.ts';
 
 /**
  * /gate 页面的两个纯逻辑接缝：
@@ -54,4 +54,23 @@ test('formatRemaining 不足一分钟时按秒显示', () => {
 test('formatRemaining 在到期后返回空字符串', () => {
   assert.equal(formatRemaining(0), '');
   assert.equal(formatRemaining(-1), '');
+});
+
+/**
+ * /gate 主内容三条路径必须分清，尤其不能把「已登录但生成失败」误判成访客：
+ * - 未登录 → 登录 / QQ 群注册指引
+ * - 已登录且拿到码 → 展示码
+ * - 已登录但生成失败 → 可重试错误提示
+ */
+test('gateView 未登录时给登录与注册指引', () => {
+  assert.equal(gateView({ signedIn: false, hasCodes: false }), 'guest');
+  assert.equal(gateView({ signedIn: false, hasCodes: true }), 'guest');
+});
+
+test('gateView 已登录且生成成功时展示登录码', () => {
+  assert.equal(gateView({ signedIn: true, hasCodes: true }), 'codes');
+});
+
+test('gateView 已登录但生成失败时显示错误而不是访客指引', () => {
+  assert.equal(gateView({ signedIn: true, hasCodes: false }), 'error');
 });

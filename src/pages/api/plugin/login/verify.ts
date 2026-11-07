@@ -1,21 +1,25 @@
 import type { APIRoute } from 'astro';
-import { findAccount } from '../../../../lib/accounts.ts';
+import { findAccount, type Account } from '../../../../lib/accounts.ts';
+import { isJson, json } from '../../../../lib/api-response.ts';
 import { verifyLoginCode } from '../../../../lib/login-codes.ts';
 import { requirePlugin } from '../../../../lib/plugin-auth.ts';
 
 /**
  * POST /api/plugin/login/verify —— HydwindGate 插件校验玩家登录码。
  *
- * 契约见 docs/specs/0001-login-gate.md：
+ * 契约见 https://github.com/NmouZh/hydwind-web/blob/main/docs/backend-api.md：
  *   Authorization: Bearer <PLUGIN_TOKEN>
  *   { code, gameId, uuid }
  *   → 200 { ok: true, account: { username, nickname, role } }
  *   → 401 令牌错误
- *   → 409 { ok: false, reason: invalid_code|expired|used|game_id_mismatch }
- *   → 429 { ok: false, reason: "rate_limited", retryAfterMs }
+ *   → 409 { ok: false, reason: invalid_code|expired|used|game_id_mismatch, expectedGameId? }
+ *   → 429 { ok: false, reason: "rate_limited", retryAfterMs, attemptsRemaining }
  *
  * 只接受 PLUGIN_TOKEN：站务令牌和浏览器会话都不该能调这个接口。请求体上限
  * 1KB，插件一次只发一个码和一个 UUID，没有理由更大。
+ *
+ * uuid 目前不参与鉴权，只作为成功校验的审计上下文写入日志，方便把插件侧
+ * 的登录记录和网站侧对上；契约里保留该字段。
  */
 
 const MAX_BODY_BYTES = 1024;
@@ -23,23 +27,12 @@ const MAX_CODE_LENGTH = 128;
 const MAX_GAME_ID_LENGTH = 64;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
-      ...headers,
-    },
-  });
-
 const invalidRequest = (reason: string, status: number) => json({ ok: false, reason }, status);
 
-const conflict = (reason: 'invalid_code' | 'expired' | 'used' | 'game_id_mismatch') =>
-  json({ ok: false, reason }, 409);
-
-const isJson = (request: Request): boolean =>
-  (request.headers.get('content-type') ?? '').toLowerCase().includes('application/json');
+const conflict = (
+  reason: 'invalid_code' | 'expired' | 'used' | 'game_id_mismatch',
+  expectedGameId?: string
+) => json(expectedGameId ? { ok: false, reason, expectedGameId } : { ok: false, reason }, 409);
 
 export const POST: APIRoute = async ({ request }) => {
   const denied = requirePlugin(request);
@@ -81,27 +74,52 @@ export const POST: APIRoute = async ({ request }) => {
     return invalidRequest('bad_request', 400);
   }
 
+  // 账号检查放在 beforeConsume 里：账号不存在或名字对不上时，登录码保持未使用，
+  // 玩家改对游戏 ID 后仍可用同一个码，不会因为一次失败就烧掉。
+  let matchedAccount: Account | null = null;
+
   // 用模块内共享的 defaultStore：/gate 生成码和插件校验码必须落在同一个存储里
-  const result = verifyLoginCode({ code, gameId });
+  const result = await verifyLoginCode(
+    { code, gameId },
+    {
+      beforeConsume: async (record) => {
+        const account = await findAccount(record.username);
+        if (!account) return { reason: 'invalid_code' };
+        if (account.username.toLowerCase() !== gameId.toLowerCase()) {
+          return { reason: 'game_id_mismatch', expectedGameId: account.username };
+        }
+        matchedAccount = account;
+        return true;
+      },
+    }
+  );
 
   if (!result.ok) {
     const { reason } = result;
     if (reason === 'rate_limited') {
       const retryAfterMs = result.retryAfterMs ?? 0;
-      return json({ ok: false, reason, retryAfterMs }, 429, {
-        'retry-after': String(Math.max(1, Math.ceil(retryAfterMs / 1000))),
-      });
+      return json(
+        {
+          ok: false,
+          reason,
+          retryAfterMs,
+          attemptsRemaining: result.attemptsRemaining ?? 0,
+        },
+        429,
+        {
+          'retry-after': String(Math.max(1, Math.ceil(retryAfterMs / 1000))),
+        }
+      );
     }
-    return conflict(reason);
+    return conflict(reason, result.expectedGameId);
   }
 
-  // 码有效只证明「这个码属于这个游戏 ID」；账号必须仍然存在，
-  // 且游戏 ID 必须等于账号名，否则同一个 QQ 换 ID 后旧码会泄漏身份
-  const account = await findAccount(result.username);
+  const account = matchedAccount as Account | null;
   if (!account) return conflict('invalid_code');
-  if (account.username.toLowerCase() !== gameId.toLowerCase()) {
-    return conflict('game_id_mismatch');
-  }
+
+  console.info(
+    `[plugin-login] verified username=${account.username} uuid=${uuid}`
+  );
 
   return json({
     ok: true,

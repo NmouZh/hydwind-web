@@ -1,6 +1,7 @@
-import { createHmac, timingSafeEqual } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import type { AstroCookies } from 'astro';
 import type { AccountRole } from './accounts';
+import { timingSafeEqualString } from './timing-safe.ts';
 
 /**
  * 无状态会话：cookie 里存 base64url(payload) + HMAC 签名，服务端不落库。
@@ -40,9 +41,7 @@ const decode = (token: string): SessionPayload | null => {
   const [body, signature] = token.split('.');
   if (!body || !signature) return null;
 
-  const expected = Buffer.from(sign(body));
-  const actual = Buffer.from(signature);
-  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
+  if (!timingSafeEqualString(signature, sign(body))) return null;
 
   try {
     const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as SessionPayload;

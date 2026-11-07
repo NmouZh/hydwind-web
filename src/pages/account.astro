@@ -476,6 +476,7 @@ const description =
 
 <script>
   import { safeNextPath } from '../lib/gate';
+  import { USERNAME_PATTERN } from '../lib/username';
 
   interface PublicAccount {
     username: string;
@@ -655,7 +656,7 @@ const description =
       return;
     }
 
-    if (!/^[A-Za-z0-9_]{3,16}$/.test(username)) {
+    if (!USERNAME_PATTERN.test(username)) {
       markInvalid(usernameField, true);
       setStatus(status, '账号名是 3 到 16 位字母、数字或下划线');
       usernameInput?.focus();

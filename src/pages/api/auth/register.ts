@@ -1,13 +1,8 @@
 import type { APIRoute } from 'astro';
 import { registerAccount } from '../../../lib/accounts';
+import { json } from '../../../lib/api-response.ts';
 import { requireAdmin } from '../../../lib/auth';
 import { consumeRateLimit } from '../../../lib/rate-limit';
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-  });
 
 /**
  * POST /api/auth/register
