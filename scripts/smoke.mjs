@@ -763,14 +763,6 @@ const browserSmoke = async () => {
     page.on('pageerror', (error) => {
       console.error(`浏览器页面脚本错误：${error.message}`);
     });
-    page.on('console', (message) => {
-      if (message.type() === 'error') console.error(`浏览器 console：${message.text()}`);
-    });
-    page.on('response', (response) => {
-      if (response.url().includes('/comments')) {
-        console.log(`评论接口 ${response.request().method()} ${response.status()} ${response.url()}`);
-      }
-    });
     await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
     check(await waitForStatus(page, '离线'), '桌面首页显示离线状态');
     check(await hasNoHorizontalOverflow(page), '桌面首页 1280 视口无横向溢出');
