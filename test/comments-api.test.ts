@@ -6,7 +6,7 @@ import test, { type TestContext } from 'node:test';
 
 import { registerAccount, setAccountRole } from '../src/lib/accounts.ts';
 import { ensureBiographyForAccount } from '../src/lib/biographies.ts';
-import { createSessionCookie } from '../src/lib/session.ts';
+import { createSessionCookie, SESSION_COOKIE } from '../src/lib/session.ts';
 import { GET, POST } from '../src/pages/api/people/[id]/comments.ts';
 import { DELETE } from '../src/pages/api/people/[id]/comments/[cid].ts';
 import { useEnv } from './helpers.ts';
@@ -30,13 +30,13 @@ const account = async (username: string, nickname = '', role: 'player' | 'admin'
 
 const cookie = (username: string, role: 'player' | 'admin' = 'player'): string => {
   let value = '';
-  createSessionCookie(
-    { set: (_name: string, token: string) => { value = token; } } as Parameters<typeof createSessionCookie>[0],
-    username,
-    role,
-    false
-  );
-  return `hydwind_session=${value}`;
+  const cookies = {
+    set: (name: string, token: string) => {
+      if (name === SESSION_COOKIE) value = token;
+    },
+  } as unknown as Parameters<typeof createSessionCookie>[0];
+  createSessionCookie(cookies, username, role, false);
+  return `${SESSION_COOKIE}=${encodeURIComponent(value)}`;
 };
 
 interface Result {
