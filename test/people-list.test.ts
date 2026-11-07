@@ -27,6 +27,7 @@ const staticPeople: StaticPersonInput[] = [
     tags: ['运维'],
     avatar: '/images/nz-173.png',
     updated: '2026-10-31T00:00:00.000Z',
+    hasBody: true,
   },
 ];
 
@@ -87,6 +88,54 @@ test('主标题：有记录用记录值，空白或没有记录时回退 <gameId
   assert.equal(items.find((item) => item.gameId === 'Alice')?.mainTitle, '爱丽丝的冒险');
   assert.equal(items.find((item) => item.gameId === 'bob')?.mainTitle, 'bob的人物传记');
   assert.equal(items.find((item) => item.gameId === 'Nz_173')?.mainTitle, 'Nz_173的人物传记');
+});
+
+test('静态人物没有静态正文且运行期正文为空时，hasBody 与详情页一致为 false', () => {
+  const items = buildPeopleList({
+    staticPeople: [
+      {
+        id: 'empty-person',
+        gameId: 'EmptyPerson',
+        role: '玩家',
+        tags: [],
+        avatar: '/images/empty.png',
+        updated: '2026-10-31T00:00:00.000Z',
+        hasBody: false,
+      },
+    ],
+    accounts: [],
+    biographies: [],
+  });
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].hasBody, false);
+
+  // 只要运行期传记写了正文，仍然算「有正文」。
+  const withBiography = buildPeopleList({
+    staticPeople: [
+      {
+        id: 'empty-person',
+        gameId: 'EmptyPerson',
+        role: '玩家',
+        tags: [],
+        avatar: '/images/empty.png',
+        updated: '2026-10-31T00:00:00.000Z',
+        hasBody: false,
+      },
+    ],
+    accounts: [],
+    biographies: [
+      {
+        gameId: 'EmptyPerson',
+        mainTitle: 'EmptyPerson的人物传记',
+        body: '后来写了正文',
+        comments: [],
+        createdAt: '2026-10-31T00:00:00.000Z',
+        updatedAt: '2026-11-01T00:00:00.000Z',
+      },
+    ],
+  });
+  assert.equal(withBiography[0].hasBody, true);
 });
 
 test('账号没有头像时使用默认头像接口，静态人物用原头像', () => {

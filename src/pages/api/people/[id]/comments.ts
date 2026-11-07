@@ -1,7 +1,11 @@
 import type { APIRoute } from 'astro';
 import { findAccount } from '../../../../lib/accounts.ts';
-import { isJson, json } from '../../../../lib/api-response.ts';
-import { addComment, findBiographyByGameId, listComments } from '../../../../lib/biographies.ts';
+import { isJson, json, readJsonObject } from '../../../../lib/api-response.ts';
+import {
+  addComment,
+  ensureBiographyForAccount,
+  listComments,
+} from '../../../../lib/biographies.ts';
 import { gameIdForSlug, isSameOrigin, presentComment } from '../../../../lib/comments.ts';
 import { readSessionFromRequest } from '../../../../lib/session.ts';
 
@@ -33,29 +37,17 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   if (!isJson(request)) return json({ error: '请求体必须是 JSON' }, 415);
 
-  const declared = Number(request.headers.get('content-length') ?? 0);
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-    return json({ error: '请求体太大' }, 413);
-  }
-  const raw = await request.text();
-  if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
-    return json({ error: '请求体太大' }, 413);
-  }
+  const parsed = await readJsonObject(request, MAX_BODY_BYTES);
+  if (!parsed.ok) return parsed.response;
 
-  let payload: unknown;
-  try {
-    payload = JSON.parse(raw);
-  } catch {
-    return json({ error: '请求体不是合法 JSON' }, 400);
-  }
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return json({ error: '请求体格式不对' }, 400);
-  }
+  // 静态人物或账号可能还没有运行期传记记录（传记按账号存，静态人物资料
+  // 在内容集合里）。评论嵌在传记记录里，所以先 ensure 一份空传记再追加。
+  await ensureBiographyForAccount({ username: gameId });
 
   const result = await addComment(
     gameId,
     { username: account.username },
-    (payload as { body?: unknown }).body
+    parsed.value.body
   );
   if (!result.ok) {
     if (result.reason === 'rate_limited') {
