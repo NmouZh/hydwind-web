@@ -309,6 +309,19 @@ const apiSmoke = async () => {
       peopleHtml.includes(username),
       '/people/ SSR 列出已注册账号'
     );
+
+    // 人物详情同样是 SSR：默认标题 / 游戏 ID / 空状态 / 评论区都要现场出现。
+    const personPageResponse = await fetch(`${origin}/people/nz-173/`);
+    const personHtml = await personPageResponse.text();
+    check(personPageResponse.status === 200, '/people/nz-173/ SSR 返回 200');
+    check(
+      personHtml.includes('Nz_173的人物传记'),
+      '/people/nz-173/ SSR 显示默认主标题'
+    );
+    check(personHtml.includes('游戏 ID'), '/people/nz-173/ SSR 显示游戏 ID');
+    check(personHtml.includes('尚未填写'), '/people/nz-173/ SSR 显示空状态');
+    check(personHtml.includes('聊两句'), '/people/nz-173/ SSR 显示评论区');
+    check(personHtml.includes('服主'), '/people/nz-173/ SSR 保留静态人物身份');
   } catch (error) {
     failures.push(`/api 冒烟执行失败：${String(error).split('\n')[0]}`);
     const stderr = server.stderr();
