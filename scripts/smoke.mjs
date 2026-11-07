@@ -199,6 +199,29 @@ const apiSmoke = async () => {
     return { status: response.status, html, code, fallback };
   };
 
+  /** 带 cookie / Origin 的 JSON 请求，返回状态码、解析后的 body 和响应头。 */
+  const requestJson = async (
+    pathname,
+    { method = 'GET', cookie, body, requestOrigin, headers = {} } = {}
+  ) => {
+    const requestHeaders = { ...headers };
+    if (cookie) requestHeaders.cookie = cookie;
+    if (requestOrigin) requestHeaders.origin = requestOrigin;
+    if (body !== undefined) requestHeaders['content-type'] = 'application/json';
+    const response = await fetch(`${origin}${pathname}`, {
+      method,
+      headers: requestHeaders,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    return { status: response.status, body: payload, headers: response.headers };
+  };
+
   try {
     const health = await waitForHttp(`${origin}/api/health`);
     const healthBody = await health.json();
@@ -293,6 +316,244 @@ const apiSmoke = async () => {
       '/api/plugin/login/verify 未知码返回 409 invalid_code'
     );
 
+    // —— 传记：插件校验成功后自动创建，本人可编辑，公开可读 ——
+    const autoBiography = await requestJson(`/api/people/${username}/biography`);
+    check(
+      autoBiography.status === 200 &&
+        autoBiography.body?.gameId === username &&
+        autoBiography.body?.mainTitle === `${username}的人物传记` &&
+        autoBiography.body?.body === '',
+      '/api/plugin/login/verify 成功后自动创建默认传记'
+    );
+
+    const publicBiography = await requestJson('/api/people/nz-173/biography');
+    check(
+      publicBiography.status === 200 && publicBiography.body?.gameId === 'Nz_173',
+      'GET /api/people/:id/biography 公开返回传记'
+    );
+
+    const missingBiography = await requestJson('/api/people/no-such-player/biography');
+    check(
+      missingBiography.status === 404,
+      'GET /api/people/:id/biography 未知 slug 返回 404'
+    );
+
+    const anonymousPut = await requestJson(`/api/people/${username}/biography`, {
+      method: 'PUT',
+      body: { mainTitle: '匿名写入', body: '不应成功' },
+    });
+    check(anonymousPut.status === 401, 'PUT 传记未登录返回 401');
+
+    const foreignPut = await requestJson('/api/people/nz-173/biography', {
+      method: 'PUT',
+      cookie,
+      body: { mainTitle: '越权写入', body: '不应成功' },
+    });
+    check(foreignPut.status === 403, 'PUT 别人的传记返回 403');
+
+    const unknownPut = await requestJson('/api/people/no-such-player/biography', {
+      method: 'PUT',
+      cookie,
+      body: { mainTitle: '不存在的玩家', body: '不应成功' },
+    });
+    check(unknownPut.status === 404, 'PUT 未知人物返回 404');
+
+    const savedTitle = '冒烟玩家的人物传记';
+    const savedBiography = await requestJson(`/api/people/${username}/biography`, {
+      method: 'PUT',
+      cookie,
+      body: { mainTitle: savedTitle, body: '## 冒烟正文\n\n自动创建后可以编辑。' },
+    });
+    check(
+      savedBiography.status === 200 &&
+        savedBiography.body?.mainTitle === savedTitle &&
+        savedBiography.body?.body?.includes('冒烟正文'),
+      'PUT 自己的传记返回 200 并保存标题与正文'
+    );
+
+    // 保存限流：10 分钟 12 次；上一步已用 1 次，再发 12 次应 11 次成功、第 13 次 429。
+    const extraSaveStatuses = [];
+    for (let index = 0; index < 12; index += 1) {
+      const result = await requestJson(`/api/people/${username}/biography`, {
+        method: 'PUT',
+        cookie,
+        body: { mainTitle: savedTitle, body: '限流测试正文' },
+      });
+      extraSaveStatuses.push(result.status);
+    }
+    check(
+      extraSaveStatuses.slice(0, 11).every((status) => status === 200) &&
+        extraSaveStatuses[11] === 429,
+      'PUT 传记 10 分钟 12 次后返回 429'
+    );
+
+    // —— 评论：公开读取，登录发表，作者或管理员删除 ——
+    // 评论嵌在传记记录里，必须发到已自动建传的账号，而不是只有静态资料的人物。
+    const commentsPath = `/api/people/${username}/comments`;
+    const publicComments = await requestJson(commentsPath);
+    check(
+      publicComments.status === 200 && Array.isArray(publicComments.body?.comments),
+      'GET 评论公开返回 200 与评论数组'
+    );
+
+    const missingComments = await requestJson('/api/people/no-such-player/comments');
+    check(missingComments.status === 404, 'GET 评论未知 slug 返回 404');
+
+    const anonymousComment = await requestJson(commentsPath, {
+      method: 'POST',
+      body: { body: '匿名评论' },
+    });
+    check(anonymousComment.status === 401, 'POST 评论未登录返回 401');
+
+    const foreignOriginComment = await requestJson(commentsPath, {
+      method: 'POST',
+      cookie,
+      requestOrigin: 'https://evil.example',
+      body: { body: '跨站评论' },
+    });
+    check(foreignOriginComment.status === 403, 'POST 评论跨站来源返回 403');
+
+    const unknownComment = await requestJson('/api/people/no-such-player/comments', {
+      method: 'POST',
+      cookie,
+      requestOrigin: origin,
+      body: { body: '不存在的玩家' },
+    });
+    check(unknownComment.status === 404, 'POST 评论未知人物返回 404');
+
+    const ownedComment = await requestJson(commentsPath, {
+      method: 'POST',
+      cookie,
+      requestOrigin: origin,
+      body: { body: '冒烟玩家自己的评论' },
+    });
+    check(
+      ownedComment.status === 201 && Boolean(ownedComment.body?.comment?.id),
+      'POST 评论返回 201 与评论 id'
+    );
+
+    // 第二个账号：验证 403 删除别人的评论，以及作者删除自己的评论。
+    const otherUsername = 'SmokeOther';
+    const otherRegisterResponse = await fetch(`${origin}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: otherUsername,
+        platformId: 'qq-smoke-other',
+        nickname: '冒烟路人',
+      }),
+    });
+    const otherRegistered = await otherRegisterResponse.json();
+    check(
+      otherRegisterResponse.status === 200 &&
+        otherRegistered.username === otherUsername &&
+        typeof otherRegistered.password === 'string',
+      '/api/auth/register 创建第二个临时账号'
+    );
+
+    const otherLoggedIn = await fetch(`${origin}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        username: otherUsername,
+        password: otherRegistered.password,
+      }),
+    });
+    const otherCookie = (otherLoggedIn.headers.getSetCookie?.() ?? [])
+      .map((value) => value.split(';')[0])
+      .join('; ');
+    check(
+      otherLoggedIn.status === 200 && otherCookie.length > 0,
+      '第二个账号登录返回会话 cookie'
+    );
+
+    const otherComment = await requestJson(commentsPath, {
+      method: 'POST',
+      cookie: otherCookie,
+      requestOrigin: origin,
+      body: { body: '另一个玩家的评论' },
+    });
+    check(
+      otherComment.status === 201 && Boolean(otherComment.body?.comment?.id),
+      '第二个账号可以发表评论'
+    );
+
+    const anonymousDelete = await requestJson(
+      `${commentsPath}/${ownedComment.body?.comment?.id}`,
+      { method: 'DELETE' }
+    );
+    check(anonymousDelete.status === 401, 'DELETE 评论未登录返回 401');
+
+    const foreignOriginDelete = await requestJson(
+      `${commentsPath}/${otherComment.body?.comment?.id}`,
+      {
+        method: 'DELETE',
+        cookie: otherCookie,
+        requestOrigin: 'https://evil.example',
+      }
+    );
+    check(foreignOriginDelete.status === 403, 'DELETE 评论跨站来源返回 403');
+
+    const notOwnerDelete = await requestJson(
+      `${commentsPath}/${ownedComment.body?.comment?.id}`,
+      { method: 'DELETE', cookie: otherCookie, requestOrigin: origin }
+    );
+    check(notOwnerDelete.status === 403, 'DELETE 别人的评论返回 403');
+
+    const missingCommentDelete = await requestJson(
+      `${commentsPath}/00000000-0000-4000-8000-000000000000`,
+      { method: 'DELETE', cookie, requestOrigin: origin }
+    );
+    check(missingCommentDelete.status === 404, 'DELETE 不存在的评论返回 404');
+
+    const missingPersonDelete = await requestJson(
+      `/api/people/no-such-player/comments/${ownedComment.body?.comment?.id}`,
+      { method: 'DELETE', cookie, requestOrigin: origin }
+    );
+    check(missingPersonDelete.status === 404, 'DELETE 未知人物评论返回 404');
+
+    const ownDelete = await requestJson(
+      `${commentsPath}/${otherComment.body?.comment?.id}`,
+      { method: 'DELETE', cookie: otherCookie, requestOrigin: origin }
+    );
+    check(
+      ownDelete.status === 200 && ownDelete.body?.deleted === true,
+      'DELETE 自己的评论返回 200'
+    );
+
+    // 评论限流：每账号 10 分钟 5 条。SmokePlayer 已发 1 条，再发 4 条后第 6 条 429。
+    const extraCommentStatuses = [];
+    for (let index = 0; index < 4; index += 1) {
+      const result = await requestJson(commentsPath, {
+        method: 'POST',
+        cookie,
+        requestOrigin: origin,
+        body: { body: `限流评论 ${index + 1}` },
+      });
+      extraCommentStatuses.push(result.status);
+    }
+    const limitedComment = await requestJson(commentsPath, {
+      method: 'POST',
+      cookie,
+      requestOrigin: origin,
+      body: { body: '超出限流的评论' },
+    });
+    check(
+      extraCommentStatuses.every((status) => status === 201) &&
+        limitedComment.status === 429,
+      'POST 评论 10 分钟 5 条后返回 429'
+    );
+
+    const commentsAfter = await requestJson(commentsPath);
+    check(
+      commentsAfter.status === 200 &&
+        commentsAfter.body?.comments?.length >= 5,
+      'GET 评论返回已发表的全部评论'
+    );
+
     // /people/ 已改为 SSR：构建期没有静态 HTML，必须从真实服务取到合并结果。
     const peoplePage = await fetch(`${origin}/people/`);
     const peopleHtml = await peoplePage.text();
@@ -322,6 +583,16 @@ const apiSmoke = async () => {
     check(personHtml.includes('尚未填写'), '/people/nz-173/ SSR 显示空状态');
     check(personHtml.includes('聊两句'), '/people/nz-173/ SSR 显示评论区');
     check(personHtml.includes('服主'), '/people/nz-173/ SSR 保留静态人物身份');
+
+    // 账号 slug 的详情页也必须由同一套 SSR 现场解析。
+    const accountPageResponse = await fetch(`${origin}/people/${username.toLowerCase()}/`);
+    const accountHtml = await accountPageResponse.text();
+    check(accountPageResponse.status === 200, '/people/<slug>/ 账号传记 SSR 返回 200');
+    check(accountHtml.includes(username), '/people/<slug>/ SSR 显示游戏 ID');
+    check(
+      accountHtml.includes(savedTitle),
+      '/people/<slug>/ SSR 显示已保存的主标题'
+    );
   } catch (error) {
     failures.push(`/api 冒烟执行失败：${String(error).split('\n')[0]}`);
     const stderr = server.stderr();
