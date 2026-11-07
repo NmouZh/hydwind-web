@@ -25,14 +25,6 @@
 
 ## Agent skills
 
-### Issue tracker
+工作区级配置见 `/root/hydwind/docs/agents/`（issue tracker、triage 标签、领域文档规则）。
 
-Issues live in GitHub Issues (`NmouZh/hydwind-web`) via `gh`. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Five canonical triage roles, using the default label strings. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+本仓库特有：issue tracker 是 GitHub `NmouZh/hydwind-web`；`github` remote 指向真实仓库，`gh` 在仓库内自动识别，`origin` 是 gh-proxy 代理 URL。领域文档仍以本仓库 `GLOSSARY.md` 和 `docs/adr/` 为准。
