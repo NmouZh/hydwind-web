@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { findAccount } from '../../../../lib/accounts';
+import { findAccount } from '../../../../lib/accounts.ts';
 import { isJson, json } from '../../../../lib/api-response.ts';
 import {
   canEditBiography,
@@ -9,9 +9,9 @@ import {
   updateBiography,
   type ResolvedPerson,
   type StaticPersonRef,
-} from '../../../../lib/biographies';
-import { consumeRateLimit } from '../../../../lib/rate-limit';
-import { readSessionFromRequest } from '../../../../lib/session';
+} from '../../../../lib/biographies.ts';
+import { consumeRateLimit } from '../../../../lib/rate-limit.ts';
+import { readSessionFromRequest } from '../../../../lib/session.ts';
 
 /**
  * GET/PUT /api/people/[id]/biography
@@ -35,7 +35,7 @@ const SAVE_LIMIT = 12;
  */
 const loadStaticPeople = async (): Promise<StaticPersonRef[]> => {
   try {
-    const { getPublishedPeople } = await import('../../../../lib/content');
+    const { getPublishedPeople } = await import('../../../../lib/content.ts');
     const people = await getPublishedPeople();
     return people.map(({ id, data }) => ({ id, gameId: data.gameId }));
   } catch (error) {
