@@ -475,6 +475,8 @@ const description =
 </style>
 
 <script>
+  import { safeNextPath } from '../lib/gate';
+
   interface PublicAccount {
     username: string;
     nickname: string;
@@ -498,9 +500,17 @@ const description =
   const capsNote = document.querySelector<HTMLElement>('[data-caps-lock]');
   const togglePassword = document.querySelector<HTMLButtonElement>('[data-toggle-password]');
 
+  // /gate 会在登录链接里带上 ?next=/gate/，登录成功后回到验证页。
+  // 只接受站内路径，避免这个参数变成开放重定向。
+  const nextPath = safeNextPath(
+    new URLSearchParams(window.location.search).get('next')
+  );
+
   const guestCopy = {
     title: '登录氢风',
-    sub: '账号只在群里发放：@机器人 发「注册 你的游戏ID」，账号和初始密码会私信给你。',
+    sub: nextPath
+      ? '登录后会自动回到进服验证页。账号只在群里发放：@机器人 发「注册 你的游戏ID」。'
+      : '账号只在群里发放：@机器人 发「注册 你的游戏ID」，账号和初始密码会私信给你。',
   };
 
   const setStatus = (node: HTMLElement | null, text: string, tone: 'error' | 'ok' = 'error') => {
@@ -674,6 +684,10 @@ const description =
         return;
       }
       passwordInput && (passwordInput.value = '');
+      if (nextPath) {
+        window.location.assign(nextPath);
+        return;
+      }
       await loadSession();
     } catch {
       setStatus(status, '网络好像不太稳，稍后再试');
