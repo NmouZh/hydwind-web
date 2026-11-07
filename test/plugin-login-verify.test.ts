@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test, { type TestContext } from 'node:test';
 
 import { registerAccount } from '../src/lib/accounts.ts';
+import { findBiographyByGameId, listGameBiographies, updateBiography } from '../src/lib/biographies.ts';
 import { generateLoginCodes } from '../src/lib/login-codes.ts';
 import { useEnv } from './helpers.ts';
 import { POST } from '../src/pages/api/plugin/login/verify.ts';
@@ -91,6 +92,13 @@ test('200：有效插件令牌 + 未使用的码返回账号用户名、昵称�
     ok: true,
     account: { username: 'AliceW4', nickname: '爱丽丝', role: 'admin' },
   });
+
+  const biography = await findBiographyByGameId('alicew4');
+  assert.ok(biography, '首次成功验证应为账号创建传记');
+  assert.equal(biography.gameId, 'AliceW4');
+  assert.equal(biography.mainTitle, 'AliceW4的人物传记');
+  assert.equal(biography.body, '');
+  assert.deepEqual(biography.comments, []);
 });
 
 test('200：昵称为空时返回账号名，不缺字段', async (t) => {
@@ -107,6 +115,62 @@ test('200：昵称为空时返回账号名，不缺字段', async (t) => {
     ok: true,
     account: { username: 'BobW4', nickname: 'BobW4', role: 'player' },
   });
+});
+
+test('200：同一账号使用新的登录码再次验证时不重复创建或覆盖传记', async (t) => {
+  useEnv(t, { PLUGIN_TOKEN, ISSUE_ADMIN_TOKEN: ADMIN_TOKEN });
+  await useTempDataDir(t);
+
+  await createAccount('ReturningW4');
+  const firstCode = generateLoginCodes({ username: 'ReturningW4' }).code;
+  const first = await call({ body: { code: firstCode, gameId: 'ReturningW4', uuid: UUID } });
+  assert.equal(first.status, 200);
+
+  const edited = await updateBiography('ReturningW4', {
+    mainTitle: '回访玩家的传记',
+    body: '已经写好的内容',
+  });
+  assert.equal(edited.ok, true);
+
+  const nextCode = generateLoginCodes({ username: 'ReturningW4' }).code;
+  const second = await call({ body: { code: nextCode, gameId: 'returningw4', uuid: UUID } });
+  assert.equal(second.status, 200);
+  assert.deepEqual(second.body, first.body);
+
+  const biographies = await listGameBiographies();
+  assert.equal(biographies.length, 1);
+  assert.equal(biographies[0].gameId, 'ReturningW4');
+  assert.equal(biographies[0].mainTitle, '回访玩家的传记');
+  assert.equal(biographies[0].body, '已经写好的内容');
+});
+
+test('200：传记写入失败只记录错误，不阻断插件登录验证', async (t) => {
+  useEnv(t, { PLUGIN_TOKEN, ISSUE_ADMIN_TOKEN: ADMIN_TOKEN });
+  await useTempDataDir(t);
+
+  await createAccount('StorageW4');
+  const dir = process.env.HYDWIND_DATA_DIR!;
+  // 故意让 biographies.json 成为目录：读取与写入都会失败，而 accounts.json 仍可用。
+  // 不依赖 chmod（root 运行 CI/容器时仍可能写入）或内部模块 mock。
+  await mkdir(path.join(dir, 'biographies.json'));
+  const { code } = generateLoginCodes({ username: 'StorageW4' });
+
+  const errors: unknown[][] = [];
+  const previousError = console.error;
+  console.error = (...args: unknown[]) => { errors.push(args); };
+  t.after(() => { console.error = previousError; });
+  try {
+    const result = await call({ body: { code, gameId: 'StorageW4', uuid: UUID } });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body, {
+      ok: true,
+      account: { username: 'StorageW4', nickname: 'StorageW4', role: 'player' },
+    });
+    assert.equal(errors.length, 1);
+    assert.match(String(errors[0][0]), /biography creation failed/);
+  } finally {
+    console.error = previousError;
+  }
 });
 
 test('401：不带令牌、错误令牌、站务令牌都拒绝', async (t) => {
