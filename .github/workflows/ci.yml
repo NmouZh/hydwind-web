@@ -34,7 +34,7 @@ jobs:
       - name: Test
         run: |
           if [ -d test ]; then
-            node --test test/
+            npm test
           else
             echo "No test/ directory; skipping tests."
           fi
