@@ -9,6 +9,8 @@ on:
     branches:
       - feat/login-gate
       - main
+  # 手动触发：验证分支 / 本地修复时无需另开 PR 也能跑完整 CI。
+  workflow_dispatch:
 
 permissions:
   contents: read
