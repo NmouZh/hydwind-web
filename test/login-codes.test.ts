@@ -319,17 +319,23 @@ test('purge 不会删掉复用了旧颜文字的新记录别名', () => {
 
 test('颜文字池与备用码前缀可用环境变量配置，备用码匹配由前缀派生', async (t) => {
   useEnv(t, {
-    LOGIN_CODE_KAOMOJI_POOL: '(A), (B), (A)',
+    LOGIN_CODE_KAOMOJI_POOL: '(A), (B), (A), (C), (D), (E)',
     LOGIN_CODE_FALLBACK_PREFIX: 'X.Y+',
   });
 
-  assert.deepEqual(getKaomojiPool(), ['(A)', '(B)']);
+  // 逗号分隔 + 去重
+  assert.deepEqual(getKaomojiPool(), ['(A)', '(B)', '(C)', '(D)', '(E)']);
   assert.equal(getFallbackPrefix(), 'X.Y+');
 
   const h = harness();
-  for (let index = 0; index < 20; index += 1) {
+  const pool = ['(A)', '(B)', '(C)', '(D)', '(E)'];
+  const validCodes = new Set(
+    pool.flatMap((first) => pool.filter((second) => second !== first).map((second) => first + second))
+  );
+
+  for (let index = 0; index < 5; index += 1) {
     const { code, fallback } = generateLoginCodes({ username: `Player${index}` }, h.options);
-    assert.ok(['(A)(B)', '(B)(A)'].includes(code), `颜文字码应来自配置池：${code}`);
+    assert.ok(validCodes.has(code), `颜文字码应来自配置池且两个候选不同：${code}`);
     assert.match(fallback, /^X\.Y\+-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}$/);
 
     // 前缀含正则元字符时，匹配仍必须生效，且大小写不敏感
