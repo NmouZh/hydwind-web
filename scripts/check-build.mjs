@@ -171,9 +171,23 @@ const main = async () => {
     }
   }
 
-  // —— 人物详情由 SSR 路由提供（/people/[slug]/），没有静态产物；
-  //    构建期只验证其余静态页面，运行时行为交给 smoke。
+  // —— 人物列表与详情都由 SSR 路由提供（/people/、/people/[slug]/）：
+  //    源码必须存在，构建期不能产出静态 HTML，运行时行为交给 smoke。
+  for (const route of ['src/pages/people/index.astro', 'src/pages/people/[slug].astro']) {
+    if (existsSync(path.join(root, route))) pass(`存在 SSR 路由源码：${route}`);
+    else fail(`缺少 SSR 路由源码：${route}`);
+  }
   const htmlFiles = (await walk(dist)).filter((file) => file.endsWith('.html'));
+  const peopleArtifacts = htmlFiles
+    .map((file) => path.relative(dist, file))
+    .filter((relative) => relative === 'people/index.html' || relative.startsWith('people/'));
+  if (peopleArtifacts.length === 0) {
+    pass('人物页面由 SSR 提供，构建期未生成 people 静态产物');
+  } else {
+    for (const relative of peopleArtifacts) {
+      fail(`人物页面应为 SSR，不应产出静态 HTML：${relative}`);
+    }
+  }
 
   // —— 每个页面都不得残留编造的旧内容 ——
   const forbidden = [
