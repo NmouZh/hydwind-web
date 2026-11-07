@@ -116,6 +116,36 @@ test('未知 slug 的 GET/POST/DELETE 为 404；传记尚未创建的已注册�
   assert.equal((await call('DELETE', 'nobody', { actor: 'Writer', cid: 'missing' })).status, 404);
 });
 
+test('静态人物还没有运行期传记时，POST 先建空传记再添加评论而不是 404', async (t) => {
+  await setup(t);
+  await account('Writer');
+
+  // nz-173 是内容集合里的静态人物；此时 data/biographies.json 里没有它。
+  assert.deepEqual((await call('GET', 'nz-173')).body.comments, []);
+
+  const posted = await call('POST', 'nz-173', {
+    actor: 'Writer',
+    payload: { body: '给服主留言' },
+  });
+  assert.equal(posted.status, 201);
+  assert.equal(posted.body.comment.body, '给服主留言');
+
+  const listed = await call('GET', 'nz-173');
+  assert.equal(listed.status, 200);
+  assert.deepEqual(
+    listed.body.comments.map((comment: { body: string }) => comment.body),
+    ['给服主留言']
+  );
+
+  // 已注册但还没有传记记录的账号同样先 ensure 再评论。
+  await account('Pending');
+  assert.equal(
+    (await call('POST', 'pending', { actor: 'Writer', payload: { body: '先建再评' } })).status,
+    201
+  );
+  assert.equal((await call('GET', 'pending')).body.comments.length, 1);
+});
+
 test('每账号跨人物 10 分钟最多 5 条，第 6 条 429 且 GET 不含失败的评论', async (t) => {
   await setup(t);
   await account('HostA');

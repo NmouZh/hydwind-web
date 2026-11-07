@@ -11,13 +11,13 @@ import PlayerAvatar from '../../components/PlayerAvatar.astro';
 import '../../styles/error.css';
 import { findAccount, listAccounts } from '../../lib/accounts';
 import {
-  canDeleteComment,
   canEditBiography,
   defaultMainTitle,
   findBiographyByGameId,
   listComments,
   MAX_BIO_BODY,
   MAX_BIO_TITLE,
+  MAX_COMMENT_BODY,
   resolvePersonBySlug,
 } from '../../lib/biographies';
 import {
@@ -34,10 +34,11 @@ import { formatDate } from '../../lib/format';
 import {
   biographyEmptyMessage,
   biographyTitle,
+  canDeleteCommentForAuthor,
   commentAuthorLabel,
   formatCommentTime,
   groupCommentsByDay,
-  isBiographyEmpty,
+  hasReadableBody,
   type ViewerState,
 } from '../../lib/person-page';
 import { readSession } from '../../lib/session';
@@ -72,7 +73,10 @@ const viewerState: ViewerState = canEdit ? 'owner' : viewer ? 'viewer' : 'guest'
 
 const mainTitle = resolved ? biographyTitle(biography, gameId) : '';
 const body = biography?.body ?? '';
-const empty = isBiographyEmpty(biography);
+// 静态人物自带的 Markdown 正文也算「有正文」；否则列表说有内容、
+// 详情页却显示「正文尚未填写」。两条路径共用 hasReadableBody。
+const hasStaticBody = Boolean(staticPerson?.body?.trim());
+const hasBody = hasReadableBody(hasStaticBody, body);
 const emptyMessage = resolved ? biographyEmptyMessage(gameId, viewerState) : '';
 
 /**
@@ -91,8 +95,8 @@ const comments = resolved ? await listComments(gameId) : [];
 const presented = await Promise.all(
   comments.map(async (comment) => ({
     ...(await presentComment(comment)),
-    canDelete: canDeleteComment(
-      comment,
+    canDelete: canDeleteCommentForAuthor(
+      comment.authorUsername,
       viewer ? { username: viewer.username, role: viewer.role } : null
     ),
   }))
@@ -108,7 +112,16 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
 {
   resolved ? (
     <BaseLayout title={pageTitle} description={description} current="people">
-      <div class="hw-shell page-shell">
+      <div
+        class="hw-shell page-shell"
+        data-person-page
+        data-slug={resolved.slug}
+        data-game-id={gameId}
+        data-viewer={viewer?.username ?? ''}
+        data-viewer-admin={viewer?.role === 'admin' ? 'true' : 'false'}
+        data-has-static-body={hasStaticBody ? 'true' : 'false'}
+        data-refs={JSON.stringify(refs)}
+      >
         <nav class="breadcrumb" aria-label="面包屑">
           <a href="/people/">人物</a>
           <span aria-hidden="true">/</span>
@@ -189,12 +202,6 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
 
         <section
           class="section person-biography"
-          data-person-page
-          data-slug={resolved.slug}
-          data-game-id={gameId}
-          data-viewer={viewer?.username ?? ''}
-          data-viewer-admin={viewer?.role === 'admin' ? 'true' : 'false'}
-          data-refs={JSON.stringify(refs)}
         >
           <div class="section-heading">
             <div>
@@ -212,8 +219,8 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
           </div>
 
           <div class="bio-reading">
-            <div class="bio-body prose" data-bio-body hidden={empty} set:html={bodyHtml} />
-            <p class="bio-empty" data-bio-empty hidden={!empty}>{emptyMessage}</p>
+            <div class="bio-body prose" data-bio-body hidden={!bodyHtml} set:html={bodyHtml} />
+            <p class="bio-empty" data-bio-empty hidden={hasBody}>{emptyMessage}</p>
             <p class="bio-meta" data-bio-updated hidden={!biography?.updatedAt}>
               {biography?.updatedAt ? `最后更新：${formatBiographyDate(biography.updatedAt)}` : ''}
             </p>
@@ -270,11 +277,11 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
           {viewer ? (
             <form class="form-stack comment-form panel" data-comment-form>
               <label class="field">
-                <span>评论（最多 500 字）</span>
+                <span>评论（最多 {MAX_COMMENT_BODY} 字）</span>
                 <textarea
                   name="body"
                   rows="3"
-                  maxlength="500"
+                  maxlength={MAX_COMMENT_BODY}
                   required
                   data-comment-input
                   placeholder={`对 ${gameId} 说点什么…`}
@@ -414,105 +421,9 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
     margin-top: var(--hw-space-4);
   }
 
+  /* 正文排版来自 base.css 的共享 `.prose`；这里只补传记特有的引用样式。 */
   .bio-body {
-    max-width: 62ch;
-    margin-top: 0;
-    font-size: 1.0625rem;
-    line-height: 1.88;
-    text-wrap: pretty;
-    hanging-punctuation: allow-end;
-    overflow-wrap: anywhere;
-  }
-
-  .bio-body :global(> :first-child) {
-    margin-top: 0;
-  }
-
-  .bio-body :global(> p:first-of-type) {
-    font-size: 1.125rem;
-    line-height: 1.75;
-  }
-
-  .bio-body :global(p) {
-    margin-top: 1.15em;
-  }
-
-  .bio-body :global(h2),
-  .bio-body :global(h3),
-  .bio-body :global(h4) {
-    line-height: var(--hw-leading-snug);
-    letter-spacing: -0.01em;
-  }
-
-  .bio-body :global(h2) {
-    margin-top: 1.9em;
-    padding-top: var(--hw-space-4);
-    border-top: 1px solid var(--md-sys-color-outline-variant);
-    font-size: 1.375rem;
-  }
-
-  .bio-body :global(> h2:first-child) {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: 0;
-  }
-
-  .bio-body :global(h3) {
-    margin-top: 1.7em;
-    font-size: 1.125rem;
-  }
-
-  .bio-body :global(ul),
-  .bio-body :global(ol) {
-    margin-top: 1em;
-    padding-left: 1.45em;
-  }
-
-  .bio-body :global(li) {
-    margin-top: 0.45em;
-  }
-
-  .bio-body :global(li::marker) {
-    color: var(--md-sys-color-primary);
-  }
-
-  .bio-body :global(blockquote) {
-    margin-top: 1.4em;
-    padding: var(--hw-space-3) var(--hw-space-4);
-    font-size: 0.98em;
-  }
-
-  .bio-body :global(blockquote > :first-child) {
-    margin-top: 0;
-  }
-
-  .bio-body :global(hr) {
-    width: 42%;
-    margin: 2.2em auto;
-  }
-
-  .bio-body :global(img) {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    margin-top: 1.3em;
-    border: 1px solid var(--md-sys-color-outline-variant);
-    border-radius: var(--md-sys-shape-corner-medium);
-  }
-
-  .bio-body :global(pre) {
-    margin-top: 1.2em;
-    padding: var(--hw-space-4);
-    overflow-x: auto;
-    border-radius: var(--md-sys-shape-corner-medium);
-    background: var(--md-sys-color-surface-container-high);
-  }
-
-  .bio-body :global(pre code) {
-    padding: 0;
-    background: none;
-    font-size: 0.875rem;
-    line-height: var(--hw-leading-body);
+    font-size: var(--md-sys-typescale-title-large-size);
   }
 
   .bio-body :global(.bio-mention) {

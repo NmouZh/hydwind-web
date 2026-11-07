@@ -9,6 +9,7 @@ import {
   commentDay,
   formatCommentTime,
   groupCommentsByDay,
+  hasReadableBody,
   isBiographyEmpty,
 } from '../src/lib/person-page.ts';
 
@@ -38,6 +39,19 @@ test('正文为空、空白或没有传记记录时都算尚未填写', () => {
   assert.equal(isBiographyEmpty({ body: '' }), true);
   assert.equal(isBiographyEmpty({ body: '  \n\t ' }), true);
   assert.equal(isBiographyEmpty({ body: '你好' }), false);
+});
+
+test('静态正文与运行期正文任一存在就算有正文，详情页与列表共用同一判断', () => {
+  // 静态人物有 Markdown 正文：即使运行期传记为空，也不能显示「正文尚未填写」。
+  assert.equal(hasReadableBody(true, ''), true);
+  assert.equal(hasReadableBody(true, undefined), true);
+  assert.equal(hasReadableBody(true, '  '), true);
+
+  // 静态正文为空时看运行期正文。
+  assert.equal(hasReadableBody(false, '你好'), true);
+  assert.equal(hasReadableBody(false, '  '), false);
+  assert.equal(hasReadableBody(false, undefined), false);
+  assert.equal(hasReadableBody(false, ''), false);
 });
 
 test('空状态文案按访客身份区分，并且都点明「尚未填写」', () => {

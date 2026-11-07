@@ -43,6 +43,15 @@ export const isBiographyEmpty = (
   biography: { body?: string } | null | undefined
 ): boolean => !(typeof biography?.body === 'string' && biography.body.trim());
 
+/**
+ * 这一页到底有没有可读正文：静态人物自带 Markdown 正文，账号看运行期传记。
+ * 详情页和 /people 列表共用这条规则，避免列表说「有正文」、详情页却说「尚未填写」。
+ */
+export const hasReadableBody = (
+  hasStaticBody: boolean,
+  biographyBody?: string
+): boolean => hasStaticBody || Boolean(typeof biographyBody === 'string' && biographyBody.trim());
+
 /** 空状态文案：访客、已登录读者、传记主本人看到的下一步不一样。 */
 export const biographyEmptyMessage = (gameId: string, state: ViewerState): string => {
   if (state === 'owner') return '正文尚未填写，写下你的故事吧。';
@@ -101,6 +110,22 @@ export const groupCommentsByDay = <T extends { createdAt: string }>(
 };
 
 /**
+ * 删除评论的唯一权限规则：作者本人或管理员。
+ *
+ * `authorUsername` 是存储层的归属键；页面展示层没有这个字段，所以
+ * `canDeleteCommentForViewer` 用公开的 `authorGameId` 调用同一个核心。
+ */
+export const canDeleteCommentForAuthor = (
+  authorUsername: string,
+  viewer: CommentViewer | null
+): boolean => {
+  if (!viewer) return false;
+  if (viewer.role === 'admin') return true;
+  const author = typeof authorUsername === 'string' ? authorUsername.trim().toLowerCase() : '';
+  return author !== '' && author === viewer.username.trim().toLowerCase();
+};
+
+/**
  * 删除按钮是否显示给当前访客。
  *
  * 真正的权限判断在 API（按 authorUsername + 账号 role 回查），这里只决定
@@ -109,9 +134,4 @@ export const groupCommentsByDay = <T extends { createdAt: string }>(
 export const canDeleteCommentForViewer = (
   comment: { authorGameId: string },
   viewer: CommentViewer | null
-): boolean => {
-  if (!viewer) return false;
-  if (viewer.role === 'admin') return true;
-  const author = typeof comment.authorGameId === 'string' ? comment.authorGameId.trim().toLowerCase() : '';
-  return author !== '' && author === viewer.username.trim().toLowerCase();
-};
+): boolean => canDeleteCommentForAuthor(comment.authorGameId, viewer);

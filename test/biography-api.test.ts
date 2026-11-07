@@ -57,6 +57,8 @@ interface CallOptions {
   raw?: string;
   /** 传 null 表示不带 content-type */
   contentType?: string | null;
+  /** 浏览器写操作会带 Origin；不传模拟 curl 这类同源豁免调用。 */
+  origin?: string;
 }
 
 interface CallResult {
@@ -71,6 +73,7 @@ const call = async (
 ): Promise<CallResult> => {
   const headers: Record<string, string> = {};
   if (options.cookie) headers.cookie = options.cookie;
+  if (options.origin) headers.origin = options.origin;
   if (options.contentType !== null) headers['content-type'] = options.contentType ?? 'application/json';
 
   const requestBody =
@@ -296,4 +299,47 @@ test('PUT：已登录但 slug 不存在返回 404', async (t) => {
   });
 
   assert.equal(result.status, 404);
+});
+
+test('PUT：跨站 Origin 返回 403，不能借登录 cookie 改传记', async (t) => {
+  await useTempDataDir(t);
+  await createAccount('Alice');
+  const cookie = sessionCookie('Alice');
+
+  const crossed = await call('PUT', 'alice', {
+    cookie,
+    origin: 'https://evil.example',
+    body: { mainTitle: '跨站写入', body: '不应成功' },
+  });
+  assert.equal(crossed.status, 403);
+
+  const after = await call('GET', 'alice');
+  assert.equal(after.body.updatedAt, null);
+  assert.equal(after.body.body, '');
+
+  // 同源 Origin 与没有 Origin 的调用（curl / 服务端）照常放行。
+  const sameOrigin = await call('PUT', 'alice', {
+    cookie,
+    origin: 'http://localhost',
+    body: { mainTitle: '同源写入', body: '可以成功' },
+  });
+  assert.equal(sameOrigin.status, 200);
+});
+
+test('PUT：正文首尾的空行原样保留，只在判断空正文和长度时 trim', async (t) => {
+  await useTempDataDir(t);
+  await createAccount('Alice');
+  const cookie = sessionCookie('Alice');
+  const body = '\n\n第一段\n\n第二段\n\n';
+
+  const saved = await call('PUT', 'alice', {
+    cookie,
+    body: { mainTitle: '爱丽丝', body },
+  });
+
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.body, body);
+
+  const read = await call('GET', 'alice');
+  assert.equal(read.body.body, body);
 });

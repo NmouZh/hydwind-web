@@ -171,6 +171,55 @@ slug 既不是静态人物也不是账号时返回 `404 { "error": "..." }`。
   `415` 不是 JSON、`413` 请求体过大、`429` 限流
 - 成功返回与 GET 相同的字段 + `message`
 
+### `GET /api/people/:id/comments`
+
+公开读取某个人物的评论，按 `createdAt` 正序。`id` 与传记接口使用同一套 slug
+解析规则（静态人物 entry id 优先，其次账号 `username`，忽略大小写）。
+
+```json
+{
+  "comments": [
+    {
+      "id": "0f3c…",
+      "authorGameId": "Bob",
+      "authorDisplay": "小波",
+      "body": "第一条",
+      "createdAt": "2026-11-07T05:30:00.000Z"
+    }
+  ]
+}
+```
+
+- 合法人物 / 账号还没有评论时返回 `{ "comments": [] }`，不是 404
+- slug 既不是静态人物也不是账号时返回 `404 { "error": "..." }`
+- `authorDisplay` 实时回查账号昵称；账号改名或删号后回退到 `authorGameId`
+
+### `POST /api/people/:id/comments`
+
+登录玩家发表评论，**需要 `hydwind_session` cookie**，请求体
+`{ "body": "……" }`。
+
+```json
+{ "comment": { "id": "…", "authorGameId": "Bob", "authorDisplay": "小波", "body": "…", "createdAt": "…" } }
+```
+
+- 静态人物或已注册账号还没有运行期传记记录时，服务端先建一份空传记再追加评论
+  （评论嵌在传记记录里），不会返回 404
+- 评论 1–500 字，忽略首尾空白后判断
+- 同一账号跨人物 10 分钟最多 5 条，超限返回 `429` + `Retry-After`
+- 带 `Origin` 的请求必须同源，否则 `403`
+- 错误：`401` 未登录、`403` 跨站来源、`404` slug 不存在、`400` 参数 / JSON 错误、
+  `415` 不是 JSON、`413` 请求体过大（2KB）、`429` 限流
+- 成功返回 `201`
+
+### `DELETE /api/people/:id/comments/:cid`
+
+删除一条评论，**需要登录会话**。只有评论作者本人或管理员可以删除。
+
+- 成功：`{ "deleted": true }`
+- `401` 未登录、`403` 跨站来源或没有权限、`404` 人物 / 评论不存在
+- 角色以账号文件为准；权限降级后立即生效
+
 ### `GET /api/admin/pending.json`
 
 待审队列，给 AstrBot 插件轮询用，需要令牌。

@@ -2,6 +2,14 @@ import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { consumeRateLimit } from './rate-limit.ts';
+import { canDeleteCommentForAuthor } from './person-page.ts';
+import {
+  MAX_BIO_BODY,
+  MAX_BIO_TITLE,
+  MIN_BIO_TITLE,
+  MAX_COMMENT_BODY,
+  MIN_COMMENT_BODY,
+} from './biography-limits.ts';
 
 /**
  * 人物传记存储层。
@@ -13,12 +21,15 @@ import { consumeRateLimit } from './rate-limit.ts';
  * 当前线上 `biographies.json` 不存在，所以不需要做形状迁移。
  */
 
-export const MAX_BIO_BODY = 4000;
+// 长度限制放在纯模块里，浏览器端预校验与服务端共用同一组数字。
+export {
+  MAX_BIO_BODY,
+  MAX_BIO_TITLE,
+  MIN_BIO_TITLE,
+  MAX_COMMENT_BODY,
+  MIN_COMMENT_BODY,
+} from './biography-limits.ts';
 
-export const MIN_BIO_TITLE = 2;
-export const MAX_BIO_TITLE = 40;
-export const MIN_COMMENT_BODY = 1;
-export const MAX_COMMENT_BODY = 500;
 /** 每个账号在窗口内最多发这么多条评论。 */
 export const COMMENT_RATE_LIMIT = 5;
 export const COMMENT_RATE_WINDOW_MS = 10 * 60_000;
@@ -132,9 +143,8 @@ export interface EditAccount {
 }
 
 export interface CommentAuthor {
+  /** 账号 username，也就是评论作者的游戏 ID。 */
   username: string;
-  /** 账号 username 就是游戏 ID；留这个字段是为了兼容调用方显式传值 */
-  gameId?: string;
 }
 
 export const defaultMainTitle = (gameId: string): string => `${gameId}的人物传记`;
@@ -159,11 +169,11 @@ export const validateMainTitle = (input: unknown, gameId: string): ValidationRes
 
 export const validateBiographyBody = (input: unknown): ValidationResult<string> => {
   if (typeof input !== 'string') return { ok: false, message: '正文需要是文本' };
-  const value = input.trim();
-  if (textLength(value) > MAX_BIO_BODY) {
+  // 保存时保留作者写的首尾空行；trim 只用来判断空正文和计算长度。
+  if (textLength(input.trim()) > MAX_BIO_BODY) {
     return { ok: false, message: `正文最多 ${MAX_BIO_BODY} 个字` };
   }
-  return { ok: true, value };
+  return { ok: true, value: input };
 };
 
 export const validateCommentBody = (input: unknown): ValidationResult<string> => {
@@ -292,13 +302,6 @@ export const canEditBiography = (account: EditAccount | null, gameId: string): b
   return account.username.toLowerCase() === gameId.trim().toLowerCase();
 };
 
-/** 评论作者本人或管理员可以删除。 */
-export const canDeleteComment = (comment: Comment, account: EditAccount | null): boolean => {
-  if (!account) return false;
-  if (account.role === 'admin') return true;
-  return comment.authorUsername.toLowerCase() === account.username.toLowerCase();
-};
-
 export const listComments = async (gameId: string): Promise<Comment[]> => {
   const data = await readFileData();
   const biography = findGame(data, gameId);
@@ -343,7 +346,7 @@ export const addComment = (
     const comment: Comment = {
       id: randomUUID(),
       authorUsername: username,
-      authorGameId: (author.gameId ?? username).trim() || username,
+      authorGameId: username,
       body: validated.value,
       createdAt: now,
     };
@@ -369,7 +372,7 @@ export const deleteComment = (
     if (index < 0) return { ok: false, reason: 'not_found', message: '没有找到这条评论' };
 
     const comment = comments[index];
-    if (!canDeleteComment(comment, actor)) {
+    if (!canDeleteCommentForAuthor(comment.authorUsername, actor)) {
       return { ok: false, reason: 'forbidden', message: '只能删除自己的评论' };
     }
 
@@ -454,7 +457,11 @@ export const migrateBiographyOwner = (
       const source = findGame(data, oldName);
       const target = findGame(data, newName);
       if (source && (!target || target === source)) {
+        const oldDefaultTitle = defaultMainTitle(source.gameId);
         source.gameId = newName;
+        // 默认标题里带着游戏 ID；账号改名后要同步，不然会留下旧 ID。
+        // 自定义标题属于作者内容，保持原样。
+        if (source.mainTitle === oldDefaultTitle) source.mainTitle = defaultMainTitle(newName);
         source.updatedAt = now;
         migrated = true;
       }

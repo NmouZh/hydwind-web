@@ -9,7 +9,7 @@
  * 不可用时只跳过浏览器检查，不影响 API 冒烟结果。
  */
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
@@ -43,17 +43,28 @@ const skipBrowser = (reason) => {
 };
 
 const findExecutable = () => {
-  const candidates = [
-    process.env.PLAYWRIGHT_CHROMIUM_PATH,
-    path.join(
-      os.homedir(),
-      '.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell'
-    ),
-    path.join(
-      os.homedir(),
-      '.cache/ms-playwright/chromium-1248/chrome-linux/chrome'
-    ),
-  ];
+  const candidates = [process.env.PLAYWRIGHT_CHROMIUM_PATH];
+
+  // playwright-core install 的版本目录名带 build 号，不写死 1248；
+  // CI 与本地缓存里出现哪个版本都能找到。
+  const cache = path.join(os.homedir(), '.cache/ms-playwright');
+  if (existsSync(cache)) {
+    for (const name of readdirSync(cache).sort().reverse()) {
+      if (name.startsWith('chromium_headless_shell-')) {
+        candidates.push(
+          path.join(cache, name, 'chrome-headless-shell-linux64', 'chrome-headless-shell'),
+          path.join(cache, name, 'chrome-linux', 'chrome-headless-shell')
+        );
+      }
+      if (name.startsWith('chromium-')) {
+        candidates.push(
+          path.join(cache, name, 'chrome-linux', 'chrome'),
+          path.join(cache, name, 'chrome-linux64', 'chrome')
+        );
+      }
+    }
+  }
+
   return candidates.find((candidate) => candidate && existsSync(candidate));
 };
 
@@ -76,6 +87,23 @@ const hasNoHorizontalOverflow = async (page) =>
   page.evaluate(
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );
+
+/** 等某个元素内包含（或不再包含）指定文字；超时返回 false，由调用方记一条失败。 */
+const waitForText = async (page, selector, text, present = true) => {
+  try {
+    await page.waitForFunction(
+      ({ selector: target, text: expected, present: shouldContain }) => {
+        const content = document.querySelector(target)?.textContent ?? '';
+        return content.includes(expected) === shouldContain;
+      },
+      { selector, text, present },
+      { timeout: 10000 }
+    );
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 const freePort = () =>
   new Promise((resolve, reject) => {
@@ -580,7 +608,16 @@ const apiSmoke = async () => {
       '/people/nz-173/ SSR 显示默认主标题'
     );
     check(personHtml.includes('游戏 ID'), '/people/nz-173/ SSR 显示游戏 ID');
-    check(personHtml.includes('尚未填写'), '/people/nz-173/ SSR 显示空状态');
+    check(
+      personHtml.includes('正版账号 UUID'),
+      '/people/nz-173/ SSR 渲染静态人物正文'
+    );
+    // 静态人物自带正文，详情页不应显示「正文尚未填写」；文字仍在 HTML 里，
+// 但空状态节点必须带 hidden。
+    check(
+      /data-bio-empty[^>]*\shidden/.test(personHtml),
+      '/people/nz-173/ 有静态正文时不显示空状态'
+    );
     check(personHtml.includes('聊两句'), '/people/nz-173/ SSR 显示评论区');
     check(personHtml.includes('服主'), '/people/nz-173/ SSR 保留静态人物身份');
 
@@ -618,7 +655,7 @@ const browserSmoke = async () => {
 
   const executablePath = findExecutable();
   if (!executablePath) {
-    skipBrowser('找不到本地 Chromium headless shell-1248');
+    skipBrowser('找不到本地 Playwright Chromium（可运行 npx playwright-core install chromium）');
     return;
   }
 
@@ -627,12 +664,46 @@ const browserSmoke = async () => {
   try {
     server = await startStandaloneServer({
       SESSION_SECRET: 'smoke-session-secret-0123456789',
+      ISSUE_ADMIN_TOKEN: 'smoke-admin-token',
     });
   } catch (error) {
     failures.push(`浏览器冒烟服务启动失败：${String(error).split('\n')[0]}`);
     return;
   }
   const { origin } = server;
+
+  // 通过真实接口建一个临时账号并登录，把会话 cookie 塞进浏览器上下文，
+  // 后面的传记编辑 / 评论 / 删除都在登录态下执行。
+  const browserUser = 'BrowserSmoke';
+  let browserSession = '';
+  try {
+    const registerResponse = await fetch(`${origin}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer smoke-admin-token',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ username: browserUser, platformId: 'qq-browser-smoke' }),
+    });
+    const registered = await registerResponse.json();
+    const loginResponse = await fetch(`${origin}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username: browserUser, password: registered.password }),
+    });
+    const cookieHeader = (loginResponse.headers.getSetCookie?.() ?? []).find((value) =>
+      value.startsWith('hydwind_session=')
+    );
+    browserSession = decodeURIComponent(
+      (cookieHeader ?? '').split(';')[0].slice('hydwind_session='.length)
+    );
+    check(
+      registerResponse.status === 200 && loginResponse.status === 200 && browserSession.length > 0,
+      '浏览器冒烟临时账号注册并登录'
+    );
+  } catch (error) {
+    failures.push(`浏览器冒烟登录准备失败：${String(error).split('\n')[0]}`);
+  }
 
   let browser;
   try {
@@ -650,25 +721,48 @@ const browserSmoke = async () => {
   try {
     let statusMode = 'offline';
     const fulfillStatus = (route) => {
-      if (statusMode === 'online') return route.fulfill({ json: { online: true } });
-      if (statusMode === 'offline') return route.fulfill({ json: { online: false } });
+      // 浏览器直接读同源 /api/status；用路由拦截模拟三种状态，
+      // 不依赖第三方接口，也不受服务端 60s 缓存影响。
+      if (statusMode === 'error') {
+        return route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: '{"error":"upstream unavailable"}',
+        });
+      }
+      const online = statusMode === 'online';
       return route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: '{"error":"upstream unavailable"}',
+        json: {
+          online,
+          players: { online: online ? 3 : 0, max: 20, names: [] },
+          version: online ? 'Paper 1.21.4' : '未知',
+          motd: '',
+          checkedAt: new Date().toISOString(),
+          source: online ? 'live' : 'fallback',
+        },
       });
     };
 
     const desktop = await browser.newContext({
       viewport: { width: 1280, height: 800 },
     });
+    if (browserSession) {
+      await desktop.addCookies([
+        { name: 'hydwind_session', value: browserSession, url: origin },
+      ]);
+    }
     await desktop.grantPermissions(['clipboard-read', 'clipboard-write'], {
       origin,
     });
+    await desktop.route('**/api/status', fulfillStatus);
+    // /api/status 失败时首页回退直连第三方；一并拦截，error 模式快速失败。
     await desktop.route('**/api.mcsrvstat.us/**', fulfillStatus);
     await desktop.route('**/api.mcstatus.io/**', fulfillStatus);
 
     const page = await desktop.newPage();
+    page.on('pageerror', (error) => {
+      console.error(`浏览器页面脚本错误：${error.message}`);
+    });
     await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
     check(await waitForStatus(page, '离线'), '桌面首页显示离线状态');
     check(await hasNoHorizontalOverflow(page), '桌面首页 1280 视口无横向溢出');
@@ -724,8 +818,76 @@ const browserSmoke = async () => {
     const personText = await page.locator('body').innerText();
     check(personText.includes('Nz_173的人物传记'), 'SSR 人物页显示默认主标题');
     check(personText.includes('游戏 ID'), 'SSR 人物页显示游戏 ID');
-    check(personText.includes('尚未填写'), 'SSR 人物页显示空状态');
+    check(personText.includes('正版账号 UUID'), 'SSR 人物页渲染静态正文');
+    // 静态人物有正文时，空状态节点必须是 hidden。
+    check(
+      !(await page.locator('[data-bio-empty]').isVisible()),
+      '有静态正文时详情页不显示空状态'
+    );
     check(personText.includes('聊两句'), 'SSR 人物页显示评论区');
+
+    // —— 登录后的编辑 / 评论浏览器冒烟 ——
+    // 账号 slug 的详情页：本人可以改传记、发评论、删评论。
+    await page.goto(`${origin}/people/${browserUser.toLowerCase()}/`, {
+      waitUntil: 'networkidle',
+    });
+    check(
+      await page.locator('[data-bio-editor]').isVisible(),
+      '登录后传记页显示编辑器'
+    );
+
+    await page.fill('[data-bio-title-input]', '浏览器写的传记');
+    await page.fill('[data-bio-input]', '## 浏览器正文\n\n保存后立即出现。');
+    await page.click('[data-bio-submit]');
+    check(
+      await waitForText(page, '[data-bio-status]', '传记保存好了'),
+      '浏览器保存传记返回成功状态'
+    );
+    check(
+      (await page.locator('[data-bio-body]').innerText()).includes('浏览器正文'),
+      '保存后正文原地更新'
+    );
+    check(
+      (await page.locator('[data-bio-title]').innerText()).includes('浏览器写的传记'),
+      '保存后主标题原地更新'
+    );
+
+    await page.fill('[data-comment-input]', '浏览器评论一条');
+    await page.click('[data-comment-submit]');
+    const commented = await waitForText(page, '[data-comment-list]', '浏览器评论一条');
+    if (!commented) {
+      console.error(
+        `评论未出现；状态：${await page.locator('[data-comment-status]').innerText().catch(() => '')}`
+      );
+    }
+    check(commented, '登录后可以通过界面发表评论');
+
+    const deleteButtons = page.locator('[data-comment-delete]');
+    const deleteCount = await deleteButtons.count();
+    if (deleteCount > 0) {
+      await deleteButtons.first().click();
+      check(
+        await waitForText(page, '[data-comment-list]', '浏览器评论一条', false),
+        '评论作者可以通过界面删除自己的评论'
+      );
+    } else {
+      check(false, '评论作者可以看到删除按钮');
+    }
+
+    // 静态人物尚无运行期传记：评论接口会先 ensure 空传记，不能 404。
+    await page.goto(`${origin}/people/nz-173/`, { waitUntil: 'networkidle' });
+    await page.fill('[data-comment-input]', '给静态人物留言');
+    await page.click('[data-comment-submit]');
+    check(
+      await waitForText(page, '[data-comment-list]', '给静态人物留言'),
+      '静态人物无运行期记录时也能从界面发表评论'
+    );
+
+    await page.goto(`${origin}/people/`, { waitUntil: 'networkidle' });
+    check(
+      await page.locator('.people-search-label').isVisible(),
+      '人物搜索框有可见标签'
+    );
 
     await page.click('header nav[aria-label="主导航"] a[href="/guides/"]');
     await page.waitForURL('**/guides/', { timeout: 5000 });
@@ -761,7 +923,7 @@ const browserSmoke = async () => {
       '/account/',
     ];
     for (const relativePath of desktopPaths) {
-      await page.goto(`${origin}${relativePath}`, { waitUntil: 'networkidle' });
+      await page.goto(`${origin}${relativePath}`, { waitUntil: 'load' });
       check(
         await hasNoHorizontalOverflow(page),
         `桌面 1280 视口无横向溢出：${relativePath}`
@@ -783,6 +945,7 @@ const browserSmoke = async () => {
     await mobile.grantPermissions(['clipboard-read', 'clipboard-write'], {
       origin,
     });
+    await mobile.route('**/api/status', fulfillStatus);
     await mobile.route('**/api.mcsrvstat.us/**', fulfillStatus);
     await mobile.route('**/api.mcstatus.io/**', fulfillStatus);
 
@@ -827,7 +990,7 @@ const browserSmoke = async () => {
     ];
     for (const relativePath of mobilePaths) {
       await mobilePage.goto(`${origin}${relativePath}`, {
-        waitUntil: 'networkidle',
+        waitUntil: 'load',
       });
       check(
         await hasNoHorizontalOverflow(mobilePage),

@@ -26,6 +26,7 @@ const staticPeople: StaticPersonInput[] = people.map((person) => ({
   tags: person.data.tags,
   avatar: person.data.avatar,
   updated: person.data.updated,
+  hasBody: Boolean(person.body?.trim()),
 }));
 
 const allItems = buildPeopleList({ staticPeople, accounts, biographies });
@@ -52,7 +53,7 @@ const hasQuery = query.trim().length > 0;
     <form class="people-toolbar" method="get" action="/people/" role="search" data-reveal>
       <label class="people-search" for="people-q">
         <Icon name="search" size={18} />
-        <span class="hw-sr-only">搜索游戏 ID 或昵称</span>
+        <span class="people-search-label">搜索人物</span>
         <input
           id="people-q"
           type="search"
@@ -127,6 +128,13 @@ const hasQuery = query.trim().length > 0;
     border-color: var(--md-sys-color-primary);
     box-shadow: 0 0 0 2px
       color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+  }
+
+  .people-search-label {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-medium-size);
+    font-weight: 600;
+    white-space: nowrap;
   }
 
   .people-search input {

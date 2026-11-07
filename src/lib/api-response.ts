@@ -21,3 +21,39 @@ export const json = (
 /** 路由只接受 `application/json`（允许带 charset 或其它参数）。 */
 export const isJson = (request: Request): boolean =>
   (request.headers.get('content-type') ?? '').toLowerCase().includes('application/json');
+
+export type JsonObjectResult =
+  | { ok: true; value: Record<string, unknown> }
+  | { ok: false; response: Response };
+
+/**
+ * 读取 JSON 对象请求体：大小上限、坏 JSON、非对象都按统一错误返回。
+ * 传记与评论接口共用，避免两处状态码 / 文案漂移。
+ */
+export const readJsonObject = async (
+  request: Request,
+  maxBytes: number
+): Promise<JsonObjectResult> => {
+  const declared = Number(request.headers.get('content-length') ?? 0);
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    return { ok: false, response: json({ error: '请求体太大' }, 413) };
+  }
+
+  const raw = await request.text();
+  if (Buffer.byteLength(raw, 'utf8') > maxBytes) {
+    return { ok: false, response: json({ error: '请求体太大' }, 413) };
+  }
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    return { ok: false, response: json({ error: '请求体不是合法 JSON' }, 400) };
+  }
+
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return { ok: false, response: json({ error: '请求体格式不对' }, 400) };
+  }
+
+  return { ok: true, value: payload as Record<string, unknown> };
+};
