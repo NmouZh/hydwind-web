@@ -612,9 +612,10 @@ const apiSmoke = async () => {
       personHtml.includes('正版账号 UUID'),
       '/people/nz-173/ SSR 渲染静态人物正文'
     );
-    // 静态人物自带正文，详情页不应同时显示「正文尚未填写」。
+    // 静态人物自带正文，详情页不应显示「正文尚未填写」；文字仍在 HTML 里，
+// 但空状态节点必须带 hidden。
     check(
-      !personHtml.includes('正文尚未填写'),
+      /data-bio-empty[^>]*\shidden/.test(personHtml),
       '/people/nz-173/ 有静态正文时不显示空状态'
     );
     check(personHtml.includes('聊两句'), '/people/nz-173/ SSR 显示评论区');
@@ -720,12 +721,25 @@ const browserSmoke = async () => {
   try {
     let statusMode = 'offline';
     const fulfillStatus = (route) => {
-      if (statusMode === 'online') return route.fulfill({ json: { online: true } });
-      if (statusMode === 'offline') return route.fulfill({ json: { online: false } });
+      // 浏览器直接读同源 /api/status；用路由拦截模拟三种状态，
+      // 不依赖第三方接口，也不受服务端 60s 缓存影响。
+      if (statusMode === 'error') {
+        return route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: '{"error":"upstream unavailable"}',
+        });
+      }
+      const online = statusMode === 'online';
       return route.fulfill({
-        status: 500,
-        contentType: 'application/json',
-        body: '{"error":"upstream unavailable"}',
+        json: {
+          online,
+          players: { online: online ? 3 : 0, max: 20, names: [] },
+          version: online ? 'Paper 1.21.4' : '未知',
+          motd: '',
+          checkedAt: new Date().toISOString(),
+          source: online ? 'live' : 'fallback',
+        },
       });
     };
 
@@ -740,6 +754,8 @@ const browserSmoke = async () => {
     await desktop.grantPermissions(['clipboard-read', 'clipboard-write'], {
       origin,
     });
+    await desktop.route('**/api/status', fulfillStatus);
+    // /api/status 失败时首页回退直连第三方；一并拦截，error 模式快速失败。
     await desktop.route('**/api.mcsrvstat.us/**', fulfillStatus);
     await desktop.route('**/api.mcstatus.io/**', fulfillStatus);
 
@@ -811,8 +827,11 @@ const browserSmoke = async () => {
     check(personText.includes('Nz_173的人物传记'), 'SSR 人物页显示默认主标题');
     check(personText.includes('游戏 ID'), 'SSR 人物页显示游戏 ID');
     check(personText.includes('正版账号 UUID'), 'SSR 人物页渲染静态正文');
-    // 静态人物有正文时，列表与详情页都不应说「尚未填写」。
-    check(!personText.includes('正文尚未填写'), '有静态正文时详情页不显示空状态');
+    // 静态人物有正文时，空状态节点必须是 hidden。
+    check(
+      !(await page.locator('[data-bio-empty]').isVisible()),
+      '有静态正文时详情页不显示空状态'
+    );
     check(personText.includes('聊两句'), 'SSR 人物页显示评论区');
 
     // —— 登录后的编辑 / 评论浏览器冒烟 ——
@@ -934,6 +953,7 @@ const browserSmoke = async () => {
     await mobile.grantPermissions(['clipboard-read', 'clipboard-write'], {
       origin,
     });
+    await mobile.route('**/api/status', fulfillStatus);
     await mobile.route('**/api.mcsrvstat.us/**', fulfillStatus);
     await mobile.route('**/api.mcstatus.io/**', fulfillStatus);
 
