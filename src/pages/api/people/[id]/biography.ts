@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { findAccount } from '../../../../lib/accounts';
+import { json } from '../../../../lib/api-response.ts';
 import {
   MAX_BIO_BODY,
   MAX_BIO_REFS,
@@ -20,12 +21,6 @@ import { readSessionFromRequest } from '../../../../lib/session';
  * 人物页是构建期静态产物，传记要能随时改，所以正文由浏览器拉这一条接口渲染，
  * 和议题列表同一个思路：静态壳 + 运行时数据。
  */
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-  });
 
 /** 人物 id ↔ 游戏 ID 的映射，正文里的 `@游戏ID` 靠它落到具体人物。 */
 const loadPeople = async () => {

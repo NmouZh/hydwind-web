@@ -7,8 +7,11 @@
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
 | `ISSUE_ADMIN_TOKEN` | 议题与账号功能必填 | 站务共享密钥。插件调用写接口时用 `Authorization: Bearer <token>`。不设置则所有写接口、待审列表、注册接口都返回 401。 |
+| `PLUGIN_TOKEN` | 游戏插件必填 | HydwindGate 插件专用密钥，只用于 `/api/plugin/*`。与 `ISSUE_ADMIN_TOKEN` 完全分离：插件令牌不能调议题 / 账号接口，站务令牌也不能调插件接口。不设置则插件接口一律 401。 |
 | `SESSION_SECRET` | 上线必填 | 登录会话 cookie 的 HMAC 密钥，至少 16 字符。不配会退回 `ISSUE_ADMIN_TOKEN`，两者都没有时用开发密钥并打警告。 |
 | `HYDWIND_DATA_DIR` | 否 | 议题与账号 JSON 的存放目录，默认 `<cwd>/data`。 |
+| `LOGIN_CODE_KAOMOJI_POOL` | 否 | 登录码颜文字候选池，逗号分隔；默认内置 24 个。空值退回默认池，重复项自动去重。 |
+| `LOGIN_CODE_FALLBACK_PREFIX` | 否 | ASCII 备用码前缀，默认 `HWG`；匹配规则随前缀自动派生，大小写不敏感。 |
 | `STATUS_ENDPOINT` | 否 | 服务器状态数据源，默认 `https://api.mcstatus.io/v2/status/java`。以后插件自建 HTTP 状态接口，把它指过去即可。 |
 | `HOST` / `PORT` | 否 | `node ./dist/server/entry.mjs` 的监听地址，默认 `0.0.0.0:4321`。 |
 
@@ -22,10 +25,14 @@ npm run build
 ./scripts/run.sh
 ```
 
+线上由 systemd 守护（开机自启、崩溃拉起、插件触发重启），安装与权限说明见
+`deploy/README.md`。
+
 `.env` 示例：
 
 ```dotenv
 ISSUE_ADMIN_TOKEN=<随机串>
+PLUGIN_TOKEN=<再另一个随机串>
 SESSION_SECRET=<另一个随机串>
 HYDWIND_DATA_DIR=./data
 HOST=0.0.0.0
@@ -33,6 +40,47 @@ PORT=4321
 ```
 
 ## 接口
+
+### `GET /api/health`
+
+存活探针，给 systemd 和游戏插件使用，**不需要鉴权**。返回进程启动至今的秒数。
+
+```json
+{ "ok": true, "uptime": 12345 }
+```
+
+### `POST /api/plugin/login/verify`
+
+HydwindGate 插件校验玩家从 `/gate` 页面拿到的登录码，**只接受 `PLUGIN_TOKEN`**
+（`Authorization: Bearer <PLUGIN_TOKEN>`）；站务令牌、浏览器会话一律 401。
+
+```json
+{ "code": "颜文字码或 HWG-XXXX 备用码", "gameId": "游戏 ID", "uuid": "玩家的 UUID" }
+```
+
+请求体上限 1KB，三个字段都必须是字符串，`uuid` 必须是标准 UUID 格式。
+`uuid` 不参与鉴权，只作为成功校验的审计上下文写入服务端日志；契约里保留这个字段。
+
+成功：
+
+```json
+{ "ok": true, "account": { "username": "Nz_173", "nickname": "中文别名", "role": "player" } }
+```
+
+失败：
+
+- `400` 请求体格式 / 字段类型不对，`413` 请求体过大，`415` 不是 JSON
+- `401` 令牌错误
+- `409 { "ok": false, "reason": "invalid_code | expired | used" }`
+- `409 { "ok": false, "reason": "game_id_mismatch", "expectedGameId": "Nz_173" }`
+- `429 { "ok": false, "reason": "rate_limited", "retryAfterMs": 12345, "attemptsRemaining": 0 }`
+  （同时带 `Retry-After` 响应头，单位秒）
+
+`gameId` 必须等于账号 `username`（忽略大小写）；码有效但账号不存在按
+`invalid_code` 处理。码一次性、5 分钟过期；同一游戏 ID 5 分钟内最多 5 次尝试。
+
+账号存在性和 `gameId` 匹配检查发生在作废登录码之前：任一检查失败都不会
+烧掉码，玩家改对游戏 ID 后可以继续用同一个码。
 
 ### `GET /api/status`
 
@@ -133,7 +181,7 @@ PORT=4321
 
 账号只有一条来源：群里 @机器人 后，**私聊**机器人发「注册 游戏ID」，`astrbot_plugin_hydwind_accounts` 插件回调 `/api/auth/register` 建号，再把账号密码私聊回本人。站点上不开放自助注册。
 
-- 账号名 = 游戏 ID，只保留字母、数字、下划线，3–24 位
+- 账号名 = 游戏 ID，只保留字母、数字、下划线，3–16 位（Minecraft 游戏 ID 上限 16）
 - 密码随机生成 10 位（去掉 0/O/1/l/I 这类容易抄错的字符），只存 scrypt 哈希
 - 同一个平台身份（QQ 号）重复注册 = 重置密码并沿用原账号，不会堆出重复账号
 - 密码是明文私信发出的，**服务端不保存明文**，丢了只能重置
@@ -187,7 +235,7 @@ PORT=4321
 - 议题与账号数据都存在本地 JSON 文件里，**只适合单实例、带持久磁盘的部署**（VPS / 自建容器）。EdgeOne 这类纯静态托管的 Pages 不能跑这层接口，需要改成边缘函数 + 数据库/对象存储。
 - 站点前面是 NAT 转发，没有独立公网 IP：服务只监听 `0.0.0.0:4321`，由路由器把公网端口映射进来。
 - **反向代理必须透传真实 Host 和 `X-Forwarded-Proto`。** `astro.config.mjs` 的 `security.allowedDomains` 只认可
-  `hydwind.lovie.me`、`localhost`、`127.0.0.1`：Host 不在名单里时 Astro 会把 `request.url` 回落成 localhost，
+  `103.236.99.253`、`localhost`、`127.0.0.1`：Host 不在名单里时 Astro 会把 `request.url` 回落成 localhost，
   登录的同源校验会直接 403，`X-Forwarded-For` 也不会被信任（限流会按代理 IP 分桶）。换域名时记得同步这份名单。
 - 所有写接口的请求体在适配器层统一限制为 1MB（`bodySizeLimit`）；登录接口另有 1KB 的更严限制。
 - 会话是无状态签名 cookie，`Secure` 由请求协议 / `X-Forwarded-Proto` 决定，重启服务不会踢人；`SESSION_SECRET` 一换所有人都会掉线。

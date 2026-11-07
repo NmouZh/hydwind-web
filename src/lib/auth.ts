@@ -5,7 +5,9 @@
  * 插件用环境变量 ISSUE_ADMIN_TOKEN 里的共享密钥调用写接口。
  */
 import { findAccount } from './accounts';
+import { json } from './api-response.ts';
 import { readSessionFromRequest } from './session';
+import { timingSafeEqualString } from './timing-safe.ts';
 
 const ADMIN_TOKEN = () => process.env.ISSUE_ADMIN_TOKEN ?? '';
 
@@ -17,7 +19,10 @@ export const isAdmin = (request: Request): boolean => {
   const bearer = header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : '';
   const custom = request.headers.get('x-hydwind-token') ?? '';
 
-  return bearer === token || custom === token;
+  return (
+    (bearer.length > 0 && timingSafeEqualString(bearer, token)) ||
+    (custom.length > 0 && timingSafeEqualString(custom, token))
+  );
 };
 
 /**
@@ -38,9 +43,4 @@ export const isStaffRequest = async (request: Request): Promise<boolean> => {
 
 /** 写接口统一守卫：返回 Response 表示拒绝，返回 null 表示放行。 */
 export const requireAdmin = (request: Request): Response | null =>
-  isAdmin(request)
-    ? null
-    : new Response(JSON.stringify({ error: '需要站务令牌' }), {
-        status: 401,
-        headers: { 'content-type': 'application/json; charset=utf-8' },
-      });
+  isAdmin(request) ? null : json({ error: '需要站务令牌' }, 401);

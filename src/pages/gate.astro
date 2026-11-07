@@ -1,0 +1,376 @@
+---
+// 进服验证页：必须按请求渲染，每次加载都为当前账号生成一组新码。
+// 未登录访客只看到登录 / 注册指引；码本身不落进任何静态产物。
+export const prerender = false;
+
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { findAccount } from '../lib/accounts';
+import { getSite } from '../lib/content';
+import { gateView } from '../lib/gate';
+import { generateLoginCodes, LOGIN_CODE_TTL_MS } from '../lib/login-codes';
+import { readSession } from '../lib/session';
+
+const session = readSession(Astro.cookies);
+const account = session ? await findAccount(session.username) : undefined;
+const site = await getSite();
+
+// 登录码和登录态都不该被浏览器或 CDN 缓存。
+Astro.response.headers.set('cache-control', 'no-store');
+
+const loginHref = `/account/?next=${encodeURIComponent('/gate/')}`;
+const ttlMinutes = Math.round(LOGIN_CODE_TTL_MS / 60_000);
+
+let codes: { code: string; fallback: string; expiresAt: number } | null = null;
+
+if (account) {
+  try {
+    codes = generateLoginCodes({ username: account.username });
+  } catch {
+    // 候选池被并发请求暂时用尽时，codes 保持 null，页面显示可重试的提示。
+  }
+}
+
+const view = gateView({ signedIn: Boolean(account), hasCodes: Boolean(codes) });
+
+const description =
+  '氢风（Hydwind）进服验证：登录网站账号后获取一次性登录码，粘贴进游戏对话框即可解除冻结。';
+---
+
+<BaseLayout title="进服验证 · 氢风 Hydwind" description={description} current="account" noindex>
+  <div class="hw-shell page-shell gate-shell">
+    <header class="page-head enter">
+      <div class="page-head-copy">
+        <h1>进服验证</h1>
+        <p class="page-head-sub">
+          {
+            view === 'codes'
+              ? '把这组码填进游戏里的登录对话框，服务器确认是你本人后就会放行。'
+              : view === 'error'
+                ? '你已登录，但登录码暂时生成不出来，稍等片刻刷新本页即可。'
+                : '登录网站账号后才能拿到登录码；还没注册的话，先在官方 QQ 群找机器人。'
+          }
+        </p>
+      </div>
+    </header>
+
+    {
+      view === 'codes' ? (
+        <div class="hw-grid gate-grid">
+          <section class="hw-span-8 hero-card gate-code-card" aria-labelledby="gate-code-title">
+            <div class="gate-code-head">
+              <p class="hw-label" id="gate-code-title">
+                你的登录码
+              </p>
+              <p class="gate-binding">
+                账号 {account?.username} · 游戏 ID {account?.username}
+              </p>
+            </div>
+
+            <p class="gate-code" data-gate-code>
+              {codes.code}
+            </p>
+
+            <div class="gate-code-actions">
+              <button class="filled-button" type="button" data-copy={codes.code}>
+                <Icon name="copy" size={18} />
+                复制颜文字码
+              </button>
+              <p
+                class="gate-countdown"
+                data-countdown
+                data-expires-at={codes.expiresAt}
+              >
+                {ttlMinutes} 分钟内有效，只能使用一次
+              </p>
+            </div>
+
+            <div class="gate-fallback">
+              <p class="hw-label">粘不进去？用 ASCII 备用码</p>
+              <div class="gate-fallback-row">
+                <code data-gate-fallback>{codes.fallback}</code>
+                <button
+                  class="outlined-button is-compact"
+                  type="button"
+                  data-copy={codes.fallback}
+                >
+                  <Icon name="copy" size={16} />
+                  复制备用码
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <aside class="hw-span-4 panel gate-steps" aria-labelledby="gate-steps-title">
+            <h2 class="panel-title" id="gate-steps-title">怎么用</h2>
+            <ol class="gate-step-list">
+              <li>
+                <span class="gate-step-index" aria-hidden="true">1</span>
+                <p>进服后角色会被冻结，屏幕中间会弹出带网址的登录对话框。</p>
+              </li>
+              <li>
+                <span class="gate-step-index" aria-hidden="true">2</span>
+                <p>把上面的颜文字码粘进输入行，点确认。</p>
+              </li>
+              <li>
+                <span class="gate-step-index" aria-hidden="true">3</span>
+                <p>粘不上就在聊天框输入 <code>/login 你的码</code>，备用码也可以。</p>
+              </li>
+            </ol>
+            <div class="notice gate-notice">
+              <p><strong>码只能用一次，{ttlMinutes} 分钟后失效。</strong></p>
+              <p>刷新本页会换一组新码，旧码到期后自然失效。</p>
+            </div>
+          </aside>
+        </div>
+      ) : view === 'guest' ? (
+        <div class="hw-grid gate-grid">
+          <section class="hw-span-6 panel gate-guest-card">
+            <p class="hw-label">已经注册</p>
+            <h2>登录网站账号</h2>
+            <p class="gate-guest-copy">
+              登录后回到本页，会立刻生成一组只属于你的登录码。登录状态会保留 30 天。
+            </p>
+            <a class="filled-button gate-guest-cta" href={loginHref}>
+              <Icon name="login" size={18} />
+              去登录
+            </a>
+          </section>
+
+          <aside class="hw-span-6 panel gate-guest-card">
+            <p class="hw-label">还没有账号</p>
+            <h2>在 QQ 群注册</h2>
+            <p class="gate-guest-copy">
+              在官方 QQ 群 @机器人 发「注册 你的游戏ID」，机器人会私信账号和初始密码。
+            </p>
+            <div class="gate-qq">
+              <code>{site.qqGroup}</code>
+              <button
+                class="text-button is-compact"
+                type="button"
+                data-copy={site.qqGroup}
+                aria-label={`复制 QQ 群号 ${site.qqGroup}`}
+              >
+                <Icon name="copy" size={16} />
+                复制群号
+              </button>
+            </div>
+            <a class="gate-text-link" href="/guides/join/">看进服指南</a>
+          </aside>
+        </div>
+      ) : (
+        <div class="panel gate-error" role="alert">
+          <p class="panel-title">登录码暂时生成不出来</p>
+          <p class="gate-guest-copy">
+            同时进服的人有点多，候选码被占满了。稍等片刻刷新本页即可，不需要重新登录。
+          </p>
+        </div>
+      )
+    }
+  </div>
+</BaseLayout>
+
+<script>
+  import { formatRemaining } from '../lib/gate';
+
+  // 服务端给出绝对到期时间，客户端只做显示，避免依赖客户端时钟差。
+  const countdown = document.querySelector<HTMLElement>('[data-countdown]');
+
+  if (countdown) {
+    const expiresAt = Number(countdown.dataset.expiresAt);
+    let timer = 0;
+
+    const tick = (): void => {
+      if (!Number.isFinite(expiresAt)) return;
+
+      const label = formatRemaining(expiresAt - Date.now());
+      if (label) {
+        countdown.textContent = `剩余 ${label}`;
+        return;
+      }
+
+      countdown.textContent = '已过期，刷新页面换一组新码';
+      countdown.dataset.expired = 'true';
+      window.clearInterval(timer);
+    };
+
+    tick();
+    if (Number.isFinite(expiresAt) && expiresAt > Date.now()) {
+      timer = window.setInterval(tick, 1_000);
+    }
+  }
+</script>
+
+<style>
+  .gate-grid {
+    margin-top: var(--hw-space-6);
+  }
+
+  .gate-code-card {
+    align-content: start;
+    gap: var(--hw-space-5);
+  }
+
+  .gate-code-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--hw-space-2) var(--hw-space-4);
+  }
+
+  .gate-binding {
+    color: var(--md-sys-color-on-primary-container);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    opacity: 0.78;
+  }
+
+  .gate-code {
+    max-width: 100%;
+    color: var(--md-sys-color-on-primary-container);
+    font-family: var(--md-sys-typescale-font);
+    font-size: var(--md-sys-typescale-headline-large-size);
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: 0.01em;
+    overflow-wrap: anywhere;
+    text-align: center;
+    user-select: all;
+  }
+
+  .gate-code-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--hw-space-3);
+  }
+
+  .gate-countdown {
+    color: var(--md-sys-color-on-primary-container);
+    font-size: var(--md-sys-typescale-label-large-size);
+    font-variant-numeric: tabular-nums;
+    opacity: 0.82;
+  }
+
+  .gate-countdown[data-expired='true'] {
+    color: var(--md-sys-color-error);
+    font-weight: 600;
+    opacity: 1;
+  }
+
+  .gate-fallback {
+    padding-top: var(--hw-space-4);
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .gate-fallback-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--hw-space-3);
+    margin-top: var(--hw-space-2);
+  }
+
+  .gate-fallback-row code {
+    color: var(--md-sys-color-on-primary-container);
+    font-family: var(--md-sys-typescale-font);
+    font-size: var(--md-sys-typescale-title-large-size);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    user-select: all;
+  }
+
+  .gate-step-list {
+    display: grid;
+    gap: var(--hw-space-4);
+    margin-top: var(--hw-space-4);
+    list-style: none;
+  }
+
+  .gate-step-list li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: var(--hw-space-3);
+  }
+
+  .gate-step-list p {
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.7;
+  }
+
+  .gate-step-list code {
+    color: var(--md-sys-color-on-surface);
+    font-family: var(--md-sys-typescale-font);
+    font-weight: 600;
+  }
+
+  .gate-step-index {
+    display: grid;
+    place-items: center;
+    width: var(--hw-space-6);
+    height: var(--hw-space-6);
+    border-radius: var(--md-sys-shape-corner-full);
+    background: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+    color: var(--md-sys-color-primary);
+    font-size: var(--md-sys-typescale-label-medium-size);
+    font-weight: 700;
+  }
+
+  .gate-notice {
+    margin-top: var(--hw-space-4);
+  }
+
+  .gate-notice p + p {
+    margin-top: var(--hw-space-2);
+  }
+
+  .gate-guest-card h2 {
+    margin-top: var(--hw-space-2);
+    font-size: var(--md-sys-typescale-title-large-size);
+    font-weight: 600;
+  }
+
+  .gate-guest-copy {
+    margin-top: var(--hw-space-2);
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-body-medium-size);
+    line-height: 1.7;
+  }
+
+  .gate-guest-cta {
+    margin-top: var(--hw-space-5);
+  }
+
+  .gate-qq {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--hw-space-2);
+    margin-top: var(--hw-space-3);
+  }
+
+  .gate-qq code {
+    color: var(--md-sys-color-on-surface);
+    font-family: var(--md-sys-typescale-font);
+    font-size: var(--md-sys-typescale-title-large-size);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    user-select: all;
+  }
+
+  .gate-text-link {
+    display: inline-block;
+    margin-top: var(--hw-space-4);
+    color: var(--md-sys-color-primary);
+    font-size: var(--md-sys-typescale-label-large-size);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+  }
+
+  .gate-error {
+    margin-top: var(--hw-space-5);
+  }
+</style>

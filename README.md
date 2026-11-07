@@ -1,11 +1,11 @@
 # Hydwind 生存服官网
 
-氢风（Hydwind）Minecraft Java 生存服务器的官网。Astro 7 静态输出（`dist/`），部署在 EdgeOne。
+氢风（Hydwind）Minecraft Java 生存服务器的官网。Astro 7 `output: 'server'`，构建出 Node standalone 产物，部署在自建 VPS，由 systemd 守护。
 
 - 技术栈：Astro 7，TypeScript（strict）
 - 包管理器：bun
 - Node 要求：`>= 22.23.4`（见 `.node-version`）
-- 正式站点：<https://hydwind.lovie.me>
+- 正式站点：<http://103.236.99.253:62179>
 
 ## 命令
 
@@ -45,6 +45,7 @@
 │   ├── check-build.mjs  # 构建产物检查
 │   ├── generate-md3-tokens.mjs
 │   └── smoke.mjs        # 浏览器冒烟
+├── deploy/              # systemd unit 与部署说明
 ├── .pages.yml           # Pages CMS 配置
 └── astro.config.mjs
 ```
@@ -75,6 +76,7 @@
 
 ## 相关文档
 
+- 部署与 systemd：`deploy/README.md`
 - Astro 文档：<https://docs.astro.build>
 - Pages CMS 文档：<https://pagescms.org/docs>
 - 协作约定：`docs/agents/`

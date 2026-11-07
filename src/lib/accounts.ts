@@ -1,6 +1,10 @@
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, scryptSync } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { timingSafeEqualString } from './timing-safe.ts';
+import { isValidUsername } from './username.ts';
+
+export { isValidUsername, USERNAME_PATTERN } from './username.ts';
 
 /**
  * 账号存储层。
@@ -83,7 +87,7 @@ const verifyHash = (password: string, stored: string): boolean => {
   const expected = Buffer.from(hash, 'hex');
   if (expected.length !== 64) return false;
   const actual = scryptSync(password, salt, expected.length, SCRYPT_OPTIONS);
-  return timingSafeEqual(expected, actual);
+  return timingSafeEqualString(actual.toString('hex'), hash);
 };
 
 /**
@@ -109,10 +113,9 @@ export const normalizeUsername = (input: unknown): string => {
     .trim()
     .replace(/\s+/g, '')
     .replace(/[^A-Za-z0-9_]/g, '')
-    .slice(0, 24);
+    .slice(0, 16);
 };
 
-export const isValidUsername = (username: string): boolean => /^[A-Za-z0-9_]{3,24}$/.test(username);
 
 const normalizePlatform = (input: unknown): string => {
   if (typeof input !== 'string') return 'qq';
@@ -170,7 +173,7 @@ export const registerAccount = (input: RegisterInput): Promise<ValidationResult<
 
     if (!platformId) return { ok: false, message: '缺少平台身份（QQ 号）' };
     if (!isValidUsername(username)) {
-      return { ok: false, message: '账号名需要 3-24 位，只能包含字母、数字和下划线' };
+      return { ok: false, message: '账号名需要 3-16 位，只能包含字母、数字和下划线' };
     }
 
     const data = await readFileData();

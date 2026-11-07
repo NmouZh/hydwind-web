@@ -1,12 +1,7 @@
 import type { APIRoute } from 'astro';
 import { addIssueReply, getIssue } from '../../../../lib/issues';
 import { isStaffRequest } from '../../../../lib/auth';
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
-  });
+import { json } from '../../../../lib/api-response.ts';
 
 /** POST /api/issues/:id/replies —— 站务回复，插件在群里发的进展也走这里 */
 export const POST: APIRoute = async ({ params, request }) => {

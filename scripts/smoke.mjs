@@ -1,14 +1,18 @@
 #!/usr/bin/env node
 /**
- * 浏览器冒烟。
+ * 冒烟：API 契约 + 浏览器界面。
  *
- * 在真实 Chromium（本地缓存的 headless shell）里验证：桌面/移动视口无横向溢出、
- * 深浅色切换、复制地址与 QQ 群、顶部/底部导航，以及在线、离线、查询失败三态。
- * 浏览器不可用时明确输出“跳过”并以 0 退出，避免把环境缺失当成站点失败。
+ * API 部分启动 dist/server/entry.mjs（真实 standalone 服务），用临时
+ * HYDWIND_DATA_DIR 和测试密钥走一遍注册 / 登录 / 生成码 / 插件校验，
+ * 覆盖 /api/health 200 与 /api/plugin/login/verify 的 200 / 401 / 409。
+ * 浏览器部分在真实 Chromium 里验证布局、主题、复制与导航；Chromium
+ * 不可用时只跳过浏览器检查，不影响 API 冒烟结果。
  */
+import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
 import { existsSync } from 'node:fs';
-import { readFile, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,9 +36,11 @@ const check = (condition, message) => {
   else failures.push(message);
 };
 
-const skip = (reason) => {
+let browserSkipReason = null;
+
+const skipBrowser = (reason) => {
+  browserSkipReason = reason;
   console.log(`跳过浏览器冒烟：${reason}`);
-  process.exit(0);
 };
 
 const MIME = {
@@ -114,7 +120,201 @@ const hasNoHorizontalOverflow = async (page) =>
     () => document.documentElement.scrollWidth <= window.innerWidth + 1
   );
 
-const main = async () => {
+const freePort = () =>
+  new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.unref();
+    probe.on('error', reject);
+    probe.listen(0, '127.0.0.1', () => {
+      const { port } = probe.address();
+      probe.close(() => resolve(port));
+    });
+  });
+
+const waitForHttp = async (url, timeoutMs = 20000) => {
+  const deadline = Date.now() + timeoutMs;
+  let lastError = null;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return response;
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error(`等待 ${url} 超时：${String(lastError)}`);
+};
+
+/**
+ * API 冒烟：真实启动 standalone server，所有状态都通过 HTTP 验证。
+ * 不依赖 Chromium，CI 里一定能跑；账号与登录码写在临时数据目录，测完删除。
+ */
+const apiSmoke = async () => {
+  const entry = path.join(buildDir, 'server', 'entry.mjs');
+  if (!existsSync(entry)) {
+    failures.push('/api 冒烟：找不到 dist/server/entry.mjs（先 npm run build）');
+    return;
+  }
+
+  const dataDir = await mkdtemp(path.join(os.tmpdir(), 'hydwind-smoke-'));
+  const port = await freePort();
+  const origin = `http://127.0.0.1:${port}`;
+  const pluginToken = 'smoke-plugin-token';
+  const adminToken = 'smoke-admin-token';
+  const username = 'SmokePlayer';
+  const uuid = '123e4567-e89b-12d3-a456-426614174000';
+
+  const child = spawn(process.execPath, [entry], {
+    cwd: root,
+    env: {
+      ...process.env,
+      HOST: '127.0.0.1',
+      PORT: String(port),
+      HYDWIND_DATA_DIR: dataDir,
+      PLUGIN_TOKEN: pluginToken,
+      ISSUE_ADMIN_TOKEN: adminToken,
+      SESSION_SECRET: 'smoke-session-secret-0123456789',
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let stderr = '';
+  child.stdout.resume();
+  child.stderr.on('data', (chunk) => {
+    stderr += String(chunk);
+  });
+
+  const verify = async (token, body) => {
+    const headers = { 'content-type': 'application/json' };
+    if (token !== null) headers.authorization = `Bearer ${token}`;
+    const response = await fetch(`${origin}/api/plugin/login/verify`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+    return { status: response.status, body: await response.json() };
+  };
+
+  const fetchCodes = async (cookie) => {
+    const response = await fetch(`${origin}/gate`, { headers: { cookie } });
+    const html = await response.text();
+    const code = html.match(/data-gate-code[^>]*>\s*([^<]+?)\s*<\/p>/s)?.[1]?.trim();
+    const fallback = html.match(/data-gate-fallback[^>]*>\s*([^<]+?)\s*<\/code>/s)?.[1]?.trim();
+    return { status: response.status, html, code, fallback };
+  };
+
+  try {
+    const health = await waitForHttp(`${origin}/api/health`);
+    const healthBody = await health.json();
+    check(health.status === 200 && healthBody.ok === true, '/api/health 返回 200 且 ok:true');
+
+    // 未登录访问 /gate：应看到登录 / 注册指引，而不是错误或码
+    const guest = await fetch(`${origin}/gate`);
+    const guestHtml = await guest.text();
+    check(guest.status === 200, '/gate 未登录可访问');
+    check(guestHtml.includes('登录网站账号'), '/gate 未登录显示登录指引');
+    check(!guestHtml.includes('登录码暂时生成不出来'), '/gate 未登录不显示生成失败');
+
+    // 用站务令牌创建测试账号（正式流程由群内机器人调用）
+    const registered = await fetch(`${origin}/api/auth/register`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${adminToken}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ username, platformId: 'qq-smoke', nickname: '冒烟账号' }),
+    });
+    const registeredBody = await registered.json();
+    check(
+      registered.status === 200 && registeredBody.username === username,
+      '/api/auth/register 创建临时测试账号'
+    );
+    const password = registeredBody.password;
+    check(typeof password === 'string' && password.length >= 6, '注册返回可用密码');
+
+    const loggedIn = await fetch(`${origin}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const setCookies = loggedIn.headers.getSetCookie?.() ?? [];
+    const cookie = setCookies.map((value) => value.split(';')[0]).join('; ');
+    check(loggedIn.status === 200 && cookie.length > 0, '/api/auth/login 返回会话 cookie');
+
+    const first = await fetchCodes(cookie);
+    check(
+      first.status === 200 && Boolean(first.code) && Boolean(first.fallback),
+      '/gate 登录后生成颜文字码与备用码'
+    );
+
+    const unauthorized = await verify(null, {
+      code: first.code ?? 'unused',
+      gameId: username,
+      uuid,
+    });
+    check(unauthorized.status === 401, '/api/plugin/login/verify 无令牌返回 401');
+
+    const verified = await verify(pluginToken, {
+      code: first.fallback,
+      gameId: username,
+      uuid,
+    });
+    check(
+      verified.status === 200 && verified.body?.account?.username === username,
+      '/api/plugin/login/verify 有效码返回 200 与账号'
+    );
+
+    const reused = await verify(pluginToken, {
+      code: first.code,
+      gameId: username,
+      uuid,
+    });
+    check(
+      reused.status === 409 && reused.body?.reason === 'used',
+      '/api/plugin/login/verify 同一个码的另一个别名返回 409 used'
+    );
+
+    const second = await fetchCodes(cookie);
+    const mismatch = await verify(pluginToken, {
+      code: second.code ?? 'unused',
+      gameId: 'SomeoneElse',
+      uuid,
+    });
+    check(
+      mismatch.status === 409 &&
+        mismatch.body?.reason === 'game_id_mismatch' &&
+        mismatch.body?.expectedGameId === username,
+      '/api/plugin/login/verify 游戏 ID 不符返回 409 game_id_mismatch 与 expectedGameId'
+    );
+
+    const invalid = await verify(pluginToken, {
+      code: 'definitely-not-a-code',
+      gameId: username,
+      uuid,
+    });
+    check(
+      invalid.status === 409 && invalid.body?.reason === 'invalid_code',
+      '/api/plugin/login/verify 未知码返回 409 invalid_code'
+    );
+  } catch (error) {
+    failures.push(`/api 冒烟执行失败：${String(error).split('\n')[0]}`);
+    if (stderr.trim()) console.error(stderr.trim().split('\n').slice(-10).join('\n'));
+  } finally {
+    child.kill('SIGTERM');
+    await new Promise((resolve) => {
+      const timer = setTimeout(resolve, 3000);
+      child.once('exit', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+    await rm(dataDir, { recursive: true, force: true });
+  }
+};
+
+const browserSmoke = async () => {
   if (!existsSync(dist)) {
     console.error('dist/ 不存在，请先运行 bun run build');
     process.exit(1);
@@ -124,12 +324,14 @@ const main = async () => {
   try {
     ({ chromium } = await import('playwright-core'));
   } catch {
-    skip('未安装 playwright-core');
+    skipBrowser('未安装 playwright-core');
+    return;
   }
 
   const executablePath = findExecutable();
   if (!executablePath) {
-    skip('找不到本地 Chromium headless shell-1248');
+    skipBrowser('找不到本地 Chromium headless shell-1248');
+    return;
   }
 
   const server = await startStaticServer();
@@ -145,7 +347,8 @@ const main = async () => {
     });
   } catch (error) {
     server.close();
-    skip(`Chromium 无法启动（${String(error).split('\n')[0]}）`);
+    skipBrowser(`Chromium 无法启动（${String(error).split('\n')[0]}）`);
+    return;
   }
 
   try {
@@ -334,15 +537,21 @@ const main = async () => {
     await browser.close();
     await new Promise((resolve) => server.close(resolve));
   }
+};
+
+const main = async () => {
+  await apiSmoke();
+  await browserSmoke();
 
   if (failures.length > 0) {
-    console.error('\n浏览器冒烟失败：');
+    console.error('\n冒烟失败：');
     for (const message of failures) console.error(`  ✗ ${message}`);
     console.error(`\n通过 ${passes.length} 项，失败 ${failures.length} 项。`);
     process.exit(1);
   }
 
-  console.log(`浏览器冒烟通过：${passes.length} 项全部满足。`);
+  const suffix = browserSkipReason ? `（浏览器部分跳过：${browserSkipReason}）` : '';
+  console.log(`冒烟通过：${passes.length} 项全部满足。${suffix}`);
 };
 
 main().catch((error) => {
