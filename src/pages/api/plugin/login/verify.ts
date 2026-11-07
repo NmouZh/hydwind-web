@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { findAccount, type Account } from '../../../../lib/accounts.ts';
 import { isJson, json } from '../../../../lib/api-response.ts';
+import { ensureBiographyForAccount } from '../../../../lib/biographies.ts';
 import { verifyLoginCode } from '../../../../lib/login-codes.ts';
 import { requirePlugin } from '../../../../lib/plugin-auth.ts';
 
@@ -120,6 +121,12 @@ export const POST: APIRoute = async ({ request }) => {
   console.info(
     `[plugin-login] verified username=${account.username} uuid=${uuid}`
   );
+
+  try {
+    await ensureBiographyForAccount(account);
+  } catch (error) {
+    console.error(`[plugin-login] biography creation failed username=${account.username}`, error);
+  }
 
   return json({
     ok: true,
