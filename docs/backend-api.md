@@ -7,6 +7,7 @@
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
 | `ISSUE_ADMIN_TOKEN` | 议题与账号功能必填 | 站务共享密钥。插件调用写接口时用 `Authorization: Bearer <token>`。不设置则所有写接口、待审列表、注册接口都返回 401。 |
+| `PLUGIN_TOKEN` | 游戏插件必填 | HydwindGate 插件专用密钥，只用于 `/api/plugin/*`。与 `ISSUE_ADMIN_TOKEN` 完全分离：插件令牌不能调议题 / 账号接口，站务令牌也不能调插件接口。不设置则插件接口一律 401。 |
 | `SESSION_SECRET` | 上线必填 | 登录会话 cookie 的 HMAC 密钥，至少 16 字符。不配会退回 `ISSUE_ADMIN_TOKEN`，两者都没有时用开发密钥并打警告。 |
 | `HYDWIND_DATA_DIR` | 否 | 议题与账号 JSON 的存放目录，默认 `<cwd>/data`。 |
 | `STATUS_ENDPOINT` | 否 | 服务器状态数据源，默认 `https://api.mcstatus.io/v2/status/java`。以后插件自建 HTTP 状态接口，把它指过去即可。 |
@@ -29,6 +30,7 @@ npm run build
 
 ```dotenv
 ISSUE_ADMIN_TOKEN=<随机串>
+PLUGIN_TOKEN=<再另一个随机串>
 SESSION_SECRET=<另一个随机串>
 HYDWIND_DATA_DIR=./data
 HOST=0.0.0.0
@@ -36,6 +38,14 @@ PORT=4321
 ```
 
 ## 接口
+
+### `GET /api/health`
+
+存活探针，给 systemd 和游戏插件使用，**不需要鉴权**。返回进程启动至今的秒数。
+
+```json
+{ "ok": true, "uptime": 12345 }
+```
 
 ### `GET /api/status`
 
