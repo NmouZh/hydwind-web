@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
-import { findAccount } from '../../../../lib/accounts';
-import { verifyLoginCode } from '../../../../lib/login-codes';
-import { requirePlugin } from '../../../../lib/plugin-auth';
+import { findAccount } from '../../../../lib/accounts.ts';
+import { verifyLoginCode } from '../../../../lib/login-codes.ts';
+import { requirePlugin } from '../../../../lib/plugin-auth.ts';
 
 /**
  * POST /api/plugin/login/verify —— HydwindGate 插件校验玩家登录码。
