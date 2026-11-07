@@ -47,7 +47,7 @@ export const LOGIN_CODE_TTL_MS = 5 * 60 * 1000;
 export const LOGIN_CODE_MAX_ATTEMPTS = 5;
 export const LOGIN_CODE_ATTEMPT_WINDOW_MS = 5 * 60 * 1000;
 
-const FALLBACK_PATTERN = /^HWG-[A-Za-z0-9]{4}$/;
+const FALLBACK_PATTERN = /^HWG-[A-Za-z0-9]{4}$/i;
 
 export type LoginCodeFailureReason =
   | 'invalid_code'
