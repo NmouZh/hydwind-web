@@ -912,7 +912,7 @@ const browserSmoke = async () => {
       '/account/',
     ];
     for (const relativePath of desktopPaths) {
-      await page.goto(`${origin}${relativePath}`, { waitUntil: 'networkidle' });
+      await page.goto(`${origin}${relativePath}`, { waitUntil: 'load' });
       check(
         await hasNoHorizontalOverflow(page),
         `桌面 1280 视口无横向溢出：${relativePath}`
@@ -978,7 +978,7 @@ const browserSmoke = async () => {
     ];
     for (const relativePath of mobilePaths) {
       await mobilePage.goto(`${origin}${relativePath}`, {
-        waitUntil: 'networkidle',
+        waitUntil: 'load',
       });
       check(
         await hasNoHorizontalOverflow(mobilePage),

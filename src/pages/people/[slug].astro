@@ -112,7 +112,16 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
 {
   resolved ? (
     <BaseLayout title={pageTitle} description={description} current="people">
-      <div class="hw-shell page-shell">
+      <div
+        class="hw-shell page-shell"
+        data-person-page
+        data-slug={resolved.slug}
+        data-game-id={gameId}
+        data-viewer={viewer?.username ?? ''}
+        data-viewer-admin={viewer?.role === 'admin' ? 'true' : 'false'}
+        data-has-static-body={hasStaticBody ? 'true' : 'false'}
+        data-refs={JSON.stringify(refs)}
+      >
         <nav class="breadcrumb" aria-label="面包屑">
           <a href="/people/">人物</a>
           <span aria-hidden="true">/</span>
@@ -193,13 +202,6 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
 
         <section
           class="section person-biography"
-          data-person-page
-          data-slug={resolved.slug}
-          data-game-id={gameId}
-          data-viewer={viewer?.username ?? ''}
-          data-viewer-admin={viewer?.role === 'admin' ? 'true' : 'false'}
-          data-has-static-body={hasStaticBody ? 'true' : 'false'}
-          data-refs={JSON.stringify(refs)}
         >
           <div class="section-heading">
             <div>
