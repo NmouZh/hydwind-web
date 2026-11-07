@@ -1,16 +1,42 @@
 ---
-// 内容页在构建期渲染成静态 HTML，只有 /api/* 走服务端
-export const prerender = true;
+// /people 需要运行时读取账号与传记数据，因此关闭预渲染。
+export const prerender = false;
 import BaseLayout from '../../layouts/BaseLayout.astro';
+import Icon from '../../components/Icon.astro';
 import PersonCard from '../../components/PersonCard.astro';
 import { getPublishedPeople } from '../../lib/content';
+import { listAccounts } from '../../lib/accounts';
+import { listGameBiographies } from '../../lib/biographies';
+import {
+  buildPeopleList,
+  filterPeopleList,
+  type StaticPersonInput,
+} from '../../lib/people-list';
 
-const people = await getPublishedPeople();
+const [people, accounts, biographies] = await Promise.all([
+  getPublishedPeople(),
+  listAccounts(),
+  listGameBiographies(),
+]);
+
+const staticPeople: StaticPersonInput[] = people.map((person) => ({
+  id: person.id,
+  gameId: person.data.gameId,
+  role: person.data.role,
+  tags: person.data.tags,
+  avatar: person.data.avatar,
+  updated: person.data.updated,
+}));
+
+const allItems = buildPeopleList({ staticPeople, accounts, biographies });
+const query = Astro.url.searchParams.get('q') ?? '';
+const items = filterPeopleList(allItems, query);
+const hasQuery = query.trim().length > 0;
 ---
 
 <BaseLayout
   title="人物 · 氢风 Hydwind"
-  description="氢风服务器的人物传记，记录已发布玩家的游戏 ID、身份与简介。"
+  description="氢风服务器的人物索引，列出所有已注册玩家与人工维护的人物传记，可按游戏 ID 或昵称搜索。"
   current="people"
 >
   <div class="hw-shell page-shell">
@@ -18,17 +44,48 @@ const people = await getPublishedPeople();
       <div class="page-head-copy">
         <h1>服务器里真实存在的人</h1>
         <p class="page-head-sub">
-          这里只收录真实玩家的公开信息。人物页上的传记由登录玩家撰写，一位玩家一篇，正文里可以 @ 引用别的玩家。
+          所有成功注册的玩家都会出现在这里；人物页上的传记由本人撰写，一位玩家一篇，正文里可以 @ 引用别的玩家。
         </p>
       </div>
     </header>
 
+    <form class="people-toolbar" method="get" action="/people/" role="search" data-reveal>
+      <label class="people-search" for="people-q">
+        <Icon name="search" size={18} />
+        <span class="hw-sr-only">搜索游戏 ID 或昵称</span>
+        <input
+          id="people-q"
+          type="search"
+          name="q"
+          value={query}
+          placeholder="搜索游戏 ID 或昵称"
+          autocomplete="off"
+        />
+      </label>
+      <button class="filled-button is-compact" type="submit">搜索</button>
+      {hasQuery && <a class="text-button is-compact" href="/people/">清除</a>}
+      <span class="people-count" aria-live="polite">
+        {hasQuery ? `找到 ${items.length} 位` : `共 ${allItems.length} 位`}
+      </span>
+    </form>
+
     {
-      people.length > 0 && (
+      items.length > 0 ? (
         <div class="list-rows people-list">
-          {people.map((person, index) => (
-            <PersonCard person={person} headingLevel={2} delay={80 + index * 60} />
+          {items.map((item, index) => (
+            <PersonCard item={item} headingLevel={2} delay={80 + index * 60} />
           ))}
+        </div>
+      ) : (
+        <div class="panel people-empty" data-reveal>
+          <h2 class="panel-title">
+            {hasQuery ? '没有找到匹配的玩家' : '还没有玩家注册'}
+          </h2>
+          <p>
+            {hasQuery
+              ? `没有游戏 ID 或昵称包含「${query.trim()}」的玩家，换个关键词试试。`
+              : '玩家在 QQ 群内 @机器人 发送「注册」后，就会自动出现在这里。'}
+          </p>
         </div>
       )
     }
@@ -36,8 +93,93 @@ const people = await getPublishedPeople();
 </BaseLayout>
 
 <style>
+  .people-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--hw-space-3);
+    margin-top: var(--hw-space-5);
+    padding-bottom: var(--hw-space-4);
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  }
+
+  .people-search {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: var(--hw-space-2);
+    min-width: min(100%, 18rem);
+    max-width: 30rem;
+    min-height: 44px;
+    padding: 0 var(--hw-space-4);
+    border: 1px solid var(--md-sys-color-outline-variant);
+    border-radius: var(--md-sys-shape-corner-full);
+    background: var(--md-sys-color-surface-container-lowest);
+    color: var(--md-sys-color-on-surface-variant);
+    transition:
+      border-color var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard),
+      box-shadow var(--md-sys-motion-duration-short4)
+        var(--md-sys-motion-easing-standard);
+  }
+
+  .people-search:focus-within {
+    border-color: var(--md-sys-color-primary);
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--md-sys-color-primary) 20%, transparent);
+  }
+
+  .people-search input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--md-sys-color-on-surface);
+    font: inherit;
+    font-size: var(--md-sys-typescale-body-medium-size);
+    outline: none;
+  }
+
+  .people-search input::placeholder {
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.8;
+  }
+
+  .people-count {
+    margin-left: auto;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: var(--md-sys-typescale-label-medium-size);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
   .people-list {
     margin-top: var(--hw-space-5);
     border-top: 0;
+  }
+
+  .people-empty {
+    margin-top: var(--hw-space-5);
+  }
+
+  .people-empty p {
+    margin-top: var(--hw-space-2);
+    color: var(--md-sys-color-on-surface-variant);
+  }
+
+  @media (max-width: 599px) {
+    .people-toolbar {
+      align-items: stretch;
+    }
+
+    .people-search {
+      max-width: none;
+      flex-basis: 100%;
+    }
+
+    .people-count {
+      margin-left: 0;
+    }
   }
 </style>
