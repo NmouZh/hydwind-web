@@ -47,6 +47,33 @@ PORT=4321
 { "ok": true, "uptime": 12345 }
 ```
 
+### `POST /api/plugin/login/verify`
+
+HydwindGate 插件校验玩家从 `/gate` 页面拿到的登录码，**只接受 `PLUGIN_TOKEN`**
+（`Authorization: Bearer <PLUGIN_TOKEN>`）；站务令牌、浏览器会话一律 401。
+
+```json
+{ "code": "颜文字码或 HWG-XXXX 备用码", "gameId": "游戏 ID", "uuid": "玩家的 UUID" }
+```
+
+请求体上限 1KB，三个字段都必须是字符串，`uuid` 必须是标准 UUID 格式。
+
+成功：
+
+```json
+{ "ok": true, "account": { "username": "Nz_173", "nickname": "中文别名", "role": "player" } }
+```
+
+失败：
+
+- `400` 请求体格式 / 字段类型不对，`413` 请求体过大，`415` 不是 JSON
+- `401` 令牌错误
+- `409 { "ok": false, "reason": "invalid_code | expired | used | game_id_mismatch" }`
+- `429 { "ok": false, "reason": "rate_limited", "retryAfterMs": 12345 }`
+
+`gameId` 必须等于账号 `username`（忽略大小写）；码有效但账号不存在按
+`invalid_code` 处理。码一次性、5 分钟过期；同一游戏 ID 5 分钟内最多 5 次尝试。
+
 ### `GET /api/status`
 
 服务器在线状态，服务端缓存 60 秒，第三方接口挂掉时回退到上次缓存，再回退成离线占位。
