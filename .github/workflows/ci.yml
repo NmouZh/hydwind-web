@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - feat/login-gate
+      - feat/biography
       - main
   pull_request:
     branches:
       - feat/login-gate
+      - feat/biography
       - main
   # 手动触发：验证分支 / 本地修复时无需另开 PR 也能跑完整 CI。
   workflow_dispatch:
@@ -34,6 +36,11 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # 构建产物检查：静态页事实、站内链接，以及 SSR 路由没有误生成静态产物。
+      # 单独成步，保证 Build / Check build / Test / Smoke 都真实执行。
+      - name: Check build
+        run: node ./scripts/check-build.mjs
 
       - name: Test
         run: npm test

@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { parseMentions } from './biography-text.ts';
 import { consumeRateLimit } from './rate-limit.ts';
 
 /**
@@ -9,19 +8,12 @@ import { consumeRateLimit } from './rate-limit.ts';
  *
  * 和 issues.ts / accounts.ts 一样：单 JSON 文件 + 进程内串行写队列 + 原子替换。
  *
- * 新的领域模型按账号游戏 ID（`account.username`）存传记，一个玩家一篇；
+ * 按账号游戏 ID（`account.username`）存传记，一个玩家一篇；
  * 评论直接嵌在传记记录里。`gameId` 的比较一律忽略大小写。
- *
- * 旧版本按静态人物 slug（`personId`）存传记，另有 `refs/author/authorUsername`
- * 字段。页面和 API 迁移到新模型之前（B2–B6），文件里可能同时存在两种形状；
- * 新函数只认带 `gameId` 的记录，旧函数只认带 `personId` 的记录，互不覆盖。
  * 当前线上 `biographies.json` 不存在，所以不需要做形状迁移。
  */
 
 export const MAX_BIO_BODY = 4000;
-/** 新模型允许空正文；保留旧导出名给尚未迁移的页面使用。 */
-export const MIN_BIO_BODY = 0;
-export const MAX_BIO_REFS = 12;
 
 export const MIN_BIO_TITLE = 2;
 export const MAX_BIO_TITLE = 40;
@@ -30,8 +22,6 @@ export const MAX_COMMENT_BODY = 500;
 /** 每个账号在窗口内最多发这么多条评论。 */
 export const COMMENT_RATE_LIMIT = 5;
 export const COMMENT_RATE_WINDOW_MS = 10 * 60_000;
-
-const MAX_NAME = 32;
 
 export interface Comment {
   id: string;
@@ -54,22 +44,9 @@ export interface Biography {
   updatedAt: string;
 }
 
-/** 旧模型记录，仅在页面/API 迁移完成前保留。 */
-interface LegacyBiography {
-  personId: string;
-  body: string;
-  refs: string[];
-  author: string;
-  authorUsername: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-type StoredBiography = LegacyBiography | Biography;
-
 interface BiographyFile {
   version: 1;
-  biographies: StoredBiography[];
+  biographies: Biography[];
 }
 
 const dataDir = () => process.env.HYDWIND_DATA_DIR ?? path.join(process.cwd(), 'data');
@@ -91,7 +68,7 @@ const readFileData = async (): Promise<BiographyFile> => {
     const raw = await readFile(dataFile(), 'utf8');
     const parsed = JSON.parse(raw) as BiographyFile;
     if (!parsed || !Array.isArray(parsed.biographies)) return emptyFile();
-    return { version: 1, biographies: parsed.biographies };
+    return { version: 1, biographies: parsed.biographies.filter(isGameBiography) };
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return emptyFile();
     throw error;
@@ -106,27 +83,14 @@ const writeFileData = async (data: BiographyFile): Promise<void> => {
   await rename(tmp, file);
 };
 
-const clamp = (value: unknown, max: number): string => {
-  if (typeof value !== 'string') return '';
-  return value.trim().slice(0, max);
-};
-
 /** 「字」按 Unicode 码点算，避免 emoji 被算成两个字。 */
 const textLength = (value: string): number => [...value].length;
 
-const isGameBiography = (entry: StoredBiography): entry is Biography =>
+const isGameBiography = (entry: unknown): entry is Biography =>
   typeof entry === 'object' &&
   entry !== null &&
   typeof (entry as Biography).gameId === 'string' &&
   typeof (entry as Biography).mainTitle === 'string';
-
-const isLegacyBiography = (entry: StoredBiography): entry is LegacyBiography =>
-  typeof entry === 'object' &&
-  entry !== null &&
-  typeof (entry as LegacyBiography).personId === 'string';
-
-const gameBiographies = (data: BiographyFile): Biography[] =>
-  data.biographies.filter(isGameBiography);
 
 const commentsOf = (biography: Biography): Comment[] =>
   Array.isArray(biography.comments) ? biography.comments.filter(isComment) : [];
@@ -141,10 +105,8 @@ const isComment = (value: unknown): value is Comment =>
 const findGame = (data: BiographyFile, gameId: string): Biography | undefined => {
   const target = gameId.trim().toLowerCase();
   if (!target) return undefined;
-  return gameBiographies(data).find((entry) => entry.gameId.toLowerCase() === target);
+  return data.biographies.find((entry) => entry.gameId.toLowerCase() === target);
 };
-
-export { parseMentions };
 
 /* ------------------------------------------------------------------ *
  * 新领域模型
@@ -272,7 +234,7 @@ export const findBiographyByGameId = async (gameId: string): Promise<Biography |
 
 export const listGameBiographies = async (): Promise<Biography[]> => {
   const data = await readFileData();
-  return gameBiographies(data)
+  return data.biographies
     .map((biography) => ({ ...biography, comments: commentsOf(biography) }))
     .sort((a, b) => a.gameId.localeCompare(b.gameId));
 };
@@ -324,28 +286,11 @@ export const updateBiography = (
   });
 
 /** 本人或管理员可以编辑。传记是否存在不影响判断，权限只看账号与目标游戏 ID。 */
-export function canEditBiography(account: EditAccount | null, gameId: string): boolean;
-/** @deprecated 旧 API 路由的签名；新代码请用 `(account, gameId)`。 */
-export function canEditBiography(biography: LegacyBiography | null, session: EditAccount | null): boolean;
-export function canEditBiography(
-  subject: EditAccount | LegacyBiography | null,
-  context: string | EditAccount | null
-): boolean {
-  if (typeof context === 'string') {
-    const account = subject as EditAccount | null;
-    if (!account) return false;
-    if (account.role === 'admin') return true;
-    return account.username.toLowerCase() === context.trim().toLowerCase();
-  }
-
-  // 旧签名：仍然修复「传记不存在时任何登录用户都能写」的漏洞。
-  const biography = subject as LegacyBiography | null;
-  const session = context;
-  if (!session) return false;
-  if (session.role === 'admin') return true;
-  if (!biography) return false;
-  return biography.authorUsername.toLowerCase() === session.username.toLowerCase();
-}
+export const canEditBiography = (account: EditAccount | null, gameId: string): boolean => {
+  if (!account) return false;
+  if (account.role === 'admin') return true;
+  return account.username.toLowerCase() === gameId.trim().toLowerCase();
+};
 
 /** 评论作者本人或管理员可以删除。 */
 export const canDeleteComment = (comment: Comment, account: EditAccount | null): boolean => {
@@ -516,7 +461,7 @@ export const migrateBiographyOwner = (
     }
 
     let commentsUpdated = 0;
-    for (const biography of gameBiographies(data)) {
+    for (const biography of data.biographies) {
       const comments = commentsOf(biography);
       let changed = false;
       for (const comment of comments) {
@@ -539,114 +484,4 @@ export const migrateBiographyOwner = (
 
     if (migrated || commentsUpdated > 0) await writeFileData(data);
     return { migrated, commentsUpdated };
-  });
-
-/* ------------------------------------------------------------------ *
- * 旧模型（页面 / API 迁移完成后删除）
- * ------------------------------------------------------------------ */
-
-export interface MentionResolver {
-  /** 游戏 ID → 人物 id */
-  byGameId: Map<string, string>;
-}
-
-export interface NewBiographyInput {
-  personId: unknown;
-  body: unknown;
-  author: unknown;
-  authorUsername: unknown;
-}
-
-export interface PreparedBiography {
-  personId: string;
-  body: string;
-  refs: string[];
-  author: string;
-  authorUsername: string;
-}
-
-/**
- * @deprecated 旧模型提交校验。新代码用 `validateMainTitle` / `validateBiographyBody`。
- */
-export const validateBiography = (
-  input: NewBiographyInput,
-  resolver: MentionResolver,
-  selfId: string
-): ValidationResult<PreparedBiography> => {
-  const personId = clamp(input.personId, 64);
-  const body = clamp(input.body, MAX_BIO_BODY);
-  const author = clamp(input.author, MAX_NAME) || '匿名玩家';
-  const authorUsername = clamp(input.authorUsername, MAX_NAME);
-
-  if (!personId) return { ok: false, message: '缺少人物 id' };
-  if (body.length < MIN_BIO_BODY) {
-    return { ok: false, message: `正文至少 ${MIN_BIO_BODY} 个字，写详细一点再保存` };
-  }
-
-  const refs: string[] = [];
-  for (const gameId of parseMentions(body)) {
-    const personIdOfMention = resolver.byGameId.get(gameId);
-    if (!personIdOfMention) {
-      return { ok: false, message: `没有找到叫「${gameId}」的玩家，引用前先确认游戏 ID` };
-    }
-    if (personIdOfMention === selfId) continue;
-    if (!refs.includes(personIdOfMention)) refs.push(personIdOfMention);
-  }
-
-  if (refs.length > MAX_BIO_REFS) {
-    return { ok: false, message: `一篇传记最多引用 ${MAX_BIO_REFS} 位玩家` };
-  }
-
-  return { ok: true, value: { personId, body, refs, author, authorUsername } };
-};
-
-/** @deprecated 旧模型记录列表；新代码用 `listGameBiographies`。 */
-export const listBiographies = async (): Promise<LegacyBiography[]> => {
-  const data = await readFileData();
-  return data.biographies.filter(isLegacyBiography);
-};
-
-/** @deprecated 按静态人物 slug 读取；新代码用 `findBiographyByGameId`。 */
-export const getBiography = async (personId: string): Promise<LegacyBiography | null> => {
-  const data = await readFileData();
-  return data.biographies.find(
-    (entry): entry is LegacyBiography => isLegacyBiography(entry) && entry.personId === personId
-  ) ?? null;
-};
-
-/** @deprecated 旧模型保存；新代码用 `updateBiography`。 */
-export const saveBiography = (input: PreparedBiography): Promise<LegacyBiography> =>
-  serialize(async () => {
-    const data = await readFileData();
-    const now = new Date().toISOString();
-    const index = data.biographies.findIndex(
-      (entry) => isLegacyBiography(entry) && entry.personId === input.personId
-    );
-
-    if (index >= 0) {
-      const previous = data.biographies[index] as LegacyBiography;
-      const next: LegacyBiography = {
-        ...previous,
-        body: input.body,
-        refs: input.refs,
-        // 作者归属只在创建时确定：管理员编辑不能把别人的传记“过户”给自己
-        updatedAt: now,
-      };
-      data.biographies[index] = next;
-      await writeFileData(data);
-      return next;
-    }
-
-    const created: LegacyBiography = {
-      personId: input.personId,
-      body: input.body,
-      refs: input.refs,
-      author: input.author,
-      authorUsername: input.authorUsername,
-      createdAt: now,
-      updatedAt: now,
-    };
-    data.biographies.push(created);
-    await writeFileData(data);
-    return created;
   });
