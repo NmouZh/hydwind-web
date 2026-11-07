@@ -388,7 +388,9 @@ const apiSmoke = async () => {
     );
 
     // —— 评论：公开读取，登录发表，作者或管理员删除 ——
-    const publicComments = await requestJson('/api/people/nz-173/comments');
+    // 评论嵌在传记记录里，必须发到已自动建传的账号，而不是只有静态资料的人物。
+    const commentsPath = `/api/people/${username}/comments`;
+    const publicComments = await requestJson(commentsPath);
     check(
       publicComments.status === 200 && Array.isArray(publicComments.body?.comments),
       'GET 评论公开返回 200 与评论数组'
@@ -397,13 +399,13 @@ const apiSmoke = async () => {
     const missingComments = await requestJson('/api/people/no-such-player/comments');
     check(missingComments.status === 404, 'GET 评论未知 slug 返回 404');
 
-    const anonymousComment = await requestJson('/api/people/nz-173/comments', {
+    const anonymousComment = await requestJson(commentsPath, {
       method: 'POST',
       body: { body: '匿名评论' },
     });
     check(anonymousComment.status === 401, 'POST 评论未登录返回 401');
 
-    const foreignOriginComment = await requestJson('/api/people/nz-173/comments', {
+    const foreignOriginComment = await requestJson(commentsPath, {
       method: 'POST',
       cookie,
       requestOrigin: 'https://evil.example',
@@ -419,7 +421,7 @@ const apiSmoke = async () => {
     });
     check(unknownComment.status === 404, 'POST 评论未知人物返回 404');
 
-    const ownedComment = await requestJson('/api/people/nz-173/comments', {
+    const ownedComment = await requestJson(commentsPath, {
       method: 'POST',
       cookie,
       requestOrigin: origin,
@@ -468,7 +470,7 @@ const apiSmoke = async () => {
       '第二个账号登录返回会话 cookie'
     );
 
-    const otherComment = await requestJson('/api/people/nz-173/comments', {
+    const otherComment = await requestJson(commentsPath, {
       method: 'POST',
       cookie: otherCookie,
       requestOrigin: origin,
@@ -480,13 +482,13 @@ const apiSmoke = async () => {
     );
 
     const anonymousDelete = await requestJson(
-      `/api/people/nz-173/comments/${ownedComment.body?.comment?.id}`,
+      `${commentsPath}/${ownedComment.body?.comment?.id}`,
       { method: 'DELETE' }
     );
     check(anonymousDelete.status === 401, 'DELETE 评论未登录返回 401');
 
     const foreignOriginDelete = await requestJson(
-      `/api/people/nz-173/comments/${otherComment.body?.comment?.id}`,
+      `${commentsPath}/${otherComment.body?.comment?.id}`,
       {
         method: 'DELETE',
         cookie: otherCookie,
@@ -496,13 +498,13 @@ const apiSmoke = async () => {
     check(foreignOriginDelete.status === 403, 'DELETE 评论跨站来源返回 403');
 
     const notOwnerDelete = await requestJson(
-      `/api/people/nz-173/comments/${ownedComment.body?.comment?.id}`,
+      `${commentsPath}/${ownedComment.body?.comment?.id}`,
       { method: 'DELETE', cookie: otherCookie, requestOrigin: origin }
     );
     check(notOwnerDelete.status === 403, 'DELETE 别人的评论返回 403');
 
     const missingCommentDelete = await requestJson(
-      '/api/people/nz-173/comments/00000000-0000-4000-8000-000000000000',
+      `${commentsPath}/00000000-0000-4000-8000-000000000000`,
       { method: 'DELETE', cookie, requestOrigin: origin }
     );
     check(missingCommentDelete.status === 404, 'DELETE 不存在的评论返回 404');
@@ -514,7 +516,7 @@ const apiSmoke = async () => {
     check(missingPersonDelete.status === 404, 'DELETE 未知人物评论返回 404');
 
     const ownDelete = await requestJson(
-      `/api/people/nz-173/comments/${otherComment.body?.comment?.id}`,
+      `${commentsPath}/${otherComment.body?.comment?.id}`,
       { method: 'DELETE', cookie: otherCookie, requestOrigin: origin }
     );
     check(
@@ -525,7 +527,7 @@ const apiSmoke = async () => {
     // 评论限流：每账号 10 分钟 5 条。SmokePlayer 已发 1 条，再发 4 条后第 6 条 429。
     const extraCommentStatuses = [];
     for (let index = 0; index < 4; index += 1) {
-      const result = await requestJson('/api/people/nz-173/comments', {
+      const result = await requestJson(commentsPath, {
         method: 'POST',
         cookie,
         requestOrigin: origin,
@@ -533,7 +535,7 @@ const apiSmoke = async () => {
       });
       extraCommentStatuses.push(result.status);
     }
-    const limitedComment = await requestJson('/api/people/nz-173/comments', {
+    const limitedComment = await requestJson(commentsPath, {
       method: 'POST',
       cookie,
       requestOrigin: origin,
@@ -545,7 +547,7 @@ const apiSmoke = async () => {
       'POST 评论 10 分钟 5 条后返回 429'
     );
 
-    const commentsAfter = await requestJson('/api/people/nz-173/comments');
+    const commentsAfter = await requestJson(commentsPath);
     check(
       commentsAfter.status === 200 &&
         commentsAfter.body?.comments?.length >= 5,
