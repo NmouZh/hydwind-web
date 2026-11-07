@@ -12,11 +12,17 @@
 
 import { formatBiographyDate, renderBiographyHtml, type BiographyRef } from '../lib/biography-text';
 import {
+  MAX_BIO_BODY,
+  MAX_BIO_TITLE,
+  MAX_COMMENT_BODY,
+  MIN_BIO_TITLE,
+} from '../lib/biography-limits';
+import {
   canDeleteCommentForViewer,
   commentAuthorLabel,
   formatCommentTime,
   groupCommentsByDay,
-  isBiographyEmpty,
+  hasReadableBody,
 } from '../lib/person-page';
 
 declare global {
@@ -67,6 +73,7 @@ export const initPersonPage = (): void => {
 
   const viewerName = root.dataset.viewer ?? '';
   const isAdmin = root.dataset.viewerAdmin === 'true';
+  const hasStaticBody = root.dataset.hasStaticBody === 'true';
   const viewer = viewerName ? { username: viewerName, role: isAdmin ? 'admin' : 'player' } : null;
 
   const refs: BiographyRef[] = (() => {
@@ -108,11 +115,13 @@ export const initPersonPage = (): void => {
   /** 保存成功后原地更新首屏，不整页刷新。 */
   const applyBiography = (mainTitle: string, body: string, updatedAt?: string | null): void => {
     if (titleHost) titleHost.textContent = mainTitle;
+    const hasBody = hasReadableBody(hasStaticBody, body);
     if (bodyHost) {
       bodyHost.innerHTML = renderBiographyHtml(body, refs);
-      bodyHost.hidden = isBiographyEmpty({ body });
+      // 运行期正文单独渲染；静态正文在上面的资料区，不在这里重复显示。
+      bodyHost.hidden = !body.trim();
     }
-    if (emptyHost) emptyHost.hidden = !isBiographyEmpty({ body });
+    if (emptyHost) emptyHost.hidden = hasBody;
     if (updatedHost) {
       updatedHost.hidden = !updatedAt;
       updatedHost.textContent = updatedAt ? `最后更新：${formatBiographyDate(updatedAt)}` : '';
@@ -129,18 +138,18 @@ export const initPersonPage = (): void => {
     const titleLength = textLength(mainTitle);
     const bodyLength = textLength(body.trim());
 
-    if (titleLength > 0 && titleLength < 2) {
-      setStatus(bioStatus, '主标题至少 2 个字');
+    if (titleLength > 0 && titleLength < MIN_BIO_TITLE) {
+      setStatus(bioStatus, `主标题至少 ${MIN_BIO_TITLE} 个字`);
       titleInput.focus();
       return;
     }
-    if (titleLength > 40) {
-      setStatus(bioStatus, '主标题最多 40 个字');
+    if (titleLength > MAX_BIO_TITLE) {
+      setStatus(bioStatus, `主标题最多 ${MAX_BIO_TITLE} 个字`);
       titleInput.focus();
       return;
     }
-    if (bodyLength > 4000) {
-      setStatus(bioStatus, '正文最多 4000 个字，先删一点');
+    if (bodyLength > MAX_BIO_BODY) {
+      setStatus(bioStatus, `正文最多 ${MAX_BIO_BODY} 个字，先删一点`);
       bodyInput.focus();
       return;
     }
@@ -258,8 +267,8 @@ export const initPersonPage = (): void => {
       commentInput.focus();
       return;
     }
-    if (textLength(body) > 500) {
-      setStatus(commentStatus, '评论最多 500 个字');
+    if (textLength(body) > MAX_COMMENT_BODY) {
+      setStatus(commentStatus, `评论最多 ${MAX_COMMENT_BODY} 个字`);
       commentInput.focus();
       return;
     }

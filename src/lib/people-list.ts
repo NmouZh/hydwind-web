@@ -1,4 +1,5 @@
 import { defaultMainTitle, type Biography } from './biographies.ts';
+import { hasReadableBody } from './person-page.ts';
 
 /**
  * /people 列表的纯逻辑。
@@ -19,6 +20,8 @@ export interface StaticPersonInput {
   tags: string[];
   avatar: string;
   updated: string | Date;
+  /** 静态内容集的 Markdown 正文是否非空；详情页用同一条判断决定空状态。 */
+  hasBody: boolean;
 }
 
 /** 列表需要的账号字段。 */
@@ -109,7 +112,7 @@ export const buildPeopleList = ({
       avatar: person.avatar,
       role: person.role,
       tags: [...person.tags],
-      hasBody: true,
+      hasBody: hasReadableBody(person.hasBody, biography?.body),
       updatedAt:
         isoOrNull(biography?.updatedAt) ??
         isoOrNull(person.updated) ??

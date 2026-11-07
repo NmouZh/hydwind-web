@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { findAccount } from '../../../../lib/accounts.ts';
-import { isJson, json } from '../../../../lib/api-response.ts';
+import { isJson, json, readJsonObject } from '../../../../lib/api-response.ts';
 import {
   canEditBiography,
   defaultMainTitle,
@@ -8,10 +8,11 @@ import {
   resolvePersonBySlug,
   updateBiography,
   type ResolvedPerson,
-  type StaticPersonRef,
 } from '../../../../lib/biographies.ts';
+import { isSameOrigin } from '../../../../lib/comments.ts';
 import { consumeRateLimit } from '../../../../lib/rate-limit.ts';
 import { readSessionFromRequest } from '../../../../lib/session.ts';
+import { loadStaticPeople } from '../../../../lib/static-people.ts';
 
 /**
  * GET/PUT /api/people/[id]/biography
@@ -29,23 +30,9 @@ const SAVE_WINDOW_MS = 10 * 60_000;
 const SAVE_LIMIT = 12;
 
 /**
- * 静态人物来自 Astro 内容集合。测试环境（node:test）没有 `astro:content`
- * 虚拟模块，动态导入会以 ERR_UNSUPPORTED_ESM_URL_SCHEME 失败；此时退回空列表，
- * 账号 slug 仍能照常解析。生产构建里这个动态导入由 Vite 正常解析。
+ * 静态人物列表统一从 `lib/static-people.ts` 读取。它在 node:test 里直接解析
+ * `src/content/people` 的 frontmatter，和生产构建看到的是同一份人物。
  */
-const loadStaticPeople = async (): Promise<StaticPersonRef[]> => {
-  try {
-    const { getPublishedPeople } = await import('../../../../lib/content.ts');
-    const people = await getPublishedPeople();
-    return people.map(({ id, data }) => ({ id, gameId: data.gameId }));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ERR_UNSUPPORTED_ESM_URL_SCHEME') {
-      return [];
-    }
-    throw error;
-  }
-};
-
 const resolveSlug = async (slug: string): Promise<ResolvedPerson | null> =>
   resolvePersonBySlug(slug, {
     staticPeople: await loadStaticPeople(),
@@ -90,6 +77,9 @@ export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
   const account = await findAccount(session.username);
   if (!account) return json({ error: '账号已不存在，请重新登录' }, 401);
 
+  // 与评论写接口一致：带 Origin 的浏览器请求必须同源，防止借登录态跨站写。
+  if (!isSameOrigin(request)) return json({ error: '请求来源不对' }, 403);
+
   const resolved = await resolveSlug(params.id ?? '');
   if (!resolved) return json({ error: '没有这个人物' }, 404);
 
@@ -99,24 +89,8 @@ export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
     return json({ error: '只能编辑自己的传记' }, 403);
   }
 
-  const declared = Number(request.headers.get('content-length') ?? 0);
-  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
-    return json({ error: '请求体太大' }, 413);
-  }
-
-  const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) return json({ error: '请求体太大' }, 413);
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(raw);
-  } catch {
-    return json({ error: '请求体不是合法 JSON' }, 400);
-  }
-
-  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
-    return json({ error: '请求体格式不对' }, 400);
-  }
+  const parsed = await readJsonObject(request, MAX_BODY_BYTES);
+  if (!parsed.ok) return parsed.response;
 
   const limit = consumeRateLimit(
     `bio:${account.username.toLowerCase()}:${clientAddress ?? '-'}`,
@@ -129,7 +103,7 @@ export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
     });
   }
 
-  const { mainTitle, body } = payload as { mainTitle?: unknown; body?: unknown };
+  const { mainTitle, body } = parsed.value;
   const saved = await updateBiography(resolved.gameId, { mainTitle, body });
   if (!saved.ok) return json({ error: saved.message }, 400);
 

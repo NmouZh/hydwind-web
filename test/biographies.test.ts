@@ -133,6 +133,29 @@ test('正文校验：0–4000 字，空正文合法，超长报错', () => {
   assert.equal(validateBiographyBody(123).ok, false);
 });
 
+test('正文校验保留首尾空行，只在判断空正文和长度时 trim', async (t) => {
+  await useTempDataDir(t);
+
+  const body = '\n\n第一段\n\n第二段\n\n';
+  const validated = validateBiographyBody(body);
+  assert.equal(validated.ok, true);
+  if (validated.ok) assert.equal(validated.value, body);
+
+  // 纯空白仍然按「空正文」处理，但存进去的值不被 trim 改写。
+  const blank = '\n\n  \n';
+  assert.deepEqual(validateBiographyBody(blank), { ok: true, value: blank });
+
+  // 长度上限按去掉首尾空白后的内容算，正文本身原样保存。
+  const padded = `\n\n${char(MAX_BIO_BODY)}\n\n`;
+  const stored = await updateBiography('Alice', { mainTitle: '爱丽丝', body: padded });
+  assert.equal(stored.ok, true);
+  if (!stored.ok) return;
+  assert.equal(stored.value.body, padded);
+
+  const read = await findBiographyByGameId('Alice');
+  assert.equal(read?.body, padded);
+});
+
 test('评论校验：1–500 字，空白不合法', () => {
   assert.deepEqual(validateCommentBody('好'), { ok: true, value: '好' });
   assert.deepEqual(validateCommentBody(char(MAX_COMMENT_BODY)), {
@@ -189,7 +212,7 @@ test('addComment 记录作者信息，listComments 按创建顺序返回', async
   await ensureBiographyForAccount({ username: 'Host' });
 
   const first = await addComment('Host', { username: 'Bob' }, '第一条');
-  const second = await addComment('host', { username: 'Carol', gameId: 'CarolGame' }, '第二条');
+  const second = await addComment('host', { username: 'Carol' }, '第二条');
 
   assert.equal(first.ok, true);
   assert.equal(second.ok, true);
@@ -197,7 +220,8 @@ test('addComment 记录作者信息，listComments 按创建顺序返回', async
   assert.equal(first.value.authorUsername, 'Bob');
   assert.equal(first.value.authorGameId, 'Bob');
   assert.equal(second.value.authorUsername, 'Carol');
-  assert.equal(second.value.authorGameId, 'CarolGame');
+  // 作者游戏 ID 直接取账号 username，不再接受额外的兼容字段。
+  assert.equal(second.value.authorGameId, 'Carol');
   assert.notEqual(first.value.id, second.value.id);
 
   const comments = await listComments('HOST');
@@ -308,6 +332,29 @@ test('migrateBiographyOwner 重命名传记键并同步评论作者信息', asyn
   const [updatedComment] = await listComments('Host');
   assert.equal(updatedComment.authorUsername, 'NewPilot');
   assert.equal(updatedComment.authorGameId, 'NewPilot');
+});
+
+test('migrateBiographyOwner 同步默认主标题，自定义标题保持不动', async (t) => {
+  await useTempDataDir(t);
+
+  // 旧主标题就是旧默认标题 → 跟着账号名改成新默认标题。
+  await ensureBiographyForAccount({ username: 'OldPilot' });
+  const defaultMigrated = await migrateBiographyOwner('OldPilot', 'NewPilot');
+  assert.equal(defaultMigrated.migrated, true);
+  const movedDefault = await findBiographyByGameId('NewPilot');
+  assert.equal(movedDefault?.mainTitle, 'NewPilot的人物传记');
+
+  // 自定义标题属于作者内容，不跟着改。
+  await ensureBiographyForAccount({ username: 'Custom' });
+  const custom = await updateBiography('Custom', {
+    mainTitle: '我自己起的标题',
+    body: '正文',
+  });
+  assert.equal(custom.ok, true);
+  const customMigrated = await migrateBiographyOwner('Custom', 'Renamed');
+  assert.equal(customMigrated.migrated, true);
+  const movedCustom = await findBiographyByGameId('Renamed');
+  assert.equal(movedCustom?.mainTitle, '我自己起的标题');
 });
 
 test('registerAccount 改用户名时迁移传记键', async (t) => {
