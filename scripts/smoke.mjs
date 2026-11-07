@@ -309,6 +309,19 @@ const apiSmoke = async () => {
       peopleHtml.includes(username),
       '/people/ SSR 列出已注册账号'
     );
+
+    // 人物详情同样是 SSR：默认标题 / 游戏 ID / 空状态 / 评论区都要现场出现。
+    const personPageResponse = await fetch(`${origin}/people/nz-173/`);
+    const personHtml = await personPageResponse.text();
+    check(personPageResponse.status === 200, '/people/nz-173/ SSR 返回 200');
+    check(
+      personHtml.includes('Nz_173的人物传记'),
+      '/people/nz-173/ SSR 显示默认主标题'
+    );
+    check(personHtml.includes('游戏 ID'), '/people/nz-173/ SSR 显示游戏 ID');
+    check(personHtml.includes('尚未填写'), '/people/nz-173/ SSR 显示空状态');
+    check(personHtml.includes('聊两句'), '/people/nz-173/ SSR 显示评论区');
+    check(personHtml.includes('服主'), '/people/nz-173/ SSR 保留静态人物身份');
   } catch (error) {
     failures.push(`/api 冒烟执行失败：${String(error).split('\n')[0]}`);
     const stderr = server.stderr();
@@ -434,6 +447,14 @@ const browserSmoke = async () => {
       (await page.locator('h1').first().innerText()).includes('真实存在'),
       '顶部导航进入人物页'
     );
+
+    // 人物详情是 SSR：没有构建期 HTML，必须由 standalone server 现场渲染。
+    await page.goto(`${origin}/people/nz-173/`, { waitUntil: 'networkidle' });
+    const personText = await page.locator('body').innerText();
+    check(personText.includes('Nz_173的人物传记'), 'SSR 人物页显示默认主标题');
+    check(personText.includes('游戏 ID'), 'SSR 人物页显示游戏 ID');
+    check(personText.includes('尚未填写'), 'SSR 人物页显示空状态');
+    check(personText.includes('聊两句'), 'SSR 人物页显示评论区');
 
     await page.click('header nav[aria-label="主导航"] a[href="/guides/"]');
     await page.waitForURL('**/guides/', { timeout: 5000 });
