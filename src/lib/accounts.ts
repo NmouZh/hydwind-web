@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID, scryptSync } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { migrateBiographyOwner } from './biographies.ts';
 import { timingSafeEqualString } from './timing-safe.ts';
 import { isValidUsername } from './username.ts';
 
@@ -191,11 +192,21 @@ export const registerAccount = (input: RegisterInput): Promise<ValidationResult<
       );
       if (clash) return { ok: false, message: `账号名 ${username} 已被其他玩家占用` };
 
+      const previousUsername = byPlatform.username;
       byPlatform.username = username;
       if (nickname) byPlatform.nickname = nickname;
       byPlatform.passwordHash = hashPassword(password);
       byPlatform.updatedAt = now;
       await writeFileData(data);
+
+      // 账号名就是传记键：改名后把旧记录和评论作者信息迁到新名字。
+      // 迁移失败不该阻止玩家重新注册，脏数据留待下次登录补建时处理。
+      if (previousUsername.toLowerCase() !== username.toLowerCase()) {
+        await migrateBiographyOwner(previousUsername, username).catch((error) => {
+          console.error('[accounts] 迁移传记键失败', error);
+        });
+      }
+
       return { ok: true, value: { username, password, role: byPlatform.role, created: false } };
     }
 
