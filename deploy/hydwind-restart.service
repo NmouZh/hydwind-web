@@ -1,0 +1,13 @@
+[Unit]
+Description=Restart Hydwind website on request
+After=hydwind-web.service
+
+[Service]
+Type=oneshot
+
+# 先删请求文件，避免 PathExists 在重启窗口内反复触发。删除失败不阻止重启。
+ExecStart=-/usr/bin/rm -f /run/hydwind/restart-request
+
+# 需要 root（或对应的 polkit 授权）才能 restart 另一个服务。
+# 部分发行版 systemctl 在 /bin/systemctl，按实际路径调整。
+ExecStart=/usr/bin/systemctl restart hydwind-web.service

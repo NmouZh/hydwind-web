@@ -7,7 +7,7 @@ import node from '@astrojs/node';
 // - 内容页（首页 / 指南 / 人物）仍 prerender 成静态 HTML
 // - /api/* 由 Node 适配器在运行时处理，用于服务器状态与议题（Issue）系统
 export default defineConfig({
-  site: 'https://hydwind.lovie.me',
+  site: 'http://103.236.99.253:62179',
   output: 'server',
   // 默认 1GB 的请求体上限等于没有；接口最大也就几千字，1MB 足够
   adapter: node({ mode: 'standalone', bodySizeLimit: 1024 * 1024 }),
@@ -19,7 +19,7 @@ export default defineConfig({
   // - X-Forwarded-For 只有 Host 被验证后才会被信任，限流才能按真实 IP 分桶。
   security: {
     allowedDomains: [
-      { hostname: 'hydwind.lovie.me' },
+      { hostname: '103.236.99.253' },
       { hostname: 'localhost' },
       { hostname: '127.0.0.1' },
     ],

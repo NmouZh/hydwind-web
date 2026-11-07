@@ -245,7 +245,7 @@ const main = async () => {
   }
 
   // —— 每页的 SEO 字段都必须真实有效 ——
-  const canonicalBase = 'https://hydwind.lovie.me';
+  const canonicalBase = 'http://103.236.99.253:62179';
   for (const file of htmlFiles) {
     const relative = path.relative(dist, file);
     const html = await readFile(file, 'utf8');
