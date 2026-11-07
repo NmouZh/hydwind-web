@@ -423,6 +423,14 @@ const browserSmoke = async () => {
       '顶部导航进入人物页'
     );
 
+    // 人物详情是 SSR：没有构建期 HTML，必须由 standalone server 现场渲染。
+    await page.goto(`${origin}/people/nz-173/`, { waitUntil: 'networkidle' });
+    const personText = await page.locator('body').innerText();
+    check(personText.includes('Nz_173的人物传记'), 'SSR 人物页显示默认主标题');
+    check(personText.includes('游戏 ID'), 'SSR 人物页显示游戏 ID');
+    check(personText.includes('尚未填写'), 'SSR 人物页显示空状态');
+    check(personText.includes('聊两句'), 'SSR 人物页显示评论区');
+
     await page.click('header nav[aria-label="主导航"] a[href="/guides/"]');
     await page.waitForURL('**/guides/', { timeout: 5000 });
     check(
