@@ -23,6 +23,9 @@ npm run build
 ./scripts/run.sh
 ```
 
+线上由 systemd 守护（开机自启、崩溃拉起、插件触发重启），安装与权限说明见
+`deploy/README.md`。
+
 `.env` 示例：
 
 ```dotenv
@@ -143,7 +146,7 @@ PORT=4321
 
 账号只有一条来源：群里 @机器人 后，**私聊**机器人发「注册 游戏ID」，`astrbot_plugin_hydwind_accounts` 插件回调 `/api/auth/register` 建号，再把账号密码私聊回本人。站点上不开放自助注册。
 
-- 账号名 = 游戏 ID，只保留字母、数字、下划线，3–24 位
+- 账号名 = 游戏 ID，只保留字母、数字、下划线，3–16 位（Minecraft 游戏 ID 上限 16）
 - 密码随机生成 10 位（去掉 0/O/1/l/I 这类容易抄错的字符），只存 scrypt 哈希
 - 同一个平台身份（QQ 号）重复注册 = 重置密码并沿用原账号，不会堆出重复账号
 - 密码是明文私信发出的，**服务端不保存明文**，丢了只能重置
@@ -197,7 +200,7 @@ PORT=4321
 - 议题与账号数据都存在本地 JSON 文件里，**只适合单实例、带持久磁盘的部署**（VPS / 自建容器）。EdgeOne 这类纯静态托管的 Pages 不能跑这层接口，需要改成边缘函数 + 数据库/对象存储。
 - 站点前面是 NAT 转发，没有独立公网 IP：服务只监听 `0.0.0.0:4321`，由路由器把公网端口映射进来。
 - **反向代理必须透传真实 Host 和 `X-Forwarded-Proto`。** `astro.config.mjs` 的 `security.allowedDomains` 只认可
-  `hydwind.lovie.me`、`localhost`、`127.0.0.1`：Host 不在名单里时 Astro 会把 `request.url` 回落成 localhost，
+  `103.236.99.253`、`localhost`、`127.0.0.1`：Host 不在名单里时 Astro 会把 `request.url` 回落成 localhost，
   登录的同源校验会直接 403，`X-Forwarded-For` 也不会被信任（限流会按代理 IP 分桶）。换域名时记得同步这份名单。
 - 所有写接口的请求体在适配器层统一限制为 1MB（`bodySizeLimit`）；登录接口另有 1KB 的更严限制。
 - 会话是无状态签名 cookie，`Secure` 由请求协议 / `X-Forwarded-Proto` 决定，重启服务不会踢人；`SESSION_SECRET` 一换所有人都会掉线。

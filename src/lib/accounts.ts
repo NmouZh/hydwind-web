@@ -109,10 +109,10 @@ export const normalizeUsername = (input: unknown): string => {
     .trim()
     .replace(/\s+/g, '')
     .replace(/[^A-Za-z0-9_]/g, '')
-    .slice(0, 24);
+    .slice(0, 16);
 };
 
-export const isValidUsername = (username: string): boolean => /^[A-Za-z0-9_]{3,24}$/.test(username);
+export const isValidUsername = (username: string): boolean => /^[A-Za-z0-9_]{3,16}$/.test(username);
 
 const normalizePlatform = (input: unknown): string => {
   if (typeof input !== 'string') return 'qq';
@@ -170,7 +170,7 @@ export const registerAccount = (input: RegisterInput): Promise<ValidationResult<
 
     if (!platformId) return { ok: false, message: '缺少平台身份（QQ 号）' };
     if (!isValidUsername(username)) {
-      return { ok: false, message: '账号名需要 3-24 位，只能包含字母、数字和下划线' };
+      return { ok: false, message: '账号名需要 3-16 位，只能包含字母、数字和下划线' };
     }
 
     const data = await readFileData();

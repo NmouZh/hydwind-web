@@ -10,7 +10,7 @@
 
 | 字段 | 处理 | 位置 |
 | --- | --- | --- |
-| 账号名 | 白名单 `[A-Za-z0-9_]`，3–24 位，大小写不敏感比较 | `normalizeUsername` / `isValidUsername` |
+| 账号名 | 白名单 `[A-Za-z0-9_]`，3–16 位，大小写不敏感比较 | `normalizeUsername` / `isValidUsername` |
 | 密码 | 6–200 位，超过 200 直接判失败，不交给 scrypt | `MAX_PASSWORD_LENGTH` |
 | QQ 号 | 去掉首尾空白，截断 64 位 | `normalizePlatformId` |
 | 昵称 | 截断 32 位 | `registerAccount` |

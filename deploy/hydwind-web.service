@@ -1,0 +1,33 @@
+[Unit]
+Description=Hydwind website (Astro Node standalone)
+Documentation=https://github.com/NmouZh/hydwind-web
+After=network.target
+
+[Service]
+Type=simple
+
+# 按实际部署调整：改成仓库实际所在目录（.env 放在这里，HYDWIND_DATA_DIR 也相对于它）。
+WorkingDirectory=/opt/hydwind-web
+
+# 不要假设运行用户。默认以 root 运行只适合临时验证；正式部署应取消注释并改成实际用户/组。
+# 该用户需要对 WorkingDirectory、.env、HYDWIND_DATA_DIR 有读写权限。
+#User=hydwind
+#Group=hydwind
+
+# 也可改成 `command -v node` 查到的绝对路径（nvm 安装的 node 不在 /usr/bin/node）。
+ExecStart=/usr/bin/node --env-file=.env ./dist/server/entry.mjs
+
+Restart=always
+RestartSec=5
+
+# 创建 /run/hydwind 供插件写重启请求文件。
+# 目录属主是 User/Group（未设置时是 root:root），插件运行用户必须能写：
+#   - 推荐：给服务设置 User/Group，并把插件用户加入同一个组，保持 0775；
+#   - 或改成 0777（不推荐）；
+#   - 或不用 RuntimeDirectory，改用 deploy/README.md 里的 tmpfiles.d 方案。
+RuntimeDirectory=hydwind
+RuntimeDirectoryPreserve=yes
+RuntimeDirectoryMode=0775
+
+[Install]
+WantedBy=multi-user.target

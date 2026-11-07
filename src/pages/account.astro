@@ -43,7 +43,7 @@ const description =
                     autocomplete="username"
                     autocapitalize="off"
                     spellcheck="false"
-                    maxlength="24"
+                    maxlength="16"
                     required
                     placeholder="例如 Nz_173"
                     aria-describedby="account-username-hint"
@@ -51,7 +51,7 @@ const description =
                 </span>
               </label>
               <p class="field-hint" id="account-username-hint">
-                只填字母、数字和下划线，3 到 24 位。
+                只填字母、数字和下划线，3 到 16 位。
               </p>
 
               <label class="field">
@@ -645,9 +645,9 @@ const description =
       return;
     }
 
-    if (!/^[A-Za-z0-9_]{3,24}$/.test(username)) {
+    if (!/^[A-Za-z0-9_]{3,16}$/.test(username)) {
       markInvalid(usernameField, true);
-      setStatus(status, '账号名是 3 到 24 位字母、数字或下划线');
+      setStatus(status, '账号名是 3 到 16 位字母、数字或下划线');
       usernameInput?.focus();
       return;
     }
