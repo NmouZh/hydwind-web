@@ -9,7 +9,7 @@
  * Markdown 语法本身在 `markdown.ts`，这里只负责「谁是谁」和日期这类传记专属的规则。
  */
 
-import { escapeHtml, renderMarkdown } from './markdown';
+import { escapeHtml, renderMarkdown } from './markdown.ts';
 
 export { escapeHtml };
 
