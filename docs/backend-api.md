@@ -291,7 +291,7 @@ slug 既不是静态人物也不是账号时返回 `404 { "error": "..." }`。
 - 议题与账号数据都存在本地 JSON 文件里，**只适合单实例、带持久磁盘的部署**（VPS / 自建容器）。EdgeOne 这类纯静态托管的 Pages 不能跑这层接口，需要改成边缘函数 + 数据库/对象存储。
 - **生产必须在 TLS 反代后面**：Node 只监听 `127.0.0.1`，Caddy/Nginx 终止 TLS、压缩并透传真实 Host / `X-Forwarded-Proto` / `X-Forwarded-For`。示例见 `deploy/Caddyfile` 与 `deploy/nginx.conf.example`。
 - 反代必须**覆盖** `X-Forwarded-For`（`$remote_addr`），不要追加；否则客户端可以伪造 IP 绕过限流。
-- `astro.config.mjs` 的 `security.allowedDomains` 只认可 `103.236.99.253`、`localhost`、`127.0.0.1`：换域名时记得同步并重新构建，否则登录的同源校验会 403。
+- 构建时设置 `HYDWIND_SITE_URL=https://你的域名`，canonical 与该域名会自动进入 `security.allowedDomains`；默认仍保留 `103.236.99.253`、`localhost`、`127.0.0.1`。Host 不在名单里时登录的同源校验会 403。
 - 每个写接口都有自己的请求体上限：登录 1KB、注册 2KB、议题 8KB、话题回复 2KB、传记 64KB、评论 2KB；适配器另有 1MB 兜底。
 - 会话是无状态签名 cookie，`Secure` 由请求协议 / `X-Forwarded-Proto` 决定；`SESSION_SECRET` 一换所有人都会掉线。改密码会递增账号的 `sessionVersion`，旧 cookie 立即失效。
 - 角色以账号文件为准：降权后现有会话的站务/传记权限立即失效，不用等 30 天。

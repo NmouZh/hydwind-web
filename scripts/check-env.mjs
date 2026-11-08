@@ -21,7 +21,7 @@ const requireSecret = (name, minLength) => {
   if (value.length < minLength) {
     failures.push(`${name} 至少需要 ${minLength} 个字符（当前 ${value.length}）`);
   }
-  if (/^(changeme|change-me|secret|password|test)/i.test(value)) {
+  if (/^(changeme|change-me|secret|password|test|replace)/i.test(value)) {
     failures.push(`${name} 看起来是占位值，请换成随机串`);
   }
   return value;

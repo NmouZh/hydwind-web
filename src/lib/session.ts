@@ -54,8 +54,12 @@ const secret = (): string => {
 
   const message =
     '[auth] 未配置 SESSION_SECRET（至少 16 字符），正在使用进程内随机密钥；进程重启后所有登录会失效，生产环境必须配置';
-  if (isProduction()) console.error(message);
-  else console.warn(message);
+  if (isProduction()) {
+    // 生产环境宁可让登录接口 500，也不要用一个重启即变、无法审计的密钥继续签发会话。
+    console.error(message);
+    throw new Error('SESSION_SECRET is required in production');
+  }
+  console.warn(message);
 
   cachedSecret = randomBytes(32).toString('hex');
   return cachedSecret;

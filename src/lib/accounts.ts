@@ -179,7 +179,8 @@ const parseHash = (stored: string): ParsedHash | null => {
     const r = Number(parts[2]);
     const p = Number(parts[3]);
     if (!Number.isInteger(n) || !Number.isInteger(r) || !Number.isInteger(p)) return null;
-    if (n < 2 || n > MAX_SCRYPT_N || r < 1 || r > 32 || p < 1 || p > 16) return null;
+    if (n < 2 || n > MAX_SCRYPT_N || (n & (n - 1)) !== 0) return null;
+    if (r < 1 || r > 32 || p < 1 || p > 16) return null;
     return {
       salt: parts[4],
       hash: parts[5],
