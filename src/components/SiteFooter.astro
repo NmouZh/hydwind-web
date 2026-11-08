@@ -162,7 +162,8 @@ const columns = [
 
   .footer-nav {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* 只有「站点 / 进服 / 说明」三组，列数跟内容走，别给地址留一条空列 */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 24px;
   }
 

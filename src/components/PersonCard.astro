@@ -15,9 +15,17 @@ interface Props {
   item?: PersonListItem;
   headingLevel?: 2 | 3;
   delay?: number;
+  /** 列表页用「人物传记」小标题；首页已有区块眉标时关掉，避免每行重复 */
+  showKicker?: boolean;
 }
 
-const { person, item, headingLevel = 3, delay = 0 } = Astro.props;
+const {
+  person,
+  item,
+  headingLevel = 3,
+  delay = 0,
+  showKicker = true,
+} = Astro.props;
 if (!person && !item) {
   throw new Error('PersonCard 需要 person 或 item');
 }
@@ -46,7 +54,7 @@ if (role) subline.push(role);
 >
   <PlayerAvatar gameId={gameId} src={avatar} />
   <div>
-    <span class="list-row-index">人物传记</span>
+    {showKicker && <span class="list-row-index">人物传记</span>}
     <Heading class="list-row-title">{mainTitle}</Heading>
     <p class="list-row-text">{subline.join(' · ')}</p>
     {

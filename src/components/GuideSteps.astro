@@ -62,12 +62,8 @@ const { steps, variant = 'route' } = Astro.props;
   }
 
   .step-number {
-    color: color-mix(
-      in srgb,
-      var(--md-sys-color-on-primary-container) 66%,
-      transparent
-    );
-    font-size: var(--md-sys-typescale-label-small-size);
+    color: var(--md-sys-color-on-primary-container);
+    font-size: var(--md-sys-typescale-label-medium-size);
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.1em;
     padding-top: 2px;
