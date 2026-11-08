@@ -16,7 +16,9 @@ import { consumeRateLimit } from '../../../lib/rate-limit.ts';
 
 const ALLOWED = /^[A-Za-z0-9_]{1,16}$/;
 const CACHE_TTL = 24 * 60 * 60 * 1000;
-const MISS_TTL = 60 * 60 * 1000;
+// 上游临时失败只钉 1 分钟；永久不存在也复用这个短缓存，避免一次 429/超时
+// 让某个玩家显示默认头像一小时。
+const MISS_TTL = 60 * 1000;
 const MAX_ENTRIES = 500;
 const MAX_MISSES = 2_000;
 const MAX_TOTAL_BYTES = 8 * 1024 * 1024;
@@ -48,13 +50,14 @@ const hashOf = (value: string): number => {
   return hash >>> 0;
 };
 
-const defaultRedirect = (name: string): Response => {
+const defaultRedirect = (name: string, cacheSeconds = 3600): Response => {
   const target = DEFAULTS[hashOf(name.toLowerCase()) % DEFAULTS.length];
   return new Response(null, {
     status: 302,
     headers: {
       location: target,
-      'cache-control': 'public, max-age=3600',
+      'cache-control':
+        cacheSeconds > 0 ? `public, max-age=${cacheSeconds}` : 'no-store',
     },
   });
 };
@@ -170,14 +173,6 @@ export const GET: APIRoute = async ({ params, clientAddress }) => {
   const name = (params.name ?? '').trim();
   if (!ALLOWED.test(name)) return defaultRedirect('steve');
 
-  // 头像代理本身会打两个第三方域名；按 IP 粗略限流，页面一次加载几十个头像不受影响。
-  const limit = consumeRateLimit(
-    `avatar:${clientIpKey(clientAddress)}`,
-    IP_LIMIT_PER_MINUTE,
-    60_000
-  );
-  if (!limit.ok) return defaultRedirect(name);
-
   const key = name.toLowerCase();
   const cached = cache.get(key);
   if (cached && Date.now() - cached.at < CACHE_TTL) {
@@ -193,15 +188,24 @@ export const GET: APIRoute = async ({ params, clientAddress }) => {
 
   const missedAt = misses.get(key);
   if (missedAt && Date.now() - missedAt < MISS_TTL) {
-    return defaultRedirect(name);
+    return defaultRedirect(name, 60);
   }
 
   // 同一个名字的并发请求合并成一次上游调用，避免列表页一次性打爆头像站。
   const pending = inflight.get(key);
   if (pending) {
     const entry = await pending;
-    return entry ? imageResponse(entry, 'shared') : defaultRedirect(name);
+    return entry ? imageResponse(entry, 'shared') : defaultRedirect(name, 60);
   }
+
+  // 只有真正要打上游时才消耗配额；缓存命中/负缓存不应该被限流影响。
+  // 被限流时也不要用 1 小时缓存，否则窗口过去后仍一直显示默认头像。
+  const limit = consumeRateLimit(
+    `avatar:${clientIpKey(clientAddress)}`,
+    IP_LIMIT_PER_MINUTE,
+    60_000
+  );
+  if (!limit.ok) return defaultRedirect(name, 0);
 
   const request = loadAvatar(name, key);
   inflight.set(key, request);
@@ -210,7 +214,7 @@ export const GET: APIRoute = async ({ params, clientAddress }) => {
     const entry = await request;
     if (!entry) {
       rememberMiss(key);
-      return defaultRedirect(name);
+      return defaultRedirect(name, 60);
     }
     return imageResponse(entry, 'mojang');
   } finally {

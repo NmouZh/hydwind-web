@@ -2,6 +2,10 @@
  * 进程内滑动窗口限流。
  *
  * 只防一下脚本刷接口，重启即清空；多实例部署时需要换成 Redis 之类。
+ *
+ * 按 key 的第一个冒号分段分表（login / avatar / issue / gate ...）：某个接口
+ * 被随机 key 洪水填满时，只会让该接口的新 key fail-closed，不会把登录、头像、
+ * 议题等其它类别的正常用户一起挡在门外。
  */
 interface Bucket {
   hits: number[];
@@ -11,23 +15,36 @@ interface Bucket {
   lastSeen: number;
 }
 
-const buckets = new Map<string, Bucket>();
-const MAX_KEYS = 5_000;
+const scopes = new Map<string, Map<string, Bucket>>();
+const MAX_KEYS_PER_SCOPE = 5_000;
+
+const scopeOf = (key: string): string => {
+  const separator = key.indexOf(':');
+  return separator > 0 ? key.slice(0, separator) : 'default';
+};
+
+const bucketMap = (key: string): Map<string, Bucket> => {
+  const scope = scopeOf(key);
+  let map = scopes.get(scope);
+  if (!map) {
+    map = new Map();
+    scopes.set(scope, map);
+  }
+  return map;
+};
 
 /**
- * 桶满了只按每个桶自己的窗口清理过期条目，绝不删除仍活跃的桶。
+ * 只按每个桶自己的窗口清理过期条目，绝不删除仍活跃的桶。
  *
  * 旧实现用调用方的窗口清理所有桶（60s 的请求会清掉 10min 的登录桶），
  * 还会一次删 10%——攻击者可以靠填满 map 重置别人的活跃额度。清理后仍然
  * 满时，新 key 直接 fail-closed 返回 429；已存在的 key 继续正常计数。
- *
- * @return 是否腾出了空间
  */
-const pruneExpired = (now: number): boolean => {
-  for (const [key, bucket] of buckets) {
-    if (now - bucket.lastSeen >= bucket.windowMs) buckets.delete(key);
+const pruneExpired = (map: Map<string, Bucket>, now: number): boolean => {
+  for (const [key, bucket] of map) {
+    if (now - bucket.lastSeen >= bucket.windowMs) map.delete(key);
   }
-  return buckets.size < MAX_KEYS;
+  return map.size < MAX_KEYS_PER_SCOPE;
 };
 
 export interface RateLimitResult {
@@ -42,9 +59,10 @@ export const consumeRateLimit = (
   windowMs: number,
   now = Date.now()
 ): RateLimitResult => {
-  const existing = buckets.get(key);
-  if (!existing && buckets.size >= MAX_KEYS && !pruneExpired(now)) {
-    // 桶被攻击者用随机 key 填满：拒绝新 key，而不是淘汰活跃用户/账号的额度。
+  const map = bucketMap(key);
+  const existing = map.get(key);
+  if (!existing && map.size >= MAX_KEYS_PER_SCOPE && !pruneExpired(map, now)) {
+    // 该类别被攻击者用随机 key 填满：拒绝新 key，而不是淘汰活跃用户/账号的额度。
     return { ok: false, remaining: 0, retryAfterMs: Math.min(windowMs, 60_000) };
   }
 
@@ -55,16 +73,16 @@ export const consumeRateLimit = (
 
   if (bucket.hits.length >= limit) {
     const oldest = bucket.hits[0] ?? now;
-    buckets.set(key, bucket);
+    map.set(key, bucket);
     return { ok: false, remaining: 0, retryAfterMs: bucket.windowMs - (now - oldest) };
   }
 
   bucket.hits.push(now);
-  buckets.set(key, bucket);
+  map.set(key, bucket);
   return { ok: true, remaining: limit - bucket.hits.length, retryAfterMs: 0 };
 };
 
 /** 登录成功后清掉失败计数：成功本身不应该消耗失败额度。 */
 export const resetRateLimit = (key: string): void => {
-  buckets.delete(key);
+  bucketMap(key).delete(key);
 };

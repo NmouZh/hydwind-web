@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { type TestContext } from 'node:test';
 
-import { registerAccount, setAccountRole } from '../src/lib/accounts.ts';
+import { findAccount, registerAccount, setAccountRole } from '../src/lib/accounts.ts';
 import { ensureBiographyForAccount } from '../src/lib/biographies.ts';
 import { createSessionCookie, SESSION_COOKIE } from '../src/lib/session.ts';
 import { GET, POST } from '../src/pages/api/people/[id]/comments.ts';
@@ -18,6 +18,8 @@ const setup = async (t: TestContext): Promise<void> => {
   t.after(async () => rm(dir, { recursive: true, force: true }));
 };
 
+const versions = new Map<string, number>();
+
 const account = async (username: string, nickname = '', role: 'player' | 'admin' = 'player') => {
   const result = await registerAccount({
     username,
@@ -26,6 +28,8 @@ const account = async (username: string, nickname = '', role: 'player' | 'admin'
     platformId: `qq-${username}`,
   });
   assert.equal(result.ok, true);
+  const saved = await findAccount(username);
+  versions.set(username.toLowerCase(), saved?.sessionVersion ?? 0);
 };
 
 const cookie = (username: string, role: 'player' | 'admin' = 'player'): string => {
@@ -35,7 +39,7 @@ const cookie = (username: string, role: 'player' | 'admin' = 'player'): string =
       if (name === SESSION_COOKIE) value = token;
     },
   } as unknown as Parameters<typeof createSessionCookie>[0];
-  createSessionCookie(cookies, username, role, false);
+  createSessionCookie(cookies, username, role, false, versions.get(username.toLowerCase()) ?? 0);
   return `${SESSION_COOKIE}=${encodeURIComponent(value)}`;
 };
 

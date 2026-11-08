@@ -4,7 +4,8 @@ import { isStaffRequest } from '../../../../lib/auth.ts';
 import { isJson, json, readJsonObject } from '../../../../lib/api-response.ts';
 import { isSameOriginRequest } from '../../../../lib/same-origin.ts';
 
-const MAX_BODY_BYTES = 2 * 1024;
+// 回复上限 1000 字，中文按 UTF-8 最多 3 字节/字，再加 JSON 转义与作者字段。
+const MAX_BODY_BYTES = 8 * 1024;
 
 /** POST /api/issues/:id/replies —— 站务回复，插件在群里发的进展也走这里 */
 export const POST: APIRoute = async ({ params, request }) => {

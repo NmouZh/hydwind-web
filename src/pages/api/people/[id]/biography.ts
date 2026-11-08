@@ -26,7 +26,8 @@ import { loadStaticPeople } from '../../../../lib/static-people.ts';
  * PUT 仅本人或管理员；校验标题 2–40、正文 0–4000，所有错误都在这里分层。
  */
 
-const MAX_BODY_BYTES = 16 * 1024;
+// 正文上限 4000 字，按 4 字节/字 + JSON 转义留空间。
+const MAX_BODY_BYTES = 32 * 1024;
 const SAVE_WINDOW_MS = 10 * 60_000;
 const SAVE_LIMIT = 12;
 

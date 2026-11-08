@@ -5,7 +5,8 @@ import { isJson, json, readJsonObject } from '../../lib/api-response.ts';
 import { clientIpKey } from '../../lib/client-ip.ts';
 import { consumeRateLimit } from '../../lib/rate-limit.ts';
 
-const MAX_BODY_BYTES = 8 * 1024;
+// 标题 80 + 描述 2000 字；按 4 字节/字和 JSON 开销留足空间。
+const MAX_BODY_BYTES = 16 * 1024;
 
 /** GET /api/issues —— 匿名只看公开议题，站务额外拿到 pending。 */
 export const GET: APIRoute = async ({ request }) => {

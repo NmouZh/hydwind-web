@@ -99,7 +99,9 @@ journalctl -u hydwind-web.service -f
 
 1. 有域名：用 `deploy/Caddyfile` 或 `deploy/nginx.conf.example` 终止 TLS；
 2. 反代必须覆盖 `X-Forwarded-For`（`$remote_addr`，不要追加）和
-   `X-Forwarded-Proto`，并透传真实 `Host`；
+   `X-Forwarded-Proto`，并透传真实 `Host`；如果反代前面还有 CDN/负载均衡，
+   要在 Caddy 配 `trusted_proxies` 或在 Nginx 配 `set_real_ip_from`，
+   否则所有访客会共享同一个 IP 限流桶。
 3. 构建时设置 `HYDWIND_SITE_URL=https://hydwind.example.com npm run build`；
    canonical 与该域名会自动进入 `security.allowedDomains`，不用再手改源码；
 4. `HOST=127.0.0.1`，不要再把 4321 映射到公网；
@@ -107,6 +109,11 @@ journalctl -u hydwind-web.service -f
 
 只走 IP、暂时没有域名时，至少把 Node 放在反代后面并用自签证书验证流程；
 没有 TLS 就不要把它当成正式环境。
+
+> 注意：`@astrojs/node` 的静态文件处理器先于 Astro 中间件执行，预渲染 HTML
+> 不会经过 `src/middleware.ts`。直接运行 `scripts/run.sh`/`entry.mjs` 时，
+> 首页、`/account/`、`/issues/`、指南页没有 `X-Frame-Options` 等安全头；
+> 生产必须由上面的反代补头（示例已包含）。
 
 ## 5. 插件写重启请求
 

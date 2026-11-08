@@ -42,7 +42,7 @@ import {
   hasReadableBody,
   type ViewerState,
 } from '../../lib/person-page';
-import { readSession } from '../../lib/session';
+import { readSessionFromRequest } from '../../lib/session';
 
 const slug = Astro.params.slug ?? '';
 
@@ -61,7 +61,7 @@ const renderedContent = staticPerson ? await render(staticPerson) : null;
 const Content = renderedContent?.Content;
 
 // 会话代际也在这里校验：改过密码的旧 cookie 不再显示编辑 / 删除按钮。
-const session = resolved ? readSession(Astro.cookies) : null;
+const session = resolved ? readSessionFromRequest(Astro.request) : null;
 const viewer = await accountForSession(session);
 const gameId = resolved?.gameId ?? '';
 const biography = resolved ? await findBiographyByGameId(gameId) : null;

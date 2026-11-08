@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { type TestContext } from 'node:test';
 
-import { registerAccount } from '../src/lib/accounts.ts';
+import { findAccount, registerAccount } from '../src/lib/accounts.ts';
 import { createSessionCookie, SESSION_COOKIE } from '../src/lib/session.ts';
 import { useEnv } from './helpers.ts';
 import { GET, PUT } from '../src/pages/api/people/[id]/biography.ts';
@@ -26,6 +26,8 @@ const useTempDataDir = async (t: TestContext): Promise<void> => {
   });
 };
 
+const versions = new Map<string, number>();
+
 const createAccount = async (
   username: string,
   options: { nickname?: string; role?: 'admin' | 'player' } = {}
@@ -37,6 +39,8 @@ const createAccount = async (
     role: options.role,
   });
   assert.equal(result.ok, true, `测试账号创建失败：${username}`);
+  const saved = await findAccount(username);
+  versions.set(username.toLowerCase(), saved?.sessionVersion ?? 0);
 };
 
 /** 生成与登录接口一致的签名 cookie；路由会按 username 回查账号，不信任 cookie 里的 role。 */
@@ -47,7 +51,13 @@ const sessionCookie = (username: string): string => {
       if (name === SESSION_COOKIE) token = value;
     },
   } as unknown as Parameters<typeof createSessionCookie>[0];
-  createSessionCookie(cookies, username, 'player');
+  createSessionCookie(
+    cookies,
+    username,
+    'player',
+    false,
+    versions.get(username.toLowerCase()) ?? 0
+  );
   return `${SESSION_COOKIE}=${encodeURIComponent(token)}`;
 };
 

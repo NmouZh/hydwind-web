@@ -10,7 +10,6 @@ import { accessSync, chmodSync, constants, mkdirSync, readdirSync, statSync } fr
 import path from 'node:path';
 
 const failures = [];
-const warnings = [];
 
 const requireSecret = (name, minLength) => {
   const value = (process.env[name] ?? '').trim();
@@ -57,11 +56,15 @@ try {
   failures.push(`数据目录不可用：${dataDir}（${error instanceof Error ? error.message : error}）`);
 }
 
-if (!process.env.HOST) {
-  warnings.push('未设置 HOST，将监听所有地址；放在反代后面时应设为 127.0.0.1');
+const host = (process.env.HOST ?? '').trim();
+if ((!host || host === '0.0.0.0' || host === '::') &&
+    process.env.HYDWIND_ALLOW_PUBLIC_BIND !== '1') {
+  failures.push(
+    'HOST 不能监听所有地址：直连 Node 时客户端可伪造 X-Forwarded-For 绕过 IP 限流。' +
+      '放在反代后面请设 HOST=127.0.0.1；确需直接暴露时显式设置 HYDWIND_ALLOW_PUBLIC_BIND=1'
+  );
 }
 
-for (const message of warnings) console.warn(`[env] 警告：${message}`);
 if (failures.length > 0) {
   for (const message of failures) console.error(`[env] 错误：${message}`);
   process.exit(1);

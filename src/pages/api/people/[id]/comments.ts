@@ -21,7 +21,8 @@ export const GET: APIRoute = async ({ params }) => {
   return json({ comments: await Promise.all(comments.map(presentComment)) });
 };
 
-const MAX_BODY_BYTES = 4 * 1024;
+// 评论上限 500 字，按 4 字节/字 + JSON 转义留空间。
+const MAX_BODY_BYTES = 8 * 1024;
 
 /** POST /api/people/:id/comments —— 登录玩家发评论，每账号 10 分钟 5 条。 */
 export const POST: APIRoute = async ({ params, request }) => {

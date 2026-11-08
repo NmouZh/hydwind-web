@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, open, readFile, rename, stat } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -100,18 +100,26 @@ const writeList = async (list: IssueList): Promise<void> => {
   await mkdir(dataDir(), { recursive: true, mode: 0o700 });
   const file = dataFile();
   const tmp = `${file}.${randomUUID()}.tmp`;
-  const handle = await open(tmp, 'wx', 0o600);
   try {
-    await handle.writeFile(`${JSON.stringify(list, null, 2)}\n`, 'utf8');
-    await handle.sync();
-  } finally {
-    await handle.close();
+    const handle = await open(tmp, 'wx', 0o600);
+    try {
+      await handle.writeFile(`${JSON.stringify(list, null, 2)}\n`, 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await rename(tmp, file);
+  } catch (error) {
+    await unlink(tmp).catch(() => undefined);
+    throw error;
   }
-  await rename(tmp, file);
   try {
     const directory = await open(dataDir(), 'r');
-    await directory.sync();
-    await directory.close();
+    try {
+      await directory.sync();
+    } finally {
+      await directory.close().catch(() => undefined);
+    }
   } catch {
     /* best effort */
   }

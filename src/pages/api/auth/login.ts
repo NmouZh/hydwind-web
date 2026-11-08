@@ -41,7 +41,7 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
   }
 
   const ip = clientIpKey(clientAddress);
-  const ipLimit = consumeRateLimit(`login:ip:${ip}`, IP_LIMIT, WINDOW_MS);
+  const ipLimit = consumeRateLimit(`login-ip:${ip}`, IP_LIMIT, WINDOW_MS);
   if (!ipLimit.ok) return tooMany(ipLimit.retryAfterMs);
 
   let raw: string;
@@ -75,8 +75,8 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
 
   // 归一化之后再按账号计数，避免 Nz / nz / nZ 各刷一份额度。
   const accountKey = normalizeUsername(username).toLowerCase() || username.toLowerCase();
-  const ipFailureKey = `login:fail:ip:${accountKey}:${ip}`;
-  const accountFailureKey = `login:fail:acct:${accountKey}`;
+  const ipFailureKey = `login-fail:ip:${accountKey}:${ip}`;
+  const accountFailureKey = `login-fail:acct:${accountKey}`;
 
   const account = await verifyLogin(username, password);
   if (!account) {

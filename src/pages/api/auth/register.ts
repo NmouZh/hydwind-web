@@ -36,6 +36,9 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
   // 注册接口只负责创建普通玩家。管理员账号必须由站务在服务器侧明确操作，
   // 不能靠一个请求体里的 role 字段提权。
   const requestedRole = payload.role;
+  if (requestedRole !== undefined && typeof requestedRole !== 'string') {
+    return json({ error: 'role 必须是字符串' }, 400);
+  }
   if (requestedRole === 'admin' && process.env.HYDWIND_ALLOW_ADMIN_REGISTER !== '1') {
     return json({ error: '注册接口不能创建管理员账号' }, 403);
   }

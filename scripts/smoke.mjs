@@ -854,6 +854,15 @@ const browserSmoke = async () => {
     page.on('pageerror', (error) => {
       console.error(`浏览器页面脚本错误：${error.message}`);
     });
+    // CSP 违规不会触发 pageerror，但会让主题/动效静默失效。
+    page.on('console', (message) => {
+      if (
+        message.type() === 'error' &&
+        /content security policy/i.test(message.text())
+      ) {
+        failures.push(`CSP 拦截：${message.text()}`);
+      }
+    });
     await page.goto(`${origin}/`, { waitUntil: 'networkidle' });
     check(await waitForStatus(page, '离线'), '桌面首页显示离线状态');
     check(await hasNoHorizontalOverflow(page), '桌面首页 1280 视口无横向溢出');
@@ -871,6 +880,13 @@ const browserSmoke = async () => {
     check(
       (await page.evaluate(() => document.documentElement.dataset.theme)) === nextTheme,
       `深浅色切换生效（${initialTheme} → ${nextTheme}）`
+    );
+
+    // 整页导航后主题必须仍然生效；这同时验证 theme-init.js 没有被 CSP 拦截。
+    await page.reload({ waitUntil: 'networkidle' });
+    check(
+      (await page.evaluate(() => document.documentElement.dataset.theme)) === nextTheme,
+      '刷新后保持已选主题'
     );
 
     await page.locator(`[data-copy="${ADDRESS}"]`).first().click();

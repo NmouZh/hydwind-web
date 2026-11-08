@@ -38,11 +38,19 @@ const {
       <p class="error-text">{description}</p>
 
       <div class="error-actions">
-        <a class="filled-button" href={primary.href}>
+        <a
+          class="filled-button"
+          href={primary.href}
+          data-astro-prefetch={primary.href === '/gate/' ? 'false' : undefined}
+        >
           {primary.icon && <Icon name={primary.icon} size={18} />}
           {primary.label}
         </a>
-        <a class="outlined-button" href={secondary.href}>
+        <a
+          class="outlined-button"
+          href={secondary.href}
+          data-astro-prefetch={secondary.href === '/gate/' ? 'false' : undefined}
+        >
           {secondary.icon && <Icon name={secondary.icon} size={18} />}
           {secondary.label}
         </a>
@@ -54,7 +62,7 @@ const {
     <span class="hw-label">常用入口</span>
     <a href="/guides/">指南 <Icon name="arrow_forward" size={16} /></a>
     <a href="/issues/">议题 <Icon name="arrow_forward" size={16} /></a>
-    <a href="/people/">人物 <Icon name="arrow_forward" size={16} /></a>
+    <a href="/people/" data-astro-prefetch="false">人物 <Icon name="arrow_forward" size={16} /></a>
     <a href="/account/">账号 <Icon name="arrow_forward" size={16} /></a>
   </div>
 </div>

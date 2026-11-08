@@ -10,8 +10,6 @@ const SECURITY_HEADERS: Record<string, string> = {
   'x-content-type-options': 'nosniff',
   'referrer-policy': 'strict-origin-when-cross-origin',
   'x-frame-options': 'DENY',
-  // meta CSP 不支持 frame-ancestors，用响应头补上；与页面里的 CSP meta 取交集。
-  'content-security-policy': "frame-ancestors 'none'",
   'permissions-policy': 'camera=(), microphone=(), geolocation=(), payment=()',
   'cross-origin-opener-policy': 'same-origin',
   'cross-origin-resource-policy': 'same-origin',
@@ -30,6 +28,15 @@ export const onRequest = defineMiddleware(async (context, next) => {
   try {
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
       if (!headers.has(name)) headers.set(name, value);
+    }
+
+    // meta CSP 不支持 frame-ancestors；如果 Astro 已经写了 CSP 响应头，
+    // 追加到现有策略而不是因为 headers.has 而跳过。
+    const existingCsp = headers.get('content-security-policy');
+    if (!existingCsp) {
+      headers.set('content-security-policy', "frame-ancestors 'none'");
+    } else if (!/frame-ancestors/i.test(existingCsp)) {
+      headers.set('content-security-policy', `${existingCsp}; frame-ancestors 'none'`);
     }
 
     // 只有确实通过 HTTPS 访问时才发 HSTS；明文部署发这个头没有意义。

@@ -97,6 +97,8 @@ export interface StoredLoginCode {
   createdAt: number;
   expiresAt: number;
   usedAt: number | null;
+  /** 生成码时的账号会话代际；改密码后旧码自动失效。老记录按 0 处理。 */
+  sessionVersion?: number;
 }
 
 export interface AttemptResult {
@@ -125,6 +127,8 @@ export interface LoginCodeStore {
   confirm(id: string, at: number): ConsumeResult;
   /** 记一次尝试；窗口内达到上限时 allowed=false。 */
   consumeAttempt(gameId: string, now: number, windowMs: number, limit: number): AttemptResult;
+  /** 查找该账号尚未使用、尚未过期的码，用于重复打开页面时复用。 */
+  findActiveByUsername(username: string, now: number): StoredLoginCode | undefined;
 }
 
 export interface GenerateLoginCodeInput {
@@ -132,6 +136,8 @@ export interface GenerateLoginCodeInput {
   username: string;
   /** 预期使用的游戏 ID；不传则默认与账号名相同 */
   gameId?: string;
+  /** 账号当前的会话代际；改密码后旧码作废 */
+  sessionVersion?: number;
 }
 
 export interface GeneratedLoginCodes {
@@ -243,6 +249,19 @@ export const createMemoryLoginCodeStore = (): LoginCodeStore => {
       return { ok: true };
     },
 
+    findActiveByUsername(username, now) {
+      purge(now);
+      const target = normalizeLoginCode(username).toLowerCase();
+      if (!target) return undefined;
+      let found: StoredLoginCode | undefined;
+      for (const record of records.values()) {
+        if (record.usedAt !== null || record.expiresAt <= now) continue;
+        if (record.username.toLowerCase() !== target) continue;
+        if (!found || record.createdAt > found.createdAt) found = record;
+      }
+      return found;
+    },
+
     consumeAttempt(gameId, now, windowMs, limit) {
       purge(now);
       if (attempts.size > 10_000) {
@@ -323,6 +342,17 @@ export const generateLoginCodes = (
   const gameId = normalizeLoginCode(input.gameId ?? username) || username;
   const expiresAt = now + ttlMs;
 
+  // 同一账号在码仍有效时重复打开 /gate（或浏览器预取）复用同一组码：
+  // 既不浪费颜文字池，也不会因为预取产生玩家看不到的码。
+  const existing = store.findActiveByUsername(username, now);
+  if (
+    existing &&
+    existing.gameId.toLowerCase() === gameId.toLowerCase() &&
+    (existing.sessionVersion ?? 0) === (input.sessionVersion ?? 0)
+  ) {
+    return { code: existing.kaomoji, fallback: existing.ascii, expiresAt: existing.expiresAt };
+  }
+
   let code = '';
   let fallback = '';
 
@@ -348,6 +378,8 @@ export const generateLoginCodes = (
     createdAt: now,
     expiresAt,
     usedAt: null,
+    // 只有调用方明确传入代际时才写；旧调用/旧记录按“不校验代际”处理。
+    ...(input.sessionVersion !== undefined ? { sessionVersion: input.sessionVersion } : {}),
   });
 
   return { code, fallback, expiresAt };

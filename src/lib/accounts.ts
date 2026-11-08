@@ -1,5 +1,5 @@
-import { randomBytes, randomUUID, scrypt } from 'node:crypto';
-import { mkdir, open, readFile, rename, stat } from 'node:fs/promises';
+import { randomBytes, randomInt, randomUUID, scrypt } from 'node:crypto';
+import { mkdir, open, readFile, rename, stat, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { migrateBiographyOwner } from './biographies.ts';
 import { timingSafeEqualString } from './timing-safe.ts';
@@ -107,19 +107,27 @@ const writeFileData = async (data: AccountFile): Promise<void> => {
   const file = dataFile();
   const tmp = `${file}.${randomUUID()}.tmp`;
   // 账号文件里有 scrypt 哈希和 QQ 号，不能沿用 umask 给的 0644。
-  const handle = await open(tmp, 'wx', 0o600);
   try {
-    await handle.writeFile(`${JSON.stringify(data, null, 2)}\n`, 'utf8');
-    await handle.sync();
-  } finally {
-    await handle.close();
+    const handle = await open(tmp, 'wx', 0o600);
+    try {
+      await handle.writeFile(`${JSON.stringify(data, null, 2)}\n`, 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await rename(tmp, file);
+  } catch (error) {
+    await unlink(tmp).catch(() => undefined);
+    throw error;
   }
-  await rename(tmp, file);
   // 目录 fsync 保证 rename 在掉电后仍然可见；部分文件系统不支持，失败只忽略。
   try {
     const directory = await open(dataDir(), 'r');
-    await directory.sync();
-    await directory.close();
+    try {
+      await directory.sync();
+    } finally {
+      await directory.close().catch(() => undefined);
+    }
   } catch {
     /* best effort */
   }
@@ -300,9 +308,11 @@ export const registerAccount = (input: RegisterInput): Promise<ValidationResult<
     const platform = normalizePlatform(input.platform);
     const platformId = normalizePlatformId(input.platformId);
     const nickname = typeof input.nickname === 'string' ? input.nickname.trim().slice(0, 32) : '';
-    const role: AccountRole = (ACCOUNT_ROLES as readonly string[]).includes(String(input.role))
-      ? (input.role as AccountRole)
-      : 'player';
+    const role: AccountRole =
+      typeof input.role === 'string' &&
+      (ACCOUNT_ROLES as readonly string[]).includes(input.role)
+        ? (input.role as AccountRole)
+        : 'player';
     const providedPassword =
       typeof input.password === 'string' &&
       input.password.length >= 10 &&
@@ -361,7 +371,9 @@ export const registerAccount = (input: RegisterInput): Promise<ValidationResult<
       platformId,
       role,
       passwordHash: await hashPassword(password),
-      sessionVersion: 0,
+      // 新账号从随机代际开始：同名账号被删除后重建时，旧 cookie 的 v=0
+      // 不会意外匹配到新玩家。
+      sessionVersion: randomInt(1, 2_147_483_647),
       createdAt: now,
       updatedAt: now,
       lastLoginAt: null,
@@ -406,9 +418,14 @@ export const verifyLogin = async (username: string, password: string): Promise<A
     const live = name
       ? fresh.accounts.find((item) => item.username.toLowerCase() === name)
       : undefined;
-    if (!live || live.passwordHash !== verifiedHash) return null;
-
-    if (upgradedHash) live.passwordHash = upgradedHash;
+    if (!live) return null;
+    // 并发登录时另一个请求可能已经完成旧哈希升级：用同一明文再验证一次
+    // 新哈希，匹配就继续，而不是把第二个正确登录误判为失败。
+    if (live.passwordHash !== verifiedHash) {
+      if (!(await verifyHash(password, live.passwordHash))) return null;
+    } else if (upgradedHash) {
+      live.passwordHash = upgradedHash;
+    }
     live.lastLoginAt = new Date().toISOString();
     await writeFileData(fresh);
     return live;

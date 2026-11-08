@@ -1,41 +1,47 @@
 import type { APIRoute } from 'astro';
-import { constants } from 'node:fs';
-import { access, readFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { open, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { json } from '../../lib/api-response.ts';
 
 /**
  * GET /api/health —— 给 systemd / 插件探活用，不需要鉴权。
  *
- * 默认只报进程是否活着和运行了多久（liveness）。加 `?ready=1` 时额外检查
- * 数据目录可写、现有 JSON 能解析（readiness）；磁盘满或权限错误会让注册、
- * 登录、评论持续 500，但进程本身还活着，liveness 发现不了。
+ * 默认只报进程是否活着和运行了多久（liveness）。加 `?ready=1` 时在数据目录
+ * 创建、写入、fsync 并删除一个探针文件（readiness）：权限位可写但磁盘满/只读
+ * 时也能发现，比 `access(W_OK)` 可靠。结果缓存 5 秒，避免探针本身打爆磁盘。
  */
 
-const DATA_FILES = ['accounts.json', 'biographies.json', 'issues.json'] as const;
+const READY_CACHE_MS = 5_000;
+let readyCache: { at: number; failure: string | null } | null = null;
 
 const dataDir = () => process.env.HYDWIND_DATA_DIR ?? path.join(process.cwd(), 'data');
 
-const readiness = async (): Promise<string | null> => {
+const probeDataDir = async (): Promise<string | null> => {
   const dir = dataDir();
+  const probe = path.join(dir, `.ready-${process.pid}-${randomUUID()}`);
   try {
-    await access(dir, constants.R_OK | constants.W_OK);
-  } catch {
-    return '数据目录不可读写';
-  }
-
-  for (const name of DATA_FILES) {
+    const handle = await open(probe, 'wx', 0o600);
     try {
-      const raw = await readFile(path.join(dir, name), 'utf8');
-      JSON.parse(raw);
-    } catch (error) {
-      // 首次部署时文件还不存在是正常的；存在但读不了/解析不了才是故障。
-      const code = (error as NodeJS.ErrnoException).code;
-      if (code === 'ENOENT') continue;
-      return `${name} 无法读取或解析`;
+      await handle.writeFile('ok', 'utf8');
+      await handle.sync();
+    } finally {
+      await handle.close();
     }
+    await unlink(probe);
+    return null;
+  } catch {
+    // 清理失败也无所谓；探针文件只有几个字节，下次启动会重新生成。
+    await unlink(probe).catch(() => undefined);
+    return '数据目录不可写（磁盘满、只读或权限错误）';
   }
-  return null;
+};
+
+const readiness = async (now: number): Promise<string | null> => {
+  if (readyCache && now - readyCache.at < READY_CACHE_MS) return readyCache.failure;
+  const failure = await probeDataDir();
+  readyCache = { at: now, failure };
+  return failure;
 };
 
 export const GET: APIRoute = async ({ url }) => {
@@ -44,7 +50,7 @@ export const GET: APIRoute = async ({ url }) => {
     return json({ ok: true, uptime });
   }
 
-  const failure = await readiness();
+  const failure = await readiness(Date.now());
   if (failure) {
     return json({ ok: false, ready: false, error: failure, uptime }, 503);
   }

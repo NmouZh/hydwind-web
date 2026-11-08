@@ -112,16 +112,26 @@ test('ASCII 备用码大小写不敏感', async () => {
 test('登录码 5 分钟后过期', async () => {
   const h = harness();
   const early = generateLoginCodes({ username: 'Alice' }, h.options);
-  const late = generateLoginCodes({ username: 'Alice' }, h.options);
+  const late = generateLoginCodes({ username: 'Bob' }, h.options);
 
   h.advance(LOGIN_CODE_TTL_MS - 1);
   assert.equal((await verifyLoginCode({ code: early.code, gameId: 'Alice' }, h.options)).ok, true);
 
   h.advance(1);
-  assert.deepEqual(await verifyLoginCode({ code: late.code, gameId: 'Alice' }, h.options), {
+  assert.deepEqual(await verifyLoginCode({ code: late.code, gameId: 'Bob' }, h.options), {
     ok: false,
     reason: 'expired',
   });
+});
+
+test('有效期内重复生成复用同一组码，避免预取消耗候选池', () => {
+  const h = harness();
+  const first = generateLoginCodes({ username: 'Alice' }, h.options);
+  const second = generateLoginCodes({ username: 'Alice' }, h.options);
+
+  assert.equal(second.code, first.code);
+  assert.equal(second.fallback, first.fallback);
+  assert.equal(second.expiresAt, first.expiresAt);
 });
 
 test('两个码绑定同一请求，任一验证成功后全部作废', async () => {

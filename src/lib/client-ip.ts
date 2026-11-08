@@ -18,7 +18,9 @@ const normalizeIp = (address: string): string => {
 
   // ::ffff:c000:201 形式的 IPv4-mapped IPv6 也要折叠，否则所有这类地址
   // 都会落进 ::/64 同一个限流桶。
-  const mappedHex = /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(value);
+  const mappedHex =
+    /^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(value) ??
+    /^0:0:0:0:0:ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(value);
   if (mappedHex) {
     const high = Number.parseInt(mappedHex[1], 16);
     const low = Number.parseInt(mappedHex[2], 16);

@@ -173,7 +173,21 @@ export const initMotion = async (): Promise<void> => {
     if (!event.matches) return;
     gsap.globalTimeline.clear();
     ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+
+    // globalTimeline.clear() 不会回滚已经写入的 inline 样式；逐字标题、
+    // 视差、数字滚动都可能停在中间状态，必须显式清掉。
+    const animated = document.querySelectorAll<HTMLElement>(
+      '[data-reveal], [data-split] .hw-char, [data-hero] .hero-en, [data-parallax], [data-roll]'
+    );
+    gsap.set(Array.from(animated), {
+      clearProps: 'opacity,transform,filter,letterSpacing',
+    });
+    document.querySelectorAll<HTMLElement>('[data-roll]').forEach((element) => {
+      const target = Number.parseInt(element.dataset.roll ?? '', 10);
+      if (Number.isFinite(target)) element.textContent = String(target);
+    });
     revealImmediately(Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]')));
+    document.documentElement.classList.remove('hw-motion');
   });
 
   const html = document.documentElement;

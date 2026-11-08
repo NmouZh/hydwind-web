@@ -10,9 +10,10 @@ import { getSite } from '../lib/content';
 import { consumeRateLimit } from '../lib/rate-limit';
 import { gateView } from '../lib/gate';
 import { generateLoginCodes, LOGIN_CODE_TTL_MS } from '../lib/login-codes';
-import { readSession } from '../lib/session';
+import { readSessionFromRequest } from '../lib/session';
 
-const session = readSession(Astro.cookies);
+// 用统一的 cookie 解析：同名多值（cookie tossing）按未登录处理。
+const session = readSessionFromRequest(Astro.request);
 // 会话代际不匹配（改过密码）时按未登录处理，不再拿旧 cookie 生成登录码。
 const account = await accountForSession(session);
 const site = await getSite();
@@ -32,7 +33,10 @@ const requestPurpose = (
   Astro.request.headers.get('purpose') ??
   ''
 ).toLowerCase();
-const isPrefetch = requestPurpose.includes('prefetch');
+// Firefox 的 <link rel=prefetch> 用 X-Moz: prefetch。
+const isPrefetch =
+  requestPurpose.includes('prefetch') ||
+  (Astro.request.headers.get('x-moz') ?? '').toLowerCase() === 'prefetch';
 
 if (account && !isPrefetch) {
   // 每次打开页面都会生成新码；不加限流的话，刷新几十次就能把
@@ -49,7 +53,10 @@ if (account && !isPrefetch) {
     const global = consumeRateLimit('gate:generate:global', 60, 60_000);
     if (global.ok) {
       try {
-        codes = generateLoginCodes({ username: account.username });
+        codes = generateLoginCodes({
+          username: account.username,
+          sessionVersion: account.sessionVersion ?? 0,
+        });
       } catch {
         // 候选池被并发请求暂时用尽时，codes 保持 null，页面显示可重试的提示。
       }
@@ -154,7 +161,7 @@ const description =
             </ol>
             <div class="notice gate-notice">
               <p><strong>码只能用一次，{ttlMinutes} 分钟后失效。</strong></p>
-              <p>刷新本页会换一组新码，旧码到期后自然失效。</p>
+              <p>有效期内重复打开会显示同一组码；过期后刷新会换一组新码。</p>
             </div>
           </aside>
         </div>

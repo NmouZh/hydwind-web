@@ -93,6 +93,14 @@ export const POST: APIRoute = async ({ request }) => {
       beforeConsume: async (record) => {
         const account = await findAccount(record.username);
         if (!account) return { reason: 'invalid_code' };
+        // 改密码后 sessionVersion 递增；带代际的旧码即使没过期也不能再用。
+        // 未带代际的记录来自旧版本/测试，保持兼容。
+        if (
+          record.sessionVersion !== undefined &&
+          record.sessionVersion !== (account.sessionVersion ?? 0)
+        ) {
+          return { reason: 'invalid_code' };
+        }
         if (account.username.toLowerCase() !== gameId.toLowerCase()) {
           return { reason: 'game_id_mismatch', expectedGameId: account.username };
         }
