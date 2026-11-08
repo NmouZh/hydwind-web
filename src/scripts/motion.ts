@@ -168,7 +168,7 @@ export const initMotion = async (): Promise<void> => {
   heroEn.forEach((element, index) => {
     gsap.set(element, { opacity: 0, letterSpacing: '0.7em' });
     gsap.to(element, {
-      opacity: 0.7,
+      opacity: 1,
       letterSpacing: '0.42em',
       duration: revealDuration * 1.4,
       delay: 0.08 + index * 0.06,

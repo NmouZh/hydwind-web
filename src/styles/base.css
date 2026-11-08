@@ -216,7 +216,8 @@ svg {
 }
 
 code {
-  font-family: "Roboto Mono", "SFMono-Regular", "Cascadia Code", Consolas,
+  /* 不声明未自托管的 Roboto Mono，避免地址在不同系统上回落到三套不同等宽字体 */
+  font-family: ui-monospace, "Cascadia Code", Consolas, "Liberation Mono",
     monospace;
   letter-spacing: -0.01em;
 }
