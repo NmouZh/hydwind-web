@@ -303,6 +303,7 @@ export const initPersonPage = (): void => {
     const target = (event.target as Element | null)?.closest<HTMLElement>('[data-comment-delete]');
     const id = target?.dataset.commentDelete;
     if (!target || !id) return;
+    if (!window.confirm('删除这条评论？删除后无法恢复。')) return;
 
     target.disabled = true;
     try {
@@ -325,5 +326,5 @@ export const initPersonPage = (): void => {
     }
   });
 
-  void loadComments();
+  // 评论列表已由 SSR 渲染；只有发表/删除成功后才重新拉取，避免每次访问多打一次接口。
 };

@@ -273,6 +273,7 @@
     font-size: 13.5px;
     line-height: 1.7;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .issue-replies {
@@ -301,6 +302,7 @@
     margin-top: 2px;
     font-size: 13.5px;
     line-height: 1.7;
+    overflow-wrap: anywhere;
   }
 
   .issue-noreply {

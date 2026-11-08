@@ -33,6 +33,7 @@ const links = NAV_ITEMS;
           <a
             href={link.href}
             data-nav-key={link.key}
+            data-astro-prefetch={link.key === 'people' ? 'false' : undefined}
             aria-current={current === link.key ? 'page' : undefined}
           >
             <span class="nav-active-pill" aria-hidden="true"></span>

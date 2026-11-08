@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
@@ -45,11 +45,78 @@ export interface IssueList {
 const MAX_TITLE = 80;
 const MAX_BODY = 2000;
 const MAX_AUTHOR = 32;
+/** 议题总量与待审队列上限：匿名接口不能无限写满磁盘。 */
+export const MAX_ISSUES = 5_000;
+export const MAX_PENDING_ISSUES = 200;
 
 const dataDir = () => process.env.HYDWIND_DATA_DIR ?? path.join(process.cwd(), 'data');
 const dataFile = () => path.join(dataDir(), 'issues.json');
 
 const emptyList = (): IssueList => ({ version: 1, nextId: 1, issues: [] });
+
+interface IssueListCache {
+  file: string;
+  mtimeMs: number;
+  size: number;
+  data: IssueList;
+}
+
+let cache: IssueListCache | null = null;
+
+const readList = async (options: { fresh?: boolean } = {}): Promise<IssueList> => {
+  const file = dataFile();
+  try {
+    const info = await stat(file);
+    if (
+      !options.fresh &&
+      cache &&
+      cache.file === file &&
+      cache.mtimeMs === info.mtimeMs &&
+      cache.size === info.size
+    ) {
+      return cache.data;
+    }
+
+    const raw = await readFile(file, 'utf8');
+    const parsed = JSON.parse(raw) as IssueList;
+    if (!parsed || !Array.isArray(parsed.issues)) return emptyList();
+    const data: IssueList = {
+      version: 1,
+      nextId: parsed.nextId ?? 1,
+      issues: parsed.issues,
+    };
+    if (!options.fresh) cache = { file, mtimeMs: info.mtimeMs, size: info.size, data };
+    return data;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (!options.fresh) cache = null;
+      return emptyList();
+    }
+    throw error;
+  }
+};
+
+const writeList = async (list: IssueList): Promise<void> => {
+  await mkdir(dataDir(), { recursive: true, mode: 0o700 });
+  const file = dataFile();
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  const handle = await open(tmp, 'wx', 0o600);
+  try {
+    await handle.writeFile(`${JSON.stringify(list, null, 2)}\n`, 'utf8');
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  await rename(tmp, file);
+  try {
+    const directory = await open(dataDir(), 'r');
+    await directory.sync();
+    await directory.close();
+  } catch {
+    /* best effort */
+  }
+  cache = null;
+};
 
 /** 同一个进程内的串行队列，避免并发写坏 JSON。 */
 let queue: Promise<unknown> = Promise.resolve();
@@ -58,26 +125,6 @@ const serialize = <T>(task: () => Promise<T>): Promise<T> => {
   const next = queue.then(task, task);
   queue = next.catch(() => undefined);
   return next;
-};
-
-const readList = async (): Promise<IssueList> => {
-  try {
-    const raw = await readFile(dataFile(), 'utf8');
-    const parsed = JSON.parse(raw) as IssueList;
-    if (!parsed || !Array.isArray(parsed.issues)) return emptyList();
-    return { version: 1, nextId: parsed.nextId ?? 1, issues: parsed.issues };
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return emptyList();
-    throw error;
-  }
-};
-
-const writeList = async (list: IssueList): Promise<void> => {
-  await mkdir(dataDir(), { recursive: true });
-  const file = dataFile();
-  const tmp = `${file}.${randomUUID()}.tmp`;
-  await writeFile(tmp, `${JSON.stringify(list, null, 2)}\n`, 'utf8');
-  await rename(tmp, file);
 };
 
 const clamp = (value: unknown, max: number): string => {
@@ -112,9 +159,13 @@ export const validateNewIssue = (
 
 export const createIssue = (
   input: { title: string; body: string; author: string; category: IssueCategory }
-): Promise<Issue> =>
+): Promise<Issue | null> =>
   serialize(async () => {
-    const list = await readList();
+    const list = await readList({ fresh: true });
+    if (list.issues.length >= MAX_ISSUES) return null;
+    if (list.issues.filter((issue) => issue.status === 'pending').length >= MAX_PENDING_ISSUES) {
+      return null;
+    }
     const now = new Date().toISOString();
     const issue: Issue = {
       id: list.nextId,
@@ -153,7 +204,7 @@ export const updateIssueStatus = (
   status: IssueStatus
 ): Promise<Issue | undefined> =>
   serialize(async () => {
-    const list = await readList();
+    const list = await readList({ fresh: true });
     const issue = list.issues.find((item) => item.id === id);
     if (!issue) return undefined;
     issue.status = status;
@@ -167,7 +218,7 @@ export const addIssueReply = (
   reply: { author: string; body: string; staff?: boolean }
 ): Promise<Issue | undefined> =>
   serialize(async () => {
-    const list = await readList();
+    const list = await readList({ fresh: true });
     const issue = list.issues.find((item) => item.id === id);
     if (!issue) return undefined;
     const now = new Date().toISOString();

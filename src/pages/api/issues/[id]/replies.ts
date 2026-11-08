@@ -1,26 +1,27 @@
 import type { APIRoute } from 'astro';
 import { addIssueReply, getIssue } from '../../../../lib/issues';
 import { isStaffRequest } from '../../../../lib/auth';
-import { json } from '../../../../lib/api-response.ts';
+import { isJson, json, readJsonObject } from '../../../../lib/api-response.ts';
+import { isSameOriginRequest } from '../../../../lib/same-origin.ts';
+
+const MAX_BODY_BYTES = 2 * 1024;
 
 /** POST /api/issues/:id/replies —— 站务回复，插件在群里发的进展也走这里 */
 export const POST: APIRoute = async ({ params, request }) => {
   if (!(await isStaffRequest(request))) {
     return json({ error: '需要站务权限' }, 401);
   }
+  if (!isSameOriginRequest(request)) return json({ error: '请求来源不对' }, 403);
 
   const id = Number(params.id);
   if (!Number.isInteger(id) || id <= 0) return json({ error: '议题编号不合法' }, 400);
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return json({ error: '请求体不是合法 JSON' }, 400);
-  }
+  if (!isJson(request)) return json({ error: '请求体必须是 JSON' }, 415);
+  const parsed = await readJsonObject(request, MAX_BODY_BYTES);
+  if (!parsed.ok) return parsed.response;
 
-  const body = String((payload as { body?: unknown })?.body ?? '').trim();
-  const author = String((payload as { author?: unknown })?.author ?? '氢风站务').trim().slice(0, 32);
+  const body = String(parsed.value.body ?? '').trim();
+  const author = String(parsed.value.author ?? '氢风站务').trim().slice(0, 32);
   if (body.length < 1 || body.length > 1000) {
     return json({ error: '回复内容需要在 1–1000 字之间' }, 422);
   }

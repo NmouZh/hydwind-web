@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rename, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { consumeRateLimit } from './rate-limit.ts';
 import { canDeleteCommentForAuthor } from './person-page.ts';
@@ -33,6 +33,8 @@ export {
 /** 每个账号在窗口内最多发这么多条评论。 */
 export const COMMENT_RATE_LIMIT = 5;
 export const COMMENT_RATE_WINDOW_MS = 10 * 60_000;
+/** 单篇传记的评论上限，避免一个 JSON 文件被长期刷到无法解析。 */
+export const MAX_COMMENTS_PER_BIOGRAPHY = 500;
 
 export interface Comment {
   id: string;
@@ -65,6 +67,70 @@ const dataFile = () => path.join(dataDir(), 'biographies.json');
 
 const emptyFile = (): BiographyFile => ({ version: 1, biographies: [] });
 
+interface BiographyFileCache {
+  file: string;
+  mtimeMs: number;
+  size: number;
+  data: BiographyFile;
+}
+
+/** 只读路径按 mtime + size 复用解析结果；写路径用 fresh 绕开缓存。 */
+let cache: BiographyFileCache | null = null;
+
+const readFileData = async (options: { fresh?: boolean } = {}): Promise<BiographyFile> => {
+  const file = dataFile();
+  try {
+    const info = await stat(file);
+    if (
+      !options.fresh &&
+      cache &&
+      cache.file === file &&
+      cache.mtimeMs === info.mtimeMs &&
+      cache.size === info.size
+    ) {
+      return cache.data;
+    }
+
+    const raw = await readFile(file, 'utf8');
+    const parsed = JSON.parse(raw) as BiographyFile;
+    if (!parsed || !Array.isArray(parsed.biographies)) return emptyFile();
+    const data: BiographyFile = {
+      version: 1,
+      biographies: parsed.biographies.filter(isGameBiography),
+    };
+    if (!options.fresh) cache = { file, mtimeMs: info.mtimeMs, size: info.size, data };
+    return data;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      if (!options.fresh) cache = null;
+      return emptyFile();
+    }
+    throw error;
+  }
+};
+
+const writeFileData = async (data: BiographyFile): Promise<void> => {
+  await mkdir(dataDir(), { recursive: true, mode: 0o700 });
+  const file = dataFile();
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  const handle = await open(tmp, 'wx', 0o600);
+  try {
+    await handle.writeFile(`${JSON.stringify(data, null, 2)}\n`, 'utf8');
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+  await rename(tmp, file);
+  try {
+    const directory = await open(dataDir(), 'r');
+    await directory.sync();
+    await directory.close();
+  } catch {
+    /* best effort */
+  }
+  cache = null;
+};
+
 /** 同一个进程内的串行队列，避免并发写坏 JSON。 */
 let queue: Promise<unknown> = Promise.resolve();
 
@@ -72,26 +138,6 @@ const serialize = <T>(task: () => Promise<T>): Promise<T> => {
   const next = queue.then(task, task);
   queue = next.catch(() => undefined);
   return next;
-};
-
-const readFileData = async (): Promise<BiographyFile> => {
-  try {
-    const raw = await readFile(dataFile(), 'utf8');
-    const parsed = JSON.parse(raw) as BiographyFile;
-    if (!parsed || !Array.isArray(parsed.biographies)) return emptyFile();
-    return { version: 1, biographies: parsed.biographies.filter(isGameBiography) };
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return emptyFile();
-    throw error;
-  }
-};
-
-const writeFileData = async (data: BiographyFile): Promise<void> => {
-  await mkdir(dataDir(), { recursive: true });
-  const file = dataFile();
-  const tmp = `${file}.${randomUUID()}.tmp`;
-  await writeFile(tmp, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
-  await rename(tmp, file);
 };
 
 /** 「字」按 Unicode 码点算，避免 emoji 被算成两个字。 */
@@ -214,7 +260,7 @@ export const ensureBiographyForAccount = (account: { username: string }): Promis
     const gameId = typeof account?.username === 'string' ? account.username.trim() : '';
     if (!gameId) throw new Error('账号 username 不能为空');
 
-    const data = await readFileData();
+    const data = await readFileData({ fresh: true });
     const existing = findGame(data, gameId);
     if (existing) {
       existing.comments = commentsOf(existing);
@@ -261,7 +307,7 @@ export const updateBiography = (
     const key = typeof gameId === 'string' ? gameId.trim() : '';
     if (!key) return { ok: false, reason: 'invalid', message: '缺少游戏 ID' };
 
-    const data = await readFileData();
+    const data = await readFileData({ fresh: true });
     const existing = findGame(data, key);
     const now = new Date().toISOString();
 
@@ -324,7 +370,7 @@ export const addComment = (
     const validated = validateCommentBody(body);
     if (!validated.ok) return { ok: false, reason: 'invalid', message: validated.message };
 
-    const data = await readFileData();
+    const data = await readFileData({ fresh: true });
     const biography = findGame(data, key);
     if (!biography) return { ok: false, reason: 'not_found', message: '没有找到这份传记' };
 
@@ -340,6 +386,11 @@ export const addComment = (
         message: '评论太频繁啦，过几分钟再试',
         retryAfterMs: limit.retryAfterMs,
       };
+    }
+
+    const existingComments = commentsOf(biography);
+    if (existingComments.length >= MAX_COMMENTS_PER_BIOGRAPHY) {
+      return { ok: false, reason: 'invalid', message: '这篇传记的评论已经满了' };
     }
 
     const now = new Date().toISOString();
@@ -363,7 +414,7 @@ export const deleteComment = (
   serialize(async () => {
     if (!actor) return { ok: false, reason: 'forbidden', message: '先登录再删除评论' };
 
-    const data = await readFileData();
+    const data = await readFileData({ fresh: true });
     const biography = findGame(data, gameId);
     if (!biography) return { ok: false, reason: 'not_found', message: '没有找到这份传记' };
 
@@ -448,7 +499,7 @@ export const migrateBiographyOwner = (
     const newName = typeof newUsername === 'string' ? newUsername.trim() : '';
     if (!oldName || !newName) return { migrated: false, commentsUpdated: 0 };
 
-    const data = await readFileData();
+    const data = await readFileData({ fresh: true });
     const now = new Date().toISOString();
     const oldKey = oldName.toLowerCase();
     let migrated = false;

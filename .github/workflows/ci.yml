@@ -3,13 +3,13 @@ name: CI
 on:
   push:
     branches:
-      - feat/login-gate
-      - feat/biography
       - main
+      - 'feat/**'
+      - 'fix/**'
+      - 'design/**'
+      - 'chore/**'
   pull_request:
     branches:
-      - feat/login-gate
-      - feat/biography
       - main
   # 手动触发：验证分支 / 本地修复时无需另开 PR 也能跑完整 CI。
   workflow_dispatch:
@@ -17,19 +17,29 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: '22'
+          node-version-file: .node-version
           cache: npm
+
+      - name: Show toolchain versions
+        run: |
+          node --version
+          npm --version
 
       - name: Install dependencies
         run: npm ci
@@ -51,6 +61,8 @@ jobs:
         run: npm test
 
       # API + 浏览器冒烟会真实启动 dist/server/entry.mjs，用临时数据目录覆盖
-      # 登录、传记编辑与评论。Chromium 已在上一步装好，浏览器部分不再跳过。
+      # 登录、传记编辑与评论。CI 里浏览器必须真实跑起来，不能静默跳过。
       - name: Smoke
+        env:
+          REQUIRE_BROWSER: '1'
         run: npm run smoke

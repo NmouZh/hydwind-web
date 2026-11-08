@@ -30,12 +30,37 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'http://103.236.9
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>{title}</title>
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!--
+      首屏/页头品牌字需要的几个子集：氢、风（700-13 / 700-1）和 Rubik 拉丁。
+      unicode-range 已经保证不下载用不到的字体；这里只把最先出现的字形提前。
+    -->
+    <link
+      rel="preload"
+      href="/fonts/misans/700-13.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/misans/700-1.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/rubik/rubik-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
     <meta name="theme-color" content="#f8f9ff" data-theme-color />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
@@ -52,6 +77,10 @@ const canonicalURL = new URL(Astro.url.pathname, Astro.site ?? 'http://103.236.9
             ? stored === 'dark'
             : window.matchMedia('(prefers-color-scheme: dark)').matches;
           document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+          // 地址栏颜色和主题在首帧就同步，避免深色用户先看到一条浅色浏览器 chrome。
+          document
+            .querySelector('meta[data-theme-color]')
+            ?.setAttribute('content', dark ? '#0e141c' : '#f8f9ff');
         } catch {
           document.documentElement.dataset.theme = 'light';
         }

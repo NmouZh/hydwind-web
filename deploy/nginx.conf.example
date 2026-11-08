@@ -1,0 +1,76 @@
+# Hydwind 网站反代示例（Nginx）
+#
+# 证书路径、域名按实际环境替换。Node 只监听 127.0.0.1:4321。
+# 关键点：覆盖 X-Forwarded-For（不要追加），否则客户端可以伪造 IP 绕过限流。
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    server_name hydwind.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name hydwind.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/hydwind.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/hydwind.example.com/privkey.pem;
+
+    root /opt/hydwind-web/dist/client;
+
+    gzip on;
+    gzip_comp_level 6;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript
+               application/xml image/svg+xml;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()" always;
+
+    # SSR / API
+    location ~ ^/(api|people|gate|login|edit)(/|$) {
+        proxy_pass http://127.0.0.1:4321;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 30s;
+    }
+
+    # 用 expires 而不是 add_header Cache-Control：子 location 里一旦出现
+    # add_header，Nginx 就不再继承 server 级的安全响应头。
+    location /_astro/ {
+        expires 1y;
+        try_files $uri =404;
+    }
+
+    # 没有内容哈希；一周缓存，更新后最多一周生效
+    location ~ ^/(fonts|images)/ {
+        expires 7d;
+        try_files $uri =404;
+    }
+
+    # 预渲染 HTML 短缓存
+    location / {
+        expires 5m;
+        try_files $uri $uri/ =404;
+    }
+
+    # 404 页面保留真实状态码，避免搜索引擎把错误页当正常页收录
+    error_page 404 /404.html;
+    location = /404.html {
+        internal;
+        expires 5m;
+    }
+}

@@ -12,7 +12,7 @@
     "smoke": "node ./scripts/smoke.mjs",
     "test": "node --test test/*.test.ts",
     "preview": "astro preview",
-    "tokens": "bun ./scripts/generate-md3-tokens.mjs",
+    "tokens": "node ./scripts/generate-md3-tokens.mjs",
     "astro": "astro"
   },
   "dependencies": {

@@ -3,27 +3,27 @@
 氢风（Hydwind）Minecraft Java 生存服务器的官网。Astro 7 `output: 'server'`，构建出 Node standalone 产物，部署在自建 VPS，由 systemd 守护。
 
 - 技术栈：Astro 7，TypeScript（strict）
-- 包管理器：bun
+- 包管理器：npm（CI 与部署统一使用 `npm ci`，不要混用 bun）
 - Node 要求：`>= 22.23.4`（见 `.node-version`）
-- 正式站点：<http://103.236.99.253:62179>
+- 正式站点：`https://hydwind.example.com`（域名/证书按实际部署替换；TLS 反代见 `deploy/`）
 
 ## 命令
 
 | 命令 | 作用 |
 | --- | --- |
-| `bun install` | 安装依赖 |
-| `bun dev` | 启动本地开发服务器（`localhost:4321`） |
-| `bun build` | 构建生产站点到 `./dist/` |
-| `bun check` | 构建并执行内容与构建产物检查 |
-| `bun smoke` | 在本地 Chromium 中执行浏览器冒烟（需先构建） |
-| `bun preview` | 本地预览构建结果 |
+| `npm ci` | 按 lockfile 安装依赖 |
+| `npm run dev` | 启动本地开发服务器（`localhost:4321`） |
+| `npm run build` | 构建生产站点到 `./dist/` |
+| `npm run check` | 构建并执行内容与构建产物检查 |
+| `npm run smoke` | 启动真实 standalone server + 浏览器冒烟（需先构建） |
+| `npm run preview` | 本地预览构建结果 |
 
-`bun check` 按页面断言真实事实存在、编造的旧内容不出现、服务器事实没有散落在
+`npm run check` 按页面断言真实事实存在、编造的旧内容不出现、服务器事实没有散落在
 页面或内容中，并检查每个页面的标题、描述、规范 URL 与站内链接。
 
-`bun smoke` 覆盖桌面 1280 与移动 390 视口、深浅色切换、复制地址与 QQ 群、
-顶部/底部导航，以及在线、离线、查询失败三态。浏览器不可用时会明确输出“跳过”
-并以 0 退出。构建后可用 `bun check && bun smoke` 一次跑完。
+`npm run smoke` 覆盖桌面 1280 与移动 390 视口、深浅色切换、复制地址与 QQ 群、
+顶部/底部导航，以及在线、离线、查询失败三态。CI 设置 `REQUIRE_BROWSER=1`，
+浏览器起不来会直接失败；本地没有 Chromium 时会明确输出“跳过”。
 
 ## 目录结构
 

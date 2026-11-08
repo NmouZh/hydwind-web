@@ -2,7 +2,7 @@
 /**
  * 构建产物检查。
  *
- * 这是氢风官网的构建层测试缝：只读取 `bun run build` 产出的 dist/，
+ * 这是氢风官网的构建层测试缝：只读取 `npm run build` 产出的 dist/，
  * 按页面断言真实事实存在、编造内容不存在、关键页面与站内链接齐全。
  * 不引入任何依赖，也不检查具体 DOM 结构。
  */
@@ -78,7 +78,7 @@ const expectText = (page, needle, label) => {
 
 const main = async () => {
   if (!existsSync(dist)) {
-    console.error('dist/ 不存在，请先运行 bun run build');
+    console.error('dist/ 不存在，请先运行 npm run build');
     process.exit(1);
   }
 
@@ -160,6 +160,11 @@ const main = async () => {
       ['不需要安装模组', '模组'],
     ];
     for (const [label, fact] of homeFacts) expectText(home, fact, label);
+    if (home.html.includes('href="/gate/"')) {
+      pass('首页提供获取登录码入口');
+    } else {
+      fail('首页缺少 /gate/ 登录码入口');
+    }
   }
 
   // —— 进服指南页面自身必须包含测试期重置提示与进服步骤 ——
@@ -212,6 +217,10 @@ const main = async () => {
     '栏目页稍后补齐',
     '人物与组织内容为示例',
     'NmouZh',
+    // 旧的 Paper 门禁文案：现在是 Velocity + limbo + /login
+    '登录对话框',
+    '角色会被冻结',
+    '输入行，点确认',
   ];
 
   for (const file of htmlFiles) {
@@ -228,7 +237,10 @@ const main = async () => {
   }
 
   // —— 每页的 SEO 字段都必须真实有效 ——
-  const canonicalBase = 'http://103.236.99.253:62179';
+  // 与 astro.config.mjs 的 site 保持一致；上域名/TLS 时构建前设置 HYDWIND_SITE_URL。
+const canonicalBase = (
+  process.env.HYDWIND_SITE_URL?.trim() || 'http://103.236.99.253:62179'
+).replace(/\/$/, '');
   for (const file of htmlFiles) {
     const relative = path.relative(dist, file);
     const html = await readFile(file, 'utf8');

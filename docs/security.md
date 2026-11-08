@@ -50,7 +50,7 @@ db.prepare(`select * from accounts where username = '${username}'`);
 `hydwind_session` 是 `base64url(payload).HMAC-SHA256` 的签名令牌，服务端无状态：
 
 - `HttpOnly` + `SameSite=Lax` + `Secure`（由请求协议 / `X-Forwarded-Proto` 决定），30 天过期；
-- 签名密钥取 `SESSION_SECRET`，没有就退回 `ISSUE_ADMIN_TOKEN`，都缺时用开发密钥并告警；
+- 签名密钥只取 `SESSION_SECRET`（生产至少 32 字符，且不能与 `ISSUE_ADMIN_TOKEN` 相同）；缺失时用进程内随机密钥并记录错误，重启即全员掉线。不再退回站务令牌——否则拿到站务令牌就能伪造任意玩家（包括管理员）的 cookie；
 - 校验先比签名再解析 JSON，签名不对直接丢弃；畸形 cookie 解析失败按未登录处理，不打 500；
 - **cookie 里的 role 只用于展示**：站务判定和传记编辑权限每次回查账号文件，降权立即生效，
   不用等 30 天会话过期。
@@ -63,18 +63,24 @@ db.prepare(`select * from accounts where username = '${username}'`);
 2. **类型与体积**：登录只收 JSON、上限 1KB；其余写接口由 Node 适配器的 `bodySizeLimit` 统一限制为 1MB；
 3. **限流**：`src/lib/rate-limit.ts` 的进程内滑动窗口，IP 10 次 / 10 分钟、账号 5 次 / 10 分钟，
    超出返回 429 并带 `retry-after`。重启即清空，多实例要换 Redis。
-   反代后面只有 Host 通过 `allowedDomains` 校验时才会信任 `X-Forwarded-For`，否则所有请求会挤进同一个 IP 桶。
+   反代后面只有 Host 通过 `allowedDomains` 校验时才会信任 `X-Forwarded-For`。生产必须让 Node
+   只监听 `127.0.0.1`，并由反代**覆盖** `X-Forwarded-For: $remote_addr`；否则客户端可以自填
+   该头，把 IP 限流拆成任意多个桶。IPv6 地址在限流前按 /64 归并。
 
 ## 6. 输出与前端
 
-- 所有用户内容都从 JSON 读出来再渲染，Astro 模板默认转义，前端 JS 一律 `textContent`，
-  不用 `innerHTML` 拼整块 DOM；
+- 所有用户内容都从 JSON 读出来再渲染，Astro 模板默认转义；前端 JS 用 `textContent` 拼 DOM。
+  唯一的 `innerHTML` 是传记 Markdown 渲染结果（`markdown.ts` 全量转义 + 协议白名单），
+  不是直接写用户原文；
 - 站内没有上传入口，没有文件读写接口对外暴露；
 - 前端只做体验校验（格式、必填），**真正的校验一律在服务端再做一遍**。
 
-## 7. 还没做、值得排期
+## 7. 已做与后续
 
-- 登录成功/失败的结构化审计日志（时间、IP、账号，不含密码）；
-- 多实例部署时把限流换成 Redis，并把会话密钥轮换方案写出来；
-- 给 `/api/*` 加一层宽松 CSP 和统一安全响应头的中间件；
-- 密码通过机器人重置后，让旧会话立即失效（账号里加 `sessionVersion`，登录时写进 cookie，鉴权时比对）。
+- 登录成功/失败已经记录账号和归一化 IP（不记密码、不记登录码）；日志由 journald 轮转；
+- 统一安全响应头由 `src/middleware.ts` 负责（nosniff、Referrer-Policy、X-Frame-Options、
+  Permissions-Policy、HTTPS 下的 HSTS）；CSP 由 `astro.config.mjs` 的 `security.csp` 生成，
+  静态文件由 `deploy/Caddyfile` / `deploy/nginx.conf.example` 补头；
+- 密码重置会递增账号 `sessionVersion`，旧 cookie 立即失效；
+- 仍然值得排期：多实例时把限流/登录码换成 Redis、缩短会话 TTL 或改为 `__Host-` cookie
+  （需要 HTTPS 域名）、把 data JSON 迁移到 SQLite/Postgres。

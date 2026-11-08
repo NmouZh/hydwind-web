@@ -59,8 +59,10 @@ export const getKaomojiPool = (): readonly string[] => {
     .split(',')
     .map((item) => item.trim())
     .filter((item) => item.length > 0);
+  const unique = [...new Set(items)];
 
-  return items.length > 0 ? [...new Set(items)] : KAOMOJI_POOL;
+  // 少于两个候选时无法生成“两个不同颜文字”的码，退回内置池而不是让页面永远报错。
+  return unique.length >= 2 ? unique : KAOMOJI_POOL;
 };
 
 /** 备用码前缀可用 `LOGIN_CODE_FALLBACK_PREFIX` 覆盖，空值退回 `HWG`。 */
@@ -243,7 +245,16 @@ export const createMemoryLoginCodeStore = (): LoginCodeStore => {
 
     consumeAttempt(gameId, now, windowMs, limit) {
       purge(now);
-      if (attempts.size > 10_000) attempts.clear();
+      if (attempts.size > 10_000) {
+        // 不整体 clear：否则攻击者用 10k 个随机 gameId 就能把所有人的限流额度清零。
+        for (const [key, hits] of attempts) {
+          const last = hits[hits.length - 1];
+          if (last === undefined || now - last >= windowMs) attempts.delete(key);
+        }
+        if (attempts.size > 10_000) {
+          for (const key of [...attempts.keys()].slice(0, 1_000)) attempts.delete(key);
+        }
+      }
 
       const key = normalizeLoginCode(gameId).toLowerCase();
       const hits = (attempts.get(key) ?? []).filter((at) => now - at < windowMs);

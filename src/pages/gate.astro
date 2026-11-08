@@ -5,14 +5,16 @@ export const prerender = false;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
-import { findAccount } from '../lib/accounts';
+import { accountForSession } from '../lib/auth';
 import { getSite } from '../lib/content';
+import { consumeRateLimit } from '../lib/rate-limit';
 import { gateView } from '../lib/gate';
 import { generateLoginCodes, LOGIN_CODE_TTL_MS } from '../lib/login-codes';
 import { readSession } from '../lib/session';
 
 const session = readSession(Astro.cookies);
-const account = session ? await findAccount(session.username) : undefined;
+// 会话代际不匹配（改过密码）时按未登录处理，不再拿旧 cookie 生成登录码。
+const account = await accountForSession(session);
 const site = await getSite();
 
 // 登录码和登录态都不该被浏览器或 CDN 缓存。
@@ -24,17 +26,28 @@ const ttlMinutes = Math.round(LOGIN_CODE_TTL_MS / 60_000);
 let codes: { code: string; fallback: string; expiresAt: number } | null = null;
 
 if (account) {
-  try {
-    codes = generateLoginCodes({ username: account.username });
-  } catch {
-    // 候选池被并发请求暂时用尽时，codes 保持 null，页面显示可重试的提示。
+  // 每次打开页面都会生成新码；不加限流的话，刷新几十次就能把
+  // 默认 24 选 2 的颜文字池占满，让所有玩家都拿不到码（DoSS）。
+  // 全局上限再兜一层：多个账号同时刷也最多 60 组/分钟，低于 552 个组合。
+  const perUser = consumeRateLimit(
+    `gate:generate:${account.username.toLowerCase()}`,
+    20,
+    60_000
+  );
+  const global = consumeRateLimit('gate:generate:global', 60, 60_000);
+  if (perUser.ok && global.ok) {
+    try {
+      codes = generateLoginCodes({ username: account.username });
+    } catch {
+      // 候选池被并发请求暂时用尽时，codes 保持 null，页面显示可重试的提示。
+    }
   }
 }
 
 const view = gateView({ signedIn: Boolean(account), hasCodes: Boolean(codes) });
 
 const description =
-  '氢风（Hydwind）进服验证：登录网站账号后获取一次性登录码，粘贴进游戏对话框即可解除冻结。';
+  '氢风（Hydwind）进服验证：登录网站账号后获取一次性登录码，在游戏聊天栏输入 /login <码> 解除 limbo 等待。';
 ---
 
 <BaseLayout title="进服验证 · 氢风 Hydwind" description={description} current="account" noindex>
@@ -45,7 +58,7 @@ const description =
         <p class="page-head-sub">
           {
             view === 'codes'
-              ? '把这组码填进游戏里的登录对话框，服务器确认是你本人后就会放行。'
+              ? '把这组码输入游戏聊天栏的 /login 命令，服务器确认是你本人后就会放行。'
               : view === 'error'
                 ? '你已登录，但登录码暂时生成不出来，稍等片刻刷新本页即可。'
                 : '登录网站账号后才能拿到登录码；还没注册的话，先在官方 QQ 群找机器人。'
@@ -76,6 +89,9 @@ const description =
                 <Icon name="copy" size={18} />
                 复制颜文字码
               </button>
+              <a class="text-button is-compact" href="/gate/" data-gate-refresh hidden>
+                重新获取
+              </a>
               <p
                 class="gate-countdown"
                 data-countdown
@@ -106,15 +122,15 @@ const description =
             <ol class="gate-step-list">
               <li>
                 <span class="gate-step-index" aria-hidden="true">1</span>
-                <p>进服后角色会被冻结，屏幕中间会弹出带网址的登录对话框。</p>
+                <p>进服后角色会进入 limbo 等待区，聊天栏会反复提示登录网址。</p>
               </li>
               <li>
                 <span class="gate-step-index" aria-hidden="true">2</span>
-                <p>把上面的颜文字码粘进输入行，点确认。</p>
+                <p>打开网址登录网站账号，拿到上面这组一次性登录码。</p>
               </li>
               <li>
                 <span class="gate-step-index" aria-hidden="true">3</span>
-                <p>粘不上就在聊天框输入 <code>/login 你的码</code>，备用码也可以。</p>
+                <p>回到游戏，在聊天栏输入 <code>/login 你的码</code>；粘不上就用备用码。</p>
               </li>
             </ol>
             <div class="notice gate-notice">
@@ -162,8 +178,12 @@ const description =
         <div class="panel gate-error" role="alert">
           <p class="panel-title">登录码暂时生成不出来</p>
           <p class="gate-guest-copy">
-            同时进服的人有点多，候选码被占满了。稍等片刻刷新本页即可，不需要重新登录。
+            刷新太频繁，或同时进服的人有点多，候选码暂时被占满了。稍等片刻刷新本页即可，不需要重新登录。
           </p>
+          <a class="filled-button gate-guest-cta" href="/gate/">
+            <Icon name="refresh" size={18} />
+            重新获取
+          </a>
         </div>
       )
     }
@@ -175,6 +195,7 @@ const description =
 
   // 服务端给出绝对到期时间，客户端只做显示，避免依赖客户端时钟差。
   const countdown = document.querySelector<HTMLElement>('[data-countdown]');
+  const refresh = document.querySelector<HTMLElement>('[data-gate-refresh]');
 
   if (countdown) {
     const expiresAt = Number(countdown.dataset.expiresAt);
@@ -189,8 +210,15 @@ const description =
         return;
       }
 
-      countdown.textContent = '已过期，刷新页面换一组新码';
+      countdown.textContent = '已过期，点击“重新获取”换一组新码';
       countdown.dataset.expired = 'true';
+      // 过期码不应该还能一键复制，否则玩家会把它粘进游戏浪费一次尝试。
+      document
+        .querySelectorAll<HTMLButtonElement>('.gate-code-card [data-copy]')
+        .forEach((button) => {
+          button.disabled = true;
+        });
+      if (refresh) refresh.hidden = false;
       window.clearInterval(timer);
     };
 

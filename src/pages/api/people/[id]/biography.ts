@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { findAccount } from '../../../../lib/accounts.ts';
+import { readAccountFromRequest } from '../../../../lib/auth.ts';
 import { isJson, json, readJsonObject } from '../../../../lib/api-response.ts';
 import {
   canEditBiography,
@@ -10,8 +11,8 @@ import {
   type ResolvedPerson,
 } from '../../../../lib/biographies.ts';
 import { isSameOrigin } from '../../../../lib/comments.ts';
+import { clientIpKey } from '../../../../lib/client-ip.ts';
 import { consumeRateLimit } from '../../../../lib/rate-limit.ts';
-import { readSessionFromRequest } from '../../../../lib/session.ts';
 import { loadStaticPeople } from '../../../../lib/static-people.ts';
 
 /**
@@ -25,7 +26,7 @@ import { loadStaticPeople } from '../../../../lib/static-people.ts';
  * PUT 仅本人或管理员；校验标题 2–40、正文 0–4000，所有错误都在这里分层。
  */
 
-const MAX_BODY_BYTES = 64 * 1024;
+const MAX_BODY_BYTES = 16 * 1024;
 const SAVE_WINDOW_MS = 10 * 60_000;
 const SAVE_LIMIT = 12;
 
@@ -57,9 +58,8 @@ export const GET: APIRoute = async ({ params, request }) => {
 
   const biography = await findBiographyByGameId(resolved.gameId);
 
-  // 角色以账号文件为准，不信任 cookie 里的旧 role。
-  const session = readSessionFromRequest(request);
-  const account = session ? await findAccount(session.username) : undefined;
+  // 角色以账号文件为准，不信任 cookie 里的旧 role；会话代际也必须一致。
+  const account = await readAccountFromRequest(request);
   const canEdit = canEditBiography(
     account ? { username: account.username, role: account.role } : null,
     resolved.gameId
@@ -71,11 +71,8 @@ export const GET: APIRoute = async ({ params, request }) => {
 export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
   if (!isJson(request)) return json({ error: '请求体必须是 JSON' }, 415);
 
-  const session = readSessionFromRequest(request);
-  if (!session) return json({ error: '先登录再写传记' }, 401);
-
-  const account = await findAccount(session.username);
-  if (!account) return json({ error: '账号已不存在，请重新登录' }, 401);
+  const account = await readAccountFromRequest(request);
+  if (!account) return json({ error: '先登录再写传记' }, 401);
 
   // 与评论写接口一致：带 Origin 的浏览器请求必须同源，防止借登录态跨站写。
   if (!isSameOrigin(request)) return json({ error: '请求来源不对' }, 403);
@@ -93,7 +90,7 @@ export const PUT: APIRoute = async ({ params, request, clientAddress }) => {
   if (!parsed.ok) return parsed.response;
 
   const limit = consumeRateLimit(
-    `bio:${account.username.toLowerCase()}:${clientAddress ?? '-'}`,
+    `bio:${account.username.toLowerCase()}:${clientIpKey(clientAddress)}`,
     SAVE_LIMIT,
     SAVE_WINDOW_MS
   );

@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { findAccount } from '../../../../lib/accounts.ts';
+import { readAccountFromRequest } from '../../../../lib/auth.ts';
 import { isJson, json, readJsonObject } from '../../../../lib/api-response.ts';
 import {
   addComment,
@@ -7,7 +7,6 @@ import {
   listComments,
 } from '../../../../lib/biographies.ts';
 import { gameIdForSlug, isSameOrigin, presentComment } from '../../../../lib/comments.ts';
-import { readSessionFromRequest } from '../../../../lib/session.ts';
 
 /**
  * GET /api/people/:id/comments —— 公开读取评论，按创建时间正序。
@@ -22,14 +21,12 @@ export const GET: APIRoute = async ({ params }) => {
   return json({ comments: await Promise.all(comments.map(presentComment)) });
 };
 
-const MAX_BODY_BYTES = 2048;
+const MAX_BODY_BYTES = 4 * 1024;
 
 /** POST /api/people/:id/comments —— 登录玩家发评论，每账号 10 分钟 5 条。 */
 export const POST: APIRoute = async ({ params, request }) => {
-  const session = readSessionFromRequest(request);
-  if (!session) return json({ error: '先登录再发表评论' }, 401);
-  const account = await findAccount(session.username);
-  if (!account) return json({ error: '账号已不存在，请重新登录' }, 401);
+  const account = await readAccountFromRequest(request);
+  if (!account) return json({ error: '先登录再发表评论' }, 401);
   if (!isSameOrigin(request)) return json({ error: '请求来源不对' }, 403);
 
   const gameId = await gameIdForSlug(params.id ?? '');

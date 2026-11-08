@@ -8,6 +8,11 @@
 
 const DEFAULT_ENDPOINT = 'https://api.mcstatus.io/v2/status/java';
 const CACHE_TTL_MS = 60_000;
+/** 上游故障时的负缓存：避免每个访客都等一次 8 秒超时。 */
+const FAILURE_TTL_MS = 30_000;
+const MAX_RESPONSE_BYTES = 512 * 1024;
+const MAX_PLAYER_NAMES = 200;
+const MAX_NAME_LENGTH = 32;
 
 export interface ServerStatus {
   online: boolean;
@@ -27,6 +32,7 @@ interface CacheEntry {
 }
 
 let cache: CacheEntry | null = null;
+let failure: CacheEntry | null = null;
 let inflight: Promise<ServerStatus> | null = null;
 
 const endpoint = () => (process.env.STATUS_ENDPOINT ?? DEFAULT_ENDPOINT).replace(/\/$/, '');
@@ -59,6 +65,10 @@ export const fetchServerStatus = async (address: string, now = Date.now()): Prom
   if (cache && now - cache.at < CACHE_TTL_MS) {
     return { ...cache.status, source: 'cache' };
   }
+  // 上游刚失败过：负缓存期内直接返回离线占位，不再挂 8 秒。
+  if (failure && now - failure.at < FAILURE_TTL_MS) {
+    return failure.status;
+  }
 
   if (inflight) return inflight;
 
@@ -67,12 +77,16 @@ export const fetchServerStatus = async (address: string, now = Date.now()): Prom
       const response = await fetch(`${endpoint()}/${encodeURIComponent(address)}`, {
         headers: { accept: 'application/json' },
         signal: timeoutSignal(8_000),
+        redirect: 'manual',
       });
       if (!response.ok) throw new Error(`status endpoint ${response.status}`);
-      const data = (await response.json()) as McStatusResponse;
+      const raw = await readBodyLimited(response, MAX_RESPONSE_BYTES);
+      if (!raw) throw new Error('status endpoint response too large');
+      const data = JSON.parse(raw) as McStatusResponse;
       const names = (data.players?.list ?? [])
-        .map((player) => player.name_clean || player.name_raw || '')
-        .filter(Boolean);
+        .map((player) => (player.name_clean || player.name_raw || '').slice(0, MAX_NAME_LENGTH))
+        .filter(Boolean)
+        .slice(0, MAX_PLAYER_NAMES);
 
       const status: ServerStatus = {
         online: Boolean(data.online),
@@ -90,15 +104,48 @@ export const fetchServerStatus = async (address: string, now = Date.now()): Prom
         source: 'live',
       };
       cache = { status, at: now };
+      failure = null;
       return status;
     } catch {
-      // 第三方挂了也不该让官网崩：退回上次缓存，再退回离线占位
-      if (cache) return { ...cache.status, source: 'cache' };
-      return offline(address);
+      // 第三方挂了也不该让官网崩：退回上次缓存，再退回离线占位。
+      // 失败也写负缓存，避免上游故障时每个访客都触发一次 8 秒请求。
+      if (cache) {
+        failure = { status: { ...cache.status, source: 'cache' }, at: now };
+        return failure.status;
+      }
+      const unavailable = offline(address, new Date(now).toISOString());
+      failure = { status: unavailable, at: now };
+      return unavailable;
     } finally {
       inflight = null;
     }
   })();
 
   return inflight;
+};
+
+/** 读取上游响应体并限制大小；超过上限返回 null，交给负缓存处理。 */
+const readBodyLimited = async (response: Response, maxBytes: number): Promise<string | null> => {
+  const declared = Number(response.headers.get('content-length') ?? 0);
+  if (Number.isFinite(declared) && declared > maxBytes) return null;
+  if (!response.body) return null;
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks.map((chunk) => Buffer.from(chunk))).toString('utf8');
 };

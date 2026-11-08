@@ -92,6 +92,10 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
             第一次进服
             <Icon name="arrow_forward" size={18} />
           </a>
+          <a class="text-button" href="/gate/">
+            已有账号？获取登录码
+            <Icon name="key" size={18} />
+          </a>
         </div>
       </div>
 
@@ -198,7 +202,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
         <p class="online-sub">服务器上正在玩的人。状态和名单每 60 秒自动刷新。</p>
       </div>
       <div class="online-tools">
-        <span class="online-count" data-online-count>-- / --</span>
+        <span class="online-count" data-online-count aria-live="polite">-- / --</span>
         <button
           class="icon-button online-refresh"
           type="button"
@@ -215,11 +219,15 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
       class="online-body"
       data-online-body
       data-avatars={JSON.stringify(avatarByGameId)}
-      aria-live="polite"
       aria-busy="true"
     >
-      <p class="online-message" data-online-message>正在查询在线玩家…</p>
+      <p class="online-message" data-online-message role="status" aria-live="polite">
+        正在查询在线玩家…
+      </p>
       <div class="online-grid" data-online-grid hidden></div>
+      <noscript>
+        <p class="online-message">实时在线状态需要 JavaScript；也可以直接进服，或在 QQ 群问一声。</p>
+      </noscript>
     </div>
   </section>
 

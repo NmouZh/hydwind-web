@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+# 登录码页面与接口不应该被搜索引擎索引
+Disallow: /gate/
+Disallow: /api/
+Disallow: /login

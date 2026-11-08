@@ -2,8 +2,9 @@
 Description=Watch for Hydwind website restart requests
 
 [Path]
-# 插件只需以自身用户创建这个文件，无需 sudo，也不占用网络端口。
-PathExists=/run/hydwind/restart-request
+# 插件每次失败都会重新写文件；PathModified 在文件已存在时也会触发，
+# PathExists 在文件持续存在时不会再次触发。
+PathModified=/run/hydwind/restart-request
 Unit=hydwind-restart.service
 
 [Install]

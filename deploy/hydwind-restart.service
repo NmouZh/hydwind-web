@@ -1,13 +1,14 @@
 [Unit]
 Description=Restart Hydwind website on request
 After=hydwind-web.service
+# 防止请求文件反复出现时无限重启；三次失败后需要人工处理。
+StartLimitIntervalSec=300
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
 
-# 先重启，成功后再删请求文件。任何一步失败都会让 oneshot 失败并保留文件：
-# 重启失败时请求不会被吞掉，path 单元可以再次触发重试。
-# 需要 root（或对应的 polkit 授权）才能 restart 另一个服务。
-# 部分发行版 systemctl 在 /bin/systemctl，按实际路径调整。
-ExecStart=/usr/bin/systemctl restart hydwind-web.service
-ExecStart=/usr/bin/rm -f /run/hydwind/restart-request
+# restart.sh 会重启服务、轮询 /api/health?ready=1，成功后才删除请求文件。
+# 失败时保留文件并让 unit 失败，运维能在 journalctl 里看到原因。
+Environment=HYDWIND_HEALTH_URL=http://127.0.0.1:4321/api/health?ready=1
+ExecStart=/opt/hydwind-web/deploy/restart.sh

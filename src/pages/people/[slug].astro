@@ -10,6 +10,7 @@ import Icon from '../../components/Icon.astro';
 import PlayerAvatar from '../../components/PlayerAvatar.astro';
 import '../../styles/error.css';
 import { findAccount, listAccounts } from '../../lib/accounts';
+import { accountForSession } from '../../lib/auth';
 import {
   canEditBiography,
   defaultMainTitle,
@@ -59,8 +60,9 @@ const staticPerson = resolved?.personId
 const renderedContent = staticPerson ? await render(staticPerson) : null;
 const Content = renderedContent?.Content;
 
+// 会话代际也在这里校验：改过密码的旧 cookie 不再显示编辑 / 删除按钮。
 const session = resolved ? readSession(Astro.cookies) : null;
-const viewer = session ? await findAccount(session.username) : undefined;
+const viewer = await accountForSession(session);
 const gameId = resolved?.gameId ?? '';
 const biography = resolved ? await findBiographyByGameId(gameId) : null;
 
@@ -227,7 +229,7 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
           </div>
 
           {canEdit && (
-            <form class="form-stack bio-editor panel" data-bio-editor>
+            <form class="form-stack bio-editor panel" data-bio-editor method="post">
               <label class="field">
                 <span>主标题</span>
                 <input
@@ -275,7 +277,7 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
           </div>
 
           {viewer ? (
-            <form class="form-stack comment-form panel" data-comment-form>
+            <form class="form-stack comment-form panel" data-comment-form method="post">
               <label class="field">
                 <span>评论（最多 {MAX_COMMENT_BODY} 字）</span>
                 <textarea

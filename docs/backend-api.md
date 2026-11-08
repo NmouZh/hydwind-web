@@ -6,14 +6,14 @@
 
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
-| `ISSUE_ADMIN_TOKEN` | 议题与账号功能必填 | 站务共享密钥。插件调用写接口时用 `Authorization: Bearer <token>`。不设置则所有写接口、待审列表、注册接口都返回 401。 |
-| `PLUGIN_TOKEN` | 游戏插件必填 | HydwindGate 插件专用密钥，只用于 `/api/plugin/*`。与 `ISSUE_ADMIN_TOKEN` 完全分离：插件令牌不能调议题 / 账号接口，站务令牌也不能调插件接口。不设置则插件接口一律 401。 |
-| `SESSION_SECRET` | 上线必填 | 登录会话 cookie 的 HMAC 密钥，至少 16 字符。不配会退回 `ISSUE_ADMIN_TOKEN`，两者都没有时用开发密钥并打警告。 |
-| `HYDWIND_DATA_DIR` | 否 | 议题与账号 JSON 的存放目录，默认 `<cwd>/data`。 |
+| `ISSUE_ADMIN_TOKEN` | 议题与账号功能必填 | 站务共享密钥。插件调用写接口时用 `Authorization: Bearer <token>`。不设置则所有写接口、待审列表、注册接口都返回 401。生产要求至少 32 个随机字符。 |
+| `PLUGIN_TOKEN` | 游戏插件必填 | HydwindGate 插件专用密钥，只用于 `/api/plugin/*`。与 `ISSUE_ADMIN_TOKEN` 完全分离：插件令牌不能调议题 / 账号接口，站务令牌也不能调插件接口。不设置则插件接口一律 401。生产要求至少 32 个随机字符，且不能与其他令牌相同。 |
+| `SESSION_SECRET` | 上线必填 | 登录会话 cookie 的 HMAC 密钥，生产要求至少 32 个随机字符，且不能与 `ISSUE_ADMIN_TOKEN` 相同。未配置时使用进程内随机密钥（重启即全员掉线），生产环境会记录错误；`scripts/check-env.mjs` 会直接拒绝启动。 |
+| `HYDWIND_DATA_DIR` | 否 | 议题、账号与传记 JSON 的存放目录，默认 `<cwd>/data`。服务会创建为 0700，文件写为 0600。 |
 | `LOGIN_CODE_KAOMOJI_POOL` | 否 | 登录码颜文字候选池，逗号分隔；默认内置 24 个。空值退回默认池，重复项自动去重。 |
 | `LOGIN_CODE_FALLBACK_PREFIX` | 否 | ASCII 备用码前缀，默认 `HWG`；匹配规则随前缀自动派生，大小写不敏感。 |
 | `STATUS_ENDPOINT` | 否 | 服务器状态数据源，默认 `https://api.mcstatus.io/v2/status/java`。以后插件自建 HTTP 状态接口，把它指过去即可。 |
-| `HOST` / `PORT` | 否 | `node ./dist/server/entry.mjs` 的监听地址，默认 `0.0.0.0:4321`。 |
+| `HOST` / `PORT` | 否 | `node ./dist/server/entry.mjs` 的监听地址，默认 `0.0.0.0:4321`。放在 TLS 反代后面时应设为 `127.0.0.1`。 |
 
 ## 启动
 
@@ -31,11 +31,11 @@ npm run build
 `.env` 示例：
 
 ```dotenv
-ISSUE_ADMIN_TOKEN=<随机串>
-PLUGIN_TOKEN=<再另一个随机串>
-SESSION_SECRET=<另一个随机串>
+ISSUE_ADMIN_TOKEN=<32+ 随机串>
+PLUGIN_TOKEN=<另一个 32+ 随机串>
+SESSION_SECRET=<第三个 32+ 随机串>
 HYDWIND_DATA_DIR=./data
-HOST=0.0.0.0
+HOST=127.0.0.1
 PORT=4321
 ```
 
@@ -44,6 +44,8 @@ PORT=4321
 ### `GET /api/health`
 
 存活探针，给 systemd 和游戏插件使用，**不需要鉴权**。返回进程启动至今的秒数。
+加 `?ready=1` 时额外检查数据目录可读写、三个 JSON 能解析；故障返回 503。
+插件仍使用轻量的 liveness（不带 `ready`）。
 
 ```json
 { "ok": true, "uptime": 12345 }
@@ -111,7 +113,7 @@ HydwindGate 插件校验玩家从 `/gate` 页面拿到的登录码，**只接受
 
 ### `GET /api/issues`
 
-公开议题列表（不含 `pending`）。带 `?includePending=1` 且带站务权限（令牌或 admin 账号）时返回全部。
+公开议题列表（不含 `pending`）。带站务权限（令牌或 admin 会话）时额外返回 pending。
 
 ### `POST /api/issues`
 
@@ -121,6 +123,7 @@ HydwindGate 插件校验玩家从 `/gate` 页面拿到的登录码，**只接受
 
 - `category`：`bug` / `suggestion` / `other`
 - 校验：标题 ≥ 4 字，描述 ≥ 10 字；同一 IP 10 分钟内最多 5 次
+- 总量上限 5000 条、待审队列 200 条；超过时返回 503，等站务清理
 - 新议题状态为 `pending`，需要群里审核后才公开
 
 ### `GET /api/issues/:id`
@@ -236,16 +239,20 @@ slug 既不是静态人物也不是账号时返回 `404 { "error": "..." }`。
 ### `POST /api/auth/register` （需要站务令牌）
 
 ```json
-{ "username": "Nz_173", "platformId": "QQ号", "platform": "qq_official", "nickname": "可选", "password": "可选，不传就随机生成", "role": "player | admin" }
+{ "username": "Nz_173", "platformId": "QQ号", "platform": "qq_official", "nickname": "可选", "password": "可选，至少 10 位；不传就随机生成", "role": "player" }
 ```
+
+注册接口默认只创建玩家。传 `"role": "admin"` 会被拒绝（403）；确实需要由接口创建管理员时，
+在网站进程设置 `HYDWIND_ALLOW_ADMIN_REGISTER=1`，并且只让受信机器人在内网调用。
 
 返回：
 
 ```json
-{ "username": "Nz_173", "password": "生成或传入的密码", "role": "admin", "created": true }
+{ "username": "Nz_173", "password": "生成或传入的密码", "role": "player", "created": true }
 ```
 
-`created: false` 表示这个平台身份已存在，本次是密码重置。插件连续注册有 10 分钟 60 次的总限流。
+`created: false` 表示这个平台身份已存在，本次是密码重置（旧会话随 `sessionVersion` 递增失效）。
+注册接口按 IP 10 分钟最多 20 次。
 
 ### `POST /api/auth/login`
 
@@ -253,7 +260,9 @@ slug 既不是静态人物也不是账号时返回 `404 { "error": "..." }`。
 { "username": "Nz_173", "password": "……" }
 ```
 
-成功时下发 `hydwind_session` cookie（HttpOnly、SameSite=Lax、30 天），返回 `{ "account": { … } }`。同一 IP 10 分钟最多 10 次。
+成功时下发 `hydwind_session` cookie（HttpOnly、SameSite=Lax、30 天），返回 `{ "account": { … } }`。
+同一 IP 10 分钟最多 60 次请求；同一账号 + IP 10 分钟最多 5 次失败，同一账号跨 IP 最多 30 次失败。
+成功登录会清掉失败计数，正常用户不会因为登录次数被锁。
 
 ### `POST /api/auth/logout`
 
@@ -280,12 +289,11 @@ slug 既不是静态人物也不是账号时返回 `404 { "error": "..." }`。
 ## 部署注意
 
 - 议题与账号数据都存在本地 JSON 文件里，**只适合单实例、带持久磁盘的部署**（VPS / 自建容器）。EdgeOne 这类纯静态托管的 Pages 不能跑这层接口，需要改成边缘函数 + 数据库/对象存储。
-- 站点前面是 NAT 转发，没有独立公网 IP：服务只监听 `0.0.0.0:4321`，由路由器把公网端口映射进来。
-- **反向代理必须透传真实 Host 和 `X-Forwarded-Proto`。** `astro.config.mjs` 的 `security.allowedDomains` 只认可
-  `103.236.99.253`、`localhost`、`127.0.0.1`：Host 不在名单里时 Astro 会把 `request.url` 回落成 localhost，
-  登录的同源校验会直接 403，`X-Forwarded-For` 也不会被信任（限流会按代理 IP 分桶）。换域名时记得同步这份名单。
-- 所有写接口的请求体在适配器层统一限制为 1MB（`bodySizeLimit`）；登录接口另有 1KB 的更严限制。
-- 会话是无状态签名 cookie，`Secure` 由请求协议 / `X-Forwarded-Proto` 决定，重启服务不会踢人；`SESSION_SECRET` 一换所有人都会掉线。
+- **生产必须在 TLS 反代后面**：Node 只监听 `127.0.0.1`，Caddy/Nginx 终止 TLS、压缩并透传真实 Host / `X-Forwarded-Proto` / `X-Forwarded-For`。示例见 `deploy/Caddyfile` 与 `deploy/nginx.conf.example`。
+- 反代必须**覆盖** `X-Forwarded-For`（`$remote_addr`），不要追加；否则客户端可以伪造 IP 绕过限流。
+- `astro.config.mjs` 的 `security.allowedDomains` 只认可 `103.236.99.253`、`localhost`、`127.0.0.1`：换域名时记得同步并重新构建，否则登录的同源校验会 403。
+- 每个写接口都有自己的请求体上限：登录 1KB、注册 2KB、议题 8KB、话题回复 2KB、传记 64KB、评论 2KB；适配器另有 1MB 兜底。
+- 会话是无状态签名 cookie，`Secure` 由请求协议 / `X-Forwarded-Proto` 决定；`SESSION_SECRET` 一换所有人都会掉线。改密码会递增账号的 `sessionVersion`，旧 cookie 立即失效。
 - 角色以账号文件为准：降权后现有会话的站务/传记权限立即失效，不用等 30 天。
 - `/account/` 的账号帮助区会直接给出官方 QQ 群号和复制按钮；忘记密码按 `docs/backend-api.md` 的注册流程找机器人重置。
-- 想无状态部署时，把 `src/lib/issues.ts` 和 `src/lib/accounts.ts` 换成 MySQL / D1 / KV 实现即可，接口层不用动。
+- 想无状态部署时，把 `src/lib/issues.ts`、`src/lib/accounts.ts` 与 `src/lib/biographies.ts` 换成 MySQL / D1 / KV 实现即可，接口层不用动。

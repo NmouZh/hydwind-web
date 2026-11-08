@@ -6,28 +6,45 @@ After=network.target
 [Service]
 Type=simple
 
-# 按实际部署调整：改成仓库实际所在目录（.env 放在这里，HYDWIND_DATA_DIR 也相对于它）。
+# 按实际部署调整。正式部署应使用专用用户；下面默认值假设已经创建 hydwind 用户/组。
 WorkingDirectory=/opt/hydwind-web
+User=hydwind
+Group=hydwind
 
-# 不要假设运行用户。默认以 root 运行只适合临时验证；正式部署应取消注释并改成实际用户/组。
-# 该用户需要对 WorkingDirectory、.env、HYDWIND_DATA_DIR 有读写权限。
-#User=hydwind
-#Group=hydwind
+# 启动前检查令牌、数据目录与权限；失败直接不启动，避免明文/弱密钥上线。
+ExecStartPre=/usr/bin/node --env-file=.env ./scripts/check-env.mjs
 
+# 用 flock 防止 run.sh 或手工启动再起一个进程：三个 JSON 存储的写队列是进程内的。
 # 也可改成 `command -v node` 查到的绝对路径（nvm 安装的 node 不在 /usr/bin/node）。
-ExecStart=/usr/bin/node --env-file=.env ./dist/server/entry.mjs
+ExecStart=/usr/bin/flock -n /run/hydwind/web.lock /usr/bin/node --env-file=.env ./dist/server/entry.mjs
 
 Restart=always
 RestartSec=5
 
-# 创建 /run/hydwind 供插件写重启请求文件。
-# 目录属主是 User/Group（未设置时是 root:root），插件运行用户必须能写：
-#   - 推荐：给服务设置 User/Group，并把插件用户加入同一个组，保持 0775；
-#   - 或改成 0777（不推荐）；
-#   - 或不用 RuntimeDirectory，改用 deploy/README.md 里的 tmpfiles.d 方案。
+# —— 沙箱 ——
+# /opt/hydwind-web 整体只读，只有数据目录和重启请求目录可写。
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+UMask=0077
+ReadWritePaths=/opt/hydwind-web/data /run/hydwind
+
+# 生产模式：session.ts 会对缺失/过短的 SESSION_SECRET 直接拒绝请求。
+Environment=NODE_ENV=production
+
+# 创建 /run/hydwind 供插件写重启请求文件；组里只放网站与插件用户，不共用 root 组。
 RuntimeDirectory=hydwind
 RuntimeDirectoryPreserve=yes
-RuntimeDirectoryMode=0775
+RuntimeDirectoryMode=0770
 
 [Install]
 WantedBy=multi-user.target

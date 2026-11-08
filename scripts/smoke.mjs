@@ -39,6 +39,11 @@ let browserSkipReason = null;
 
 const skipBrowser = (reason) => {
   browserSkipReason = reason;
+  // CI 装了 Chromium，跳过浏览器覆盖说明环境坏了，不能静默变绿。
+  if (process.env.REQUIRE_BROWSER === '1') {
+    failures.push(`浏览器冒烟被跳过：${reason}`);
+    return;
+  }
   console.log(`跳过浏览器冒烟：${reason}`);
 };
 
@@ -200,7 +205,7 @@ const apiSmoke = async () => {
     server = await startStandaloneServer({
       PLUGIN_TOKEN: pluginToken,
       ISSUE_ADMIN_TOKEN: adminToken,
-      SESSION_SECRET: 'smoke-session-secret-0123456789',
+      SESSION_SECRET: 'smoke-session-secret-0123456789abcd',
     });
   } catch (error) {
     failures.push(`/api 冒烟：${String(error).split('\n')[0]}`);
@@ -255,10 +260,34 @@ const apiSmoke = async () => {
     const healthBody = await health.json();
     check(health.status === 200 && healthBody.ok === true, '/api/health 返回 200 且 ok:true');
 
+    const ready = await fetch(`${origin}/api/health?ready=1`);
+    const readyBody = await ready.json();
+    check(
+      ready.status === 200 && readyBody.ok === true && readyBody.ready === true,
+      '/api/health?ready=1 返回 200 且 ready:true'
+    );
+
+    // CSP meta 在构建期写进静态 HTML；安全响应头只覆盖 SSR 路由，
+    // 静态文件的头由生产反代补（见 deploy/Caddyfile）。
+    const home = await fetch(`${origin}/`);
+    const homeHtml = await home.text();
+    check(
+      homeHtml.toLowerCase().includes('http-equiv="content-security-policy"'),
+      '首页包含 CSP meta'
+    );
+
     // 未登录访问 /gate：应看到登录 / 注册指引，而不是错误或码
     const guest = await fetch(`${origin}/gate`);
     const guestHtml = await guest.text();
     check(guest.status === 200, '/gate 未登录可访问');
+    check(
+      guest.headers.get('x-content-type-options') === 'nosniff',
+      '/gate 响应带 X-Content-Type-Options: nosniff'
+    );
+    check(
+      guest.headers.get('x-frame-options') === 'DENY',
+      '/gate 响应带 X-Frame-Options: DENY'
+    );
     check(guestHtml.includes('登录网站账号'), '/gate 未登录显示登录指引');
     check(!guestHtml.includes('登录码暂时生成不出来'), '/gate 未登录不显示生成失败');
 
@@ -582,6 +611,66 @@ const apiSmoke = async () => {
       'GET 评论返回已发表的全部评论'
     );
 
+    // —— 议题：匿名提交进 pending，站务通过后公开，回复走同一套权限 ——
+    const submittedIssue = await requestJson('/api/issues', {
+      method: 'POST',
+      body: {
+        title: '冒烟议题标题',
+        body: '这是一条冒烟测试提交的议题描述。',
+        author: username,
+        category: 'bug',
+      },
+    });
+    check(
+      submittedIssue.status === 201 && Number.isInteger(submittedIssue.body?.issue?.id),
+      'POST /api/issues 匿名提交返回 201 与议题编号'
+    );
+    const issueId = submittedIssue.body?.issue?.id;
+
+    const anonymousIssues = await requestJson('/api/issues');
+    check(
+      anonymousIssues.status === 200 &&
+        !anonymousIssues.body?.issues?.some((issue) => issue.id === issueId),
+      '匿名议题列表不包含 pending'
+    );
+
+    const staffIssues = await requestJson('/api/issues', {
+      headers: { authorization: `Bearer ${adminToken}` },
+    });
+    check(
+      staffIssues.status === 200 &&
+        staffIssues.body?.issues?.some((issue) => issue.id === issueId && issue.status === 'pending'),
+      '站务令牌可以看到 pending 议题'
+    );
+
+    const approvedIssue = await requestJson(`/api/issues/${issueId}`, {
+      method: 'PATCH',
+      headers: { authorization: `Bearer ${adminToken}` },
+      body: { status: 'open' },
+    });
+    check(
+      approvedIssue.status === 200 && approvedIssue.body?.issue?.status === 'open',
+      'PATCH /api/issues/:id 站务可以通过议题'
+    );
+
+    const repliedIssue = await requestJson(`/api/issues/${issueId}/replies`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${adminToken}` },
+      body: { body: '已经看到，稍后处理。' },
+    });
+    check(
+      repliedIssue.status === 201 &&
+        repliedIssue.body?.issue?.replies?.some((reply) => reply.body.includes('稍后处理')),
+      'POST /api/issues/:id/replies 站务可以回复'
+    );
+
+    const publishedIssues = await requestJson('/api/issues');
+    check(
+      publishedIssues.status === 200 &&
+        publishedIssues.body?.issues?.some((issue) => issue.id === issueId),
+      '通过后议题出现在公开列表'
+    );
+
     // /people/ 已改为 SSR：构建期没有静态 HTML，必须从真实服务取到合并结果。
     const peoplePage = await fetch(`${origin}/people/`);
     const peopleHtml = await peoplePage.text();
@@ -641,7 +730,7 @@ const apiSmoke = async () => {
 
 const browserSmoke = async () => {
   if (!existsSync(dist)) {
-    console.error('dist/ 不存在，请先运行 bun run build');
+    console.error('dist/ 不存在，请先运行 npm run build');
     process.exit(1);
   }
 
@@ -663,7 +752,7 @@ const browserSmoke = async () => {
   let server;
   try {
     server = await startStandaloneServer({
-      SESSION_SECRET: 'smoke-session-secret-0123456789',
+      SESSION_SECRET: 'smoke-session-secret-0123456789abcd',
       ISSUE_ADMIN_TOKEN: 'smoke-admin-token',
     });
   } catch (error) {
@@ -760,6 +849,8 @@ const browserSmoke = async () => {
     await desktop.route('**/api.mcstatus.io/**', fulfillStatus);
 
     const page = await desktop.newPage();
+    // 删除评论前有确认框；冒烟里一律确认。
+    page.on('dialog', (dialog) => dialog.accept());
     page.on('pageerror', (error) => {
       console.error(`浏览器页面脚本错误：${error.message}`);
     });

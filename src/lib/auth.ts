@@ -4,12 +4,32 @@
  * 站点本身没有账号系统，议题审核走「群内指令 → 插件 → 管理接口」这条链路。
  * 插件用环境变量 ISSUE_ADMIN_TOKEN 里的共享密钥调用写接口。
  */
-import { findAccount } from './accounts';
+import { findAccount, type Account } from './accounts';
 import { json } from './api-response.ts';
-import { readSessionFromRequest } from './session';
+import { readSessionFromRequest, type SessionPayload } from './session';
 import { timingSafeEqualString } from './timing-safe.ts';
 
 const ADMIN_TOKEN = () => process.env.ISSUE_ADMIN_TOKEN ?? '';
+
+/**
+ * 把会话落到真实账号：账号必须还存在，且会话代际与账号一致。
+ *
+ * 改密码会递增 `sessionVersion`，因此旧 cookie 立刻失效；只校验签名的
+ * 话，密码泄露后的 30 天里旧会话仍然有效。
+ */
+export const accountForSession = async (
+  session: SessionPayload | null
+): Promise<Account | null> => {
+  if (!session) return null;
+  const account = await findAccount(session.username);
+  if (!account) return null;
+  if ((session.v ?? 0) !== (account.sessionVersion ?? 0)) return null;
+  return account;
+};
+
+/** API 路由统一入口：解析 cookie 并回查账号。 */
+export const readAccountFromRequest = async (request: Request): Promise<Account | null> =>
+  accountForSession(readSessionFromRequest(request));
 
 export const isAdmin = (request: Request): boolean => {
   const token = ADMIN_TOKEN();
@@ -34,10 +54,7 @@ export const isAdmin = (request: Request): boolean => {
 export const isStaffRequest = async (request: Request): Promise<boolean> => {
   if (isAdmin(request)) return true;
 
-  const session = readSessionFromRequest(request);
-  if (!session) return false;
-
-  const account = await findAccount(session.username);
+  const account = await readAccountFromRequest(request);
   return account?.role === 'admin';
 };
 

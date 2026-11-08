@@ -2,7 +2,7 @@
 #
 # 使用方式：用 GitHub 账号登录 app.pagescms.org，选择 NmouZh/hydwind-web。
 # 编辑者必须由服主在 GitHub 仓库中授予写权限（collaborator）。
-# 保存后 Pages CMS 会直接在仓库中提交 Markdown 变更，EdgeOne 按现有链路重新构建。
+# 保存后 Pages CMS 会直接在仓库中提交 Markdown 变更，之后按仓库 CI 流程构建与部署。
 
 media:
   input: public/images

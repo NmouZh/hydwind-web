@@ -1,0 +1,23 @@
+[Unit]
+Description=Back up Hydwind website data
+Documentation=file:///opt/hydwind-web/deploy/README.md
+
+[Service]
+Type=oneshot
+User=hydwind
+Group=hydwind
+# 与 hydwind-web.service 使用同一 UMask；备份文件本身也是 0600。
+UMask=0077
+Environment=HYDWIND_DATA_DIR=/opt/hydwind-web/data
+Environment=HYDWIND_BACKUP_DIR=/var/backups/hydwind
+ExecStart=/opt/hydwind-web/deploy/backup.sh
+
+# 允许读取数据目录、写入备份目录（/var/backups 默认不在 ProtectSystem 白名单里）
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/hydwind-web/data /var/backups/hydwind
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target

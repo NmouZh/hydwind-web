@@ -35,7 +35,66 @@ const delayOf = (element: HTMLElement, name: string): number => {
 };
 
 const revealImmediately = (targets: readonly HTMLElement[]): void => {
-  targets.forEach((target) => target.classList.add('is-revealed'));
+  targets.forEach((target) => {
+    target.classList.remove('is-pending');
+    target.classList.add('is-revealed');
+  });
+};
+
+/** 没有 GSAP 的页面：进度线用一次 rAF 更新，不引入 113 KB 的动画库。 */
+const initScrollProgress = (): void => {
+  const progress = document.querySelector<HTMLElement>('[data-scroll-progress]');
+  if (!progress) return;
+  let ticking = false;
+  const update = (): void => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    const ratio = max > 0 ? Math.min(1, window.scrollY / max) : 0;
+    progress.style.transform = `scaleX(${ratio})`;
+    ticking = false;
+  };
+  update();
+  window.addEventListener(
+    'scroll',
+    () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(update);
+    },
+    { passive: true }
+  );
+  window.addEventListener('resize', update, { passive: true });
+};
+
+/**
+ * 轻量揭示：只给视口下方的元素加 `is-pending`，进入视口后移除。
+ * 元素默认可见，脚本失败/慢加载时首屏内容不会空白。
+ */
+const initLightReveal = (): void => {
+  const targets = Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]'));
+  const pending = targets.filter(
+    (target) => target.getBoundingClientRect().top > window.innerHeight
+  );
+  if (pending.length === 0) return;
+
+  pending.forEach((target) => target.classList.add('is-pending'));
+  if (!('IntersectionObserver' in window)) {
+    revealImmediately(pending);
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const target = entry.target as HTMLElement;
+        target.classList.remove('is-pending');
+        target.classList.add('is-revealed');
+        observer.unobserve(target);
+      }
+    },
+    { rootMargin: '0px 0px -12% 0px' }
+  );
+  pending.forEach((target) => observer.observe(target));
 };
 
 /**
@@ -79,6 +138,17 @@ export const initMotion = async (): Promise<void> => {
     return;
   }
 
+  // 只有首屏/列表页才需要 GSAP 的逐字、视差和磁吸；账号、议题、进服、
+  // 指南这些页面只有滚动揭示和一条进度线，用轻量实现即可，省下 113 KB JS。
+  const needsGsap = Boolean(
+    document.querySelector('[data-split], [data-parallax], [data-magnetic], [data-roll], [data-hero]')
+  );
+  if (!needsGsap) {
+    initLightReveal();
+    initScrollProgress();
+    return;
+  }
+
   let gsap: typeof import('gsap').gsap;
   let ScrollTrigger: typeof import('gsap/ScrollTrigger').ScrollTrigger;
 
@@ -92,10 +162,19 @@ export const initMotion = async (): Promise<void> => {
   } catch {
     // 动效是装饰，加载失败就让内容直接可读
     revealImmediately(revealTargets);
+    initScrollProgress();
     return;
   }
 
   gsap.registerPlugin(ScrollTrigger);
+
+  // 运行中切换“减少动效”偏好时立即停掉 GSAP，而不是等下次刷新。
+  window.matchMedia(REDUCED_MOTION).addEventListener('change', (event) => {
+    if (!event.matches) return;
+    gsap.globalTimeline.clear();
+    ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    revealImmediately(Array.from(document.querySelectorAll<HTMLElement>('[data-reveal]')));
+  });
 
   const html = document.documentElement;
   html.classList.add('hw-motion');
@@ -103,16 +182,31 @@ export const initMotion = async (): Promise<void> => {
   const revealDuration = durationToken('--md-sys-motion-duration-medium4', 400) * 1.7;
   const reduced = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
-  /** 先把元素压到起点，再交给 ScrollTrigger 放行。 */
+  /** 先把元素压到起点，再交给 ScrollTrigger 放行。只动画 opacity/transform。 */
   const stage = (targets: readonly HTMLElement[], distance: number): void => {
-    gsap.set(targets, { opacity: 0, y: distance, filter: 'blur(8px)' });
+    gsap.set(targets, { opacity: 0, y: distance });
   };
 
   const revealBatch = (targets: readonly HTMLElement[], distance = 22): void => {
-    if (targets.length === 0) return;
-    stage(targets, distance);
+    // 已经在视口里的元素保持默认可见，不做“先隐藏再播放”，避免闪一下。
+    const below = targets.filter(
+      (target) => target.getBoundingClientRect().top > window.innerHeight * 0.88
+    );
+    if (below.length === 0) return;
+    below.forEach((target) => target.classList.add('is-pending'));
+    stage(below, distance);
 
-    ScrollTrigger.batch(targets as HTMLElement[], {
+    // 兜底：ScrollTrigger 因布局变化没触发时，3 秒后把内容放出来。
+    window.setTimeout(() => {
+      below.forEach((target) => {
+        if (target.classList.contains('is-revealed')) return;
+        target.classList.remove('is-pending');
+        target.classList.add('is-revealed');
+        gsap.set(target, { clearProps: 'opacity,transform' });
+      });
+    }, 3000);
+
+    ScrollTrigger.batch(below as HTMLElement[], {
       start: 'top 88%',
       once: true,
       onEnter: (batch) => {
@@ -120,14 +214,15 @@ export const initMotion = async (): Promise<void> => {
           gsap.to(element, {
             opacity: 1,
             y: 0,
-            filter: 'blur(0px)',
             duration: revealDuration,
             delay: index * 0.08 + delayOf(element as HTMLElement, '--reveal-delay'),
             ease: 'power3.out',
             overwrite: true,
             onComplete: () => {
-              element.classList.add('is-revealed');
-              gsap.set(element, { clearProps: 'opacity,transform,filter' });
+              const target = element as HTMLElement;
+              target.classList.remove('is-pending');
+              target.classList.add('is-revealed');
+              gsap.set(target, { clearProps: 'opacity,transform' });
             },
           });
         });
@@ -153,27 +248,26 @@ export const initMotion = async (): Promise<void> => {
   const heroEn = Array.from(document.querySelectorAll<HTMLElement>('[data-hero] .hero-en'));
 
   if (chars.length > 0) {
-    gsap.set(chars, { yPercent: 110, opacity: 0, filter: 'blur(6px)' });
+    gsap.set(chars, { yPercent: 110, opacity: 0 });
     gsap.to(chars, {
       yPercent: 0,
       opacity: 1,
-      filter: 'blur(0px)',
       duration: revealDuration * 1.15,
       stagger: 0.09,
       ease: 'power3.out',
-      onComplete: () => gsap.set(chars, { clearProps: 'transform,filter,opacity' }),
+      onComplete: () => gsap.set(chars, { clearProps: 'transform,opacity' }),
     });
   }
 
   heroEn.forEach((element, index) => {
-    gsap.set(element, { opacity: 0, letterSpacing: '0.7em' });
+    // 只做淡入：letter-spacing 是布局属性，逐帧改会让整行文字反复 reflow。
+    gsap.set(element, { opacity: 0 });
     gsap.to(element, {
       opacity: 1,
-      letterSpacing: '0.42em',
       duration: revealDuration * 1.4,
       delay: 0.08 + index * 0.06,
       ease: 'power2.out',
-      onComplete: () => gsap.set(element, { clearProps: 'opacity,letterSpacing' }),
+      onComplete: () => gsap.set(element, { clearProps: 'opacity' }),
     });
   });
 

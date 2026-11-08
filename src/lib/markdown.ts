@@ -31,7 +31,9 @@ const SAFE_HREF = /^(?:https?:\/\/|mailto:|\/|#|\.{0,2}\/)/i;
 
 const safeHref = (raw: string): string | null => {
   const href = raw.trim();
-  if (!href || /[\s<>"']/.test(href)) return null;
+  // 反斜杠会被浏览器在特殊 scheme 下归一成斜杠（`/\evil.com` → `//evil.com`）；
+  // 协议相对地址 `//host` 也不是站内链接。两者都拒绝，避免把外链伪装成站内路径。
+  if (!href || /[\s<>"'\\]/.test(href) || href.startsWith('//')) return null;
   return SAFE_HREF.test(href) ? href : null;
 };
 
@@ -163,11 +165,15 @@ const isBlockStart = (line: string): boolean =>
   QUOTE.test(line) ||
   asListItem(line) !== null;
 
+/** 列表最大嵌套层数；4000 字正文理论上可以造出很深的缩进，递归要有硬上限。 */
+const MAX_LIST_DEPTH = 16;
+
 /** 列表：缩进比本层深的行交给递归，挂到上一个 `<li>` 里面。 */
 const renderList = (
   lines: string[],
   start: number,
-  options: MarkdownOptions
+  options: MarkdownOptions,
+  depth = 0
 ): { html: string; next: number } => {
   const first = asListItem(lines[start]);
   const ordered = first?.ordered ?? false;
@@ -190,8 +196,8 @@ const renderList = (
     const item = asListItem(line);
     if (!item || item.ordered !== ordered || item.indent < baseIndent) break;
 
-    if (item.indent > baseIndent) {
-      const nested = renderList(lines, index, options);
+    if (item.indent > baseIndent && depth < MAX_LIST_DEPTH) {
+      const nested = renderList(lines, index, options, depth + 1);
       if (items.length > 0) {
         items[items.length - 1] = items[items.length - 1].replace(
           /<\/li>$/,

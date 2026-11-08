@@ -141,7 +141,26 @@ body {
   color: var(--md-sys-color-on-surface);
   background: var(--md-sys-color-surface);
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
   text-rendering: optimizeLegibility;
+}
+
+a,
+button,
+[role='button'] {
+  touch-action: manipulation;
+}
+
+/*
+ * iOS Safari 在聚焦小于 16px 的输入框时会自动放大页面且不回缩。
+ * 用 pointer:coarse 而不是 UA 判断，覆盖手机、平板和触屏笔记本。
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
 
 @media (max-width: 839px) {
@@ -169,6 +188,8 @@ h3 {
   line-height: var(--hw-leading-tight);
   letter-spacing: -0.03em;
   text-wrap: balance;
+  /* 40 字无空格标题、长英文 ID 在 390px 下不允许被 overflow-x: clip 直接裁掉 */
+  overflow-wrap: anywhere;
 }
 
 h1 {
@@ -555,15 +576,23 @@ code {
   animation-delay: var(--enter-delay, 0ms);
 }
 
+/*
+ * 滚动揭示默认可见：脚本没加载、加载慢或失败时，内容不能先被藏起来。
+ * motion.ts 只给视口下方的元素加 `.is-pending`，进入视口前不会闪；
+ * GSAP 路径设置的是 inline style，同样只作用于下方元素。
+ */
 [data-reveal] {
-  opacity: 0;
-  transform: translateY(18px);
   transition:
     opacity var(--md-sys-motion-duration-medium3)
       var(--md-sys-motion-easing-emphasized-decelerate),
     transform var(--md-sys-motion-duration-medium3)
       var(--md-sys-motion-easing-emphasized-decelerate);
   transition-delay: var(--reveal-delay, 0ms);
+}
+
+[data-reveal].is-pending:not(.is-revealed) {
+  opacity: 0;
+  transform: translateY(18px);
 }
 
 [data-reveal].is-revealed {
@@ -576,7 +605,8 @@ code {
     animation: none;
   }
 
-  [data-reveal] {
+  [data-reveal],
+  [data-reveal].is-pending:not(.is-revealed) {
     opacity: 1;
     transform: none;
     transition: none;
@@ -878,6 +908,7 @@ html[data-theme-switching] *::after {
   line-height: 1.2;
   letter-spacing: -0.01em;
   text-wrap: balance;
+  overflow-wrap: anywhere;
 }
 
 .page-head-sub {
@@ -1057,6 +1088,7 @@ html[data-theme-switching] *::after {
   font-weight: 700;
   line-height: 1.3;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
 }
 
 .list-row-text {
@@ -1299,6 +1331,7 @@ html[data-theme-switching] *::after {
   color: var(--md-sys-color-on-surface);
   font-size: 1rem;
   line-height: var(--hw-leading-body);
+  overflow-wrap: anywhere;
 }
 
 .prose > :first-child {
@@ -1570,7 +1603,8 @@ html[data-theme-switching] *::after {
 .field select {
   width: 100%;
   padding: 13px 14px;
-  border: 1px solid var(--md-sys-color-outline-variant);
+  /* outline-variant 对表面色只有约 1.7:1，不满足 WCAG 1.4.11 的 3:1 控件边界 */
+  border: 1px solid var(--md-sys-color-outline);
   border-radius: var(--md-sys-shape-corner-medium);
   background: var(--md-sys-color-surface-container-lowest);
   color: var(--md-sys-color-on-surface);
@@ -1591,6 +1625,17 @@ html[data-theme-switching] *::after {
   border-color: var(--md-sys-color-primary);
   box-shadow: 0 0 0 3px
     color-mix(in srgb, var(--md-sys-color-primary) 18%, transparent);
+}
+
+/* 页面里以容器画输入框边界的控件，同样用 outline 保证 3:1 对比度 */
+.field-control,
+.people-search,
+.issues-search,
+.issues-sort select,
+.issues-field input,
+.issues-field select,
+.issues-field textarea {
+  border-color: var(--md-sys-color-outline);
 }
 
 .field-hint {

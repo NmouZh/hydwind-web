@@ -1,6 +1,7 @@
 ---
 // 议题列表：壳在构建期生成，行数据由浏览器拉 /api/issues 渲染。
 // 管理员登录后同一接口会带上 pending，并多出「待审」页签。
+export const prerender = true;
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
 
@@ -22,20 +23,20 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
       </button>
     </header>
 
-    <div class="issues-tabs" role="tablist" aria-label="按状态筛选">
-      <button type="button" class="issue-tab is-active" role="tab" aria-selected="true" data-filter="all">
+    <div class="issues-tabs" role="group" aria-label="按状态筛选">
+      <button type="button" class="issue-tab is-active" aria-pressed="true" data-filter="all">
         全部<span class="issue-tab-count" data-count="all"></span>
       </button>
-      <button type="button" class="issue-tab" role="tab" aria-selected="false" data-filter="open">
+      <button type="button" class="issue-tab" aria-pressed="false" data-filter="open">
         进行中<span class="issue-tab-count" data-count="open"></span>
       </button>
-      <button type="button" class="issue-tab" role="tab" aria-selected="false" data-filter="done">
+      <button type="button" class="issue-tab" aria-pressed="false" data-filter="done">
         已完成<span class="issue-tab-count" data-count="done"></span>
       </button>
-      <button type="button" class="issue-tab" role="tab" aria-selected="false" data-filter="rejected">
+      <button type="button" class="issue-tab" aria-pressed="false" data-filter="rejected">
         已驳回<span class="issue-tab-count" data-count="rejected"></span>
       </button>
-      <button type="button" class="issue-tab" role="tab" aria-selected="false" data-filter="pending" data-admin-tab hidden>
+      <button type="button" class="issue-tab" aria-pressed="false" data-filter="pending" data-admin-tab hidden>
         待审<span class="issue-tab-count" data-count="pending"></span>
       </button>
     </div>
@@ -71,13 +72,16 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
     <p class="issues-empty" data-empty hidden>
       还没有公开议题。想到什么就提一个，我们会看。
     </p>
+    <p class="issues-empty" data-empty-error hidden>
+      议题列表暂时没加载出来，检查网络后刷新试试。
+    </p>
     <p class="issues-empty" data-empty-filter hidden>这个状态下暂时没有议题。</p>
   </div>
 
-  <dialog class="issue-dialog" data-dialog>
-    <form class="issue-form" data-form novalidate>
+  <dialog class="issue-dialog" data-dialog aria-labelledby="issue-dialog-title">
+    <form class="issue-form" data-form method="post" action="/issues/" novalidate>
       <div class="issue-form-head">
-        <h2>提交议题</h2>
+        <h2 id="issue-dialog-title">提交议题</h2>
         <button class="issue-form-close" type="button" data-close-form aria-label="关闭">
           <Icon name="close" size={18} />
         </button>
@@ -143,6 +147,7 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
 
   const listEl = document.querySelector<HTMLUListElement>('[data-list]');
   const emptyEl = document.querySelector<HTMLElement>('[data-empty]');
+  const emptyErrorEl = document.querySelector<HTMLElement>('[data-empty-error]');
   const emptyFilterEl = document.querySelector<HTMLElement>('[data-empty-filter]');
   const totalEl = document.querySelector<HTMLElement>('[data-total]');
   const searchEl = document.querySelector<HTMLInputElement>('[data-search]');
@@ -160,6 +165,7 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
   let query = '';
   let sort = 'new';
   let openId: number | null = null;
+  let loadFailed = false;
   const details = new Map<number, Detail>();
 
   const pad = (n: number) => String(n).padStart(2, '0'); // taste-skill-ignore: 日期补零
@@ -242,6 +248,9 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
     if (issue.status === 'pending') {
       const actions = document.createElement('div');
       actions.className = 'issue-actions';
+      const actionStatus = document.createElement('p');
+      actionStatus.className = 'issue-status';
+      actionStatus.dataset.state = 'idle';
       (['open', 'rejected'] as const).forEach((next) => {
         const button = document.createElement('button');
         button.type = 'button';
@@ -249,22 +258,36 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
         button.textContent = next === 'open' ? '通过并公开' : '驳回';
         button.addEventListener('click', async (event) => {
           event.stopPropagation();
+          if (next === 'rejected' && !window.confirm('驳回后这条议题不会公开，确定吗？')) {
+            return;
+          }
           button.disabled = true;
-          const res = await fetch(`/api/issues/${issue.id}`, {
-            method: 'PATCH',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ status: next }),
-          });
-          button.disabled = false;
-          if (res.ok) {
+          actionStatus.textContent = '正在提交…';
+          actionStatus.dataset.state = 'pending';
+          try {
+            const res = await fetch(`/api/issues/${issue.id}`, {
+              method: 'PATCH',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ status: next }),
+            });
+            if (!res.ok) {
+              const payload = (await res.json().catch(() => ({}))) as { error?: string };
+              throw new Error(payload.error ?? `操作失败（${res.status}）`);
+            }
             issue.status = next;
             openId = null;
             updateCounts();
             render();
+          } catch (error) {
+            actionStatus.textContent =
+              error instanceof Error ? error.message : '网络不太稳，稍后再试';
+            actionStatus.dataset.state = 'error';
+            button.disabled = false;
           }
         });
         actions.append(button);
       });
+      actions.append(actionStatus);
       section.append(actions);
     }
 
@@ -340,8 +363,11 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
     listEl.replaceChildren(...visible.map(row));
 
     if (totalEl) totalEl.textContent = `共 ${issues.length} 个议题`;
-    emptyEl.hidden = !(issues.length === 0);
-    if (emptyFilterEl) emptyFilterEl.hidden = !(issues.length > 0 && visible.length === 0);
+    emptyEl.hidden = loadFailed || !(issues.length === 0);
+    if (emptyErrorEl) emptyErrorEl.hidden = !loadFailed;
+    if (emptyFilterEl) {
+      emptyFilterEl.hidden = loadFailed || !(issues.length > 0 && visible.length === 0);
+    }
   };
 
   const loadDetail = async (id: number) => {
@@ -359,10 +385,14 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
   const load = async () => {
     try {
       const res = await fetch('/api/issues', { headers: { accept: 'application/json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { issues?: Issue[] };
       issues = data.issues ?? [];
+      loadFailed = false;
     } catch {
+      // 网络失败不能显示成“还没有议题”：两种空状态必须区分。
       issues = [];
+      loadFailed = true;
     }
     updateCounts();
     render();
@@ -375,7 +405,7 @@ const description = '氢风（Hydwind）议题区：提交 bug、建议与想法
       tabs.forEach((other) => {
         const active = other === tab;
         other.classList.toggle('is-active', active);
-        other.setAttribute('aria-selected', String(active));
+        other.setAttribute('aria-pressed', String(active));
       });
       render();
     });

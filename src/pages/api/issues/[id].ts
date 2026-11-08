@@ -1,7 +1,10 @@
 import type { APIRoute } from 'astro';
 import { getIssue, isIssueStatus, updateIssueStatus } from '../../../lib/issues';
 import { isStaffRequest } from '../../../lib/auth';
-import { json } from '../../../lib/api-response.ts';
+import { isJson, json, readJsonObject } from '../../../lib/api-response.ts';
+import { isSameOriginRequest } from '../../../lib/same-origin.ts';
+
+const MAX_BODY_BYTES = 1024;
 
 const requireStaff = async (request: Request): Promise<Response | null> =>
   (await isStaffRequest(request)) ? null : json({ error: '需要站务权限' }, 401);
@@ -28,18 +31,16 @@ export const GET: APIRoute = async ({ params, request }) => {
 export const PATCH: APIRoute = async ({ params, request }) => {
   const denied = await requireStaff(request);
   if (denied) return denied;
+  if (!isSameOriginRequest(request)) return json({ error: '请求来源不对' }, 403);
 
   const id = parseId(params.id);
   if (id === null) return json({ error: '议题编号不合法' }, 400);
 
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return json({ error: '请求体不是合法 JSON' }, 400);
-  }
+  if (!isJson(request)) return json({ error: '请求体必须是 JSON' }, 415);
+  const parsed = await readJsonObject(request, MAX_BODY_BYTES);
+  if (!parsed.ok) return parsed.response;
 
-  const status = (payload as { status?: unknown })?.status;
+  const status = parsed.value.status;
   if (!isIssueStatus(status)) {
     return json({ error: '状态必须是 pending / open / rejected / done' }, 422);
   }

@@ -1,0 +1,22 @@
+---
+// 服务端未捕获异常时的兜底页；不要把堆栈或内部路径输出到页面。
+export const prerender = true;
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ErrorPage from '../components/ErrorPage.astro';
+import '../styles/error.css';
+---
+
+<BaseLayout
+  title="服务器打了个喷嚏 · 氢风 Hydwind"
+  description="页面暂时没能生成。稍后刷新重试，或先在 QQ 群里问一声。"
+  current="home"
+  noindex
+>
+  <ErrorPage
+    code="500"
+    eyebrow="Server Error"
+    title="服务器刚刚打了个喷嚏。"
+    description="这一页暂时没能生成出来。刷新一次通常就好了；如果一直这样，去官方 QQ 群说一声。"
+    secondary={{ href: '/gate/', label: '进服验证', icon: 'key' }}
+  />
+</BaseLayout>

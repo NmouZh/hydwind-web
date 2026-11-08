@@ -15,6 +15,7 @@ const { current = 'home' } = Astro.props;
       <a
         href={item.href}
         data-nav-key={item.key}
+        data-astro-prefetch={item.key === 'people' ? 'false' : undefined}
         aria-current={current === item.key ? 'page' : undefined}
         class="state-layer"
       >

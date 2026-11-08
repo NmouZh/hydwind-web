@@ -31,12 +31,4 @@ export const presentComment = async (comment: Comment) => {
 };
 
 /** 带 Origin 的浏览器写操作必须同源；没有 Origin 的（curl、服务端调用）交给登录态管。 */
-export const isSameOrigin = (request: Request): boolean => {
-  const origin = request.headers.get('origin');
-  if (!origin) return true;
-  try {
-    return new URL(origin).host === new URL(request.url).host;
-  } catch {
-    return false;
-  }
-};
+export { isSameOriginRequest as isSameOrigin } from './same-origin.ts';

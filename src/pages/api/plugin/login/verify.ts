@@ -47,8 +47,15 @@ export const POST: APIRoute = async ({ request }) => {
     return invalidRequest('payload_too_large', 413);
   }
 
-  const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) return invalidRequest('payload_too_large', 413);
+  let raw: string;
+  try {
+    raw = await request.text();
+  } catch {
+    return invalidRequest('payload_too_large', 413);
+  }
+  if (Buffer.byteLength(raw, 'utf8') > MAX_BODY_BYTES) {
+    return invalidRequest('payload_too_large', 413);
+  }
 
   let payload: Record<string, unknown>;
   try {

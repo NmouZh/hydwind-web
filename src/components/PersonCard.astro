@@ -50,6 +50,7 @@ if (role) subline.push(role);
 <a
   class="list-row person-row enter"
   href={`/people/${slug}/`}
+  data-astro-prefetch="false"
   style={`--enter-delay: ${delay}ms`}
 >
   <PlayerAvatar gameId={gameId} src={avatar} />

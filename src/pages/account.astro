@@ -32,7 +32,7 @@ const description =
               <p>账号和初始密码由群内机器人私信；忘了或想改密码，同样私信机器人处理。</p>
             </div>
 
-            <form class="form-stack account-form" data-form novalidate>
+            <form class="form-stack account-form" data-form method="post" action="/account/" novalidate>
               <label class="field">
                 <span>账号（游戏 ID）</span>
                 <span class="field-control" data-field="username">
@@ -46,7 +46,7 @@ const description =
                     maxlength="16"
                     required
                     placeholder="例如 Nz_173"
-                    aria-describedby="account-username-hint"
+                    aria-describedby="account-username-hint account-status"
                   />
                 </span>
               </label>
@@ -65,7 +65,7 @@ const description =
                     maxlength="200"
                     required
                     placeholder="私信里给你的密码"
-                    aria-describedby="account-password-hint"
+                    aria-describedby="account-password-hint account-status"
                     enterkeyhint="go"
                   />
                   <button
@@ -87,10 +87,10 @@ const description =
                 大写锁定开着，密码会不一样。
               </p>
 
-              <button class="filled-button account-submit" type="submit" data-submit data-magnetic>
+              <button class="filled-button account-submit" type="submit" data-submit>
                 登录
               </button>
-              <p class="form-status" data-status role="status" aria-live="polite"></p>
+              <p class="form-status" id="account-status" data-status role="status" aria-live="polite"></p>
             </form>
 
             <div class="notice account-help">
@@ -139,7 +139,11 @@ const description =
               </div>
             </dl>
             <div class="page-actions account-actions">
-              <a class="filled-button" href="/issues/">
+              <a class="filled-button" href="/gate/">
+                <Icon name="key" size={18} />
+                获取登录码
+              </a>
+              <a class="outlined-button" href="/issues/">
                 <Icon name="message" size={18} />
                 去议题区
               </a>
@@ -563,7 +567,7 @@ const description =
     }).format(date);
   };
 
-  const showMember = (account: PublicAccount) => {
+  const showMember = (account: PublicAccount, focus = false) => {
     if (headTitle) headTitle.textContent = `你好，${account.nickname}`;
     if (headSub) {
       headSub.textContent = `你正以 ${account.username} 的身份登录氢风。账号和密码由群内机器人发放，改密码请私信机器人。`;
@@ -578,7 +582,8 @@ const description =
 
     if (memberView) memberView.hidden = false;
     if (guestView) guestView.hidden = true;
-    headTitle?.focus?.();
+    // 初始补水不抢焦点；只有用户刚刚完成登录才把焦点移到标题。
+    if (focus) headTitle?.focus?.();
   };
 
   const showGuest = () => {
@@ -588,7 +593,7 @@ const description =
     if (guestView) guestView.hidden = false;
   };
 
-  const loadSession = async () => {
+  const loadSession = async (focus = false) => {
     try {
       const response = await fetch('/api/auth/me', { headers: { accept: 'application/json' } });
       if (!response.ok) {
@@ -596,7 +601,7 @@ const description =
         return;
       }
       const result = (await response.json()) as { account?: PublicAccount };
-      if (result.account) showMember(result.account);
+      if (result.account) showMember(result.account, focus);
       else showGuest();
     } catch {
       showGuest();
@@ -689,7 +694,7 @@ const description =
         window.location.assign(nextPath);
         return;
       }
-      await loadSession();
+      await loadSession(true);
     } catch {
       setStatus(status, '网络好像不太稳，稍后再试');
     } finally {
@@ -726,10 +731,7 @@ const description =
     });
   }
 
-  // 桌面端进入页面直接把光标放在账号框，手机端不主动唤起键盘
-  if (window.matchMedia('(min-width: 840px)').matches) {
-    usernameInput?.focus({ preventScroll: true });
-  }
-
+  // 初始补水阶段不抢焦点：已登录用户打开 /account 不该被跳到输入框。
+  // 登录失败时由表单逻辑把焦点放回出错的字段。
   void loadSession();
 </script>

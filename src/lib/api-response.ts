@@ -19,8 +19,10 @@ export const json = (
   });
 
 /** 路由只接受 `application/json`（允许带 charset 或其它参数）。 */
-export const isJson = (request: Request): boolean =>
-  (request.headers.get('content-type') ?? '').toLowerCase().includes('application/json');
+export const isJson = (request: Request): boolean => {
+  const mediaType = (request.headers.get('content-type') ?? '').split(';')[0].trim().toLowerCase();
+  return mediaType === 'application/json';
+};
 
 export type JsonObjectResult =
   | { ok: true; value: Record<string, unknown> }
@@ -39,7 +41,13 @@ export const readJsonObject = async (
     return { ok: false, response: json({ error: '请求体太大' }, 413) };
   }
 
-  const raw = await request.text();
+  let raw: string;
+  try {
+    raw = await request.text();
+  } catch {
+    // Node 适配器的 bodySizeLimit 在流式读取超限时抛错；这里统一映射为 413。
+    return { ok: false, response: json({ error: '请求体太大' }, 413) };
+  }
   if (Buffer.byteLength(raw, 'utf8') > maxBytes) {
     return { ok: false, response: json({ error: '请求体太大' }, 413) };
   }

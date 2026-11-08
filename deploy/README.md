@@ -1,30 +1,86 @@
-# systemd 部署
+# 部署
 
-网站的 Node standalone 产物由 systemd 守护；插件通过写一个请求文件触发重启，
-不需要 sudo，也不额外开网络端口。
+网站由 systemd 守护，Node standalone 只负责运行时页面与 `/api/*`。
+生产环境要求：TLS 反代在前，Node 只监听回环；插件通过写请求文件触发受控重启。
 
 | 文件 | 作用 |
 | --- | --- |
-| `hydwind-web.service` | 主服务：开机自启，崩溃/退出后 5 秒拉起 |
-| `hydwind-restart.path` | 监听 `/run/hydwind/restart-request` |
-| `hydwind-restart.service` | 请求文件出现后重启主服务，成功后再删除请求文件（oneshot） |
+| `hydwind-web.service` | 主服务：专用用户、只读根文件系统、启动前 env 检查、单实例锁 |
+| `hydwind-restart.path` | 监听 `/run/hydwind/restart-request` 的内容变化 |
+| `hydwind-restart.service` | 调 `restart.sh`：重启 → 轮询健康检查 → 成功才删除请求文件 |
+| `hydwind-backup.timer` | 每天 04:15 备份 data JSON，保留 14 天 |
+| `Caddyfile` / `nginx.conf.example` | TLS、压缩、静态缓存与反代示例 |
 
-## 1. 安装
+## 1. 前置：用户、目录、令牌
 
 ```bash
-# 仓库放到 /opt/hydwind-web 后，先构建出 dist/server/entry.mjs
-cd /opt/hydwind-web
+sudo useradd --system --home /opt/hydwind-web --shell /usr/sbin/nologin hydwind
+sudo install -d -o hydwind -g hydwind -m 0755 /opt/hydwind-web
+sudo install -d -o hydwind -g hydwind -m 0700 /opt/hydwind-web/data
+```
 
+把仓库放到 `/opt/hydwind-web` 后：
+
+```bash
+cd /opt/hydwind-web
+npm ci            # Node >= 22.23.4
+cp .env.example .env
+chmod 0600 .env
+# 填入三个互不相同的 32+ 字符随机串
+```
+
+```bash
+# 生成令牌示例
+openssl rand -hex 32
+```
+
+`.env` 关键项：`ISSUE_ADMIN_TOKEN`、`PLUGIN_TOKEN`、`SESSION_SECRET`、
+`HYDWIND_DATA_DIR`、`HOST`、`PORT`。放在反代后面时 `HOST=127.0.0.1`。
+启动前 `scripts/check-env.mjs` 会拒绝缺失、过短、占位值或互相重复的令牌，
+并把 data 目录/JSON 收紧到 0700/0600。
+
+## 2. 构建与发布（不要在生产目录原地构建）
+
+推荐发布目录 + `current` 软链接，构建失败不影响线上：
+
+```bash
+# CI 已验证的提交
+git fetch && git checkout <commit>
+npm ci
+npm run build
+# 产物在 dist/client（静态）与 dist/server（Node）
+
+sudo rsync -a --delete dist/ /opt/hydwind-web/releases/<commit>/dist/
+sudo ln -sfn /opt/hydwind-web/releases/<commit> /opt/hydwind-web/current
+sudo systemctl restart hydwind-web.service
+```
+
+至少保留上一版目录；回滚：
+
+```bash
+sudo ln -sfn /opt/hydwind-web/releases/<previous> /opt/hydwind-web/current
+sudo systemctl restart hydwind-web.service
+```
+
+服务 unit 里的 `WorkingDirectory` / `ReadWritePaths` 需要指向 `current` 或实际仓库目录，
+按你的发布布局调整。
+
+## 3. 安装 systemd 单元
+
+```bash
 sudo install -m 0644 deploy/hydwind-web.service \
   deploy/hydwind-restart.service \
-  deploy/hydwind-restart.path /etc/systemd/system/
+  deploy/hydwind-restart.path \
+  deploy/hydwind-backup.service \
+  deploy/hydwind-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 
 sudo systemctl enable --now hydwind-web.service
 sudo systemctl enable --now hydwind-restart.path
+sudo systemctl enable --now hydwind-backup.timer
 ```
 
-`enable --now` 会同时写入开机自启链接并立即启动。检查状态：
+检查：
 
 ```bash
 systemctl status hydwind-web.service --no-pager
@@ -32,60 +88,76 @@ systemctl status hydwind-restart.path --no-pager
 journalctl -u hydwind-web.service -f
 ```
 
-## 2. 按实际环境调整
+`hydwind-web.service` 默认 `User=hydwind`、`ProtectSystem=strict`、`UMask=0077`；
+`ReadWritePaths` 只放开 `data` 与 `/run/hydwind`。如果数据目录不在
+`/opt/hydwind-web/data`，同步修改 unit 与 `.env`。
 
-`hydwind-web.service` 里的值都是占位默认值，**不要假设运行用户和路径**：
+## 4. TLS 反代（必须）
 
-- `WorkingDirectory`：改成仓库实际目录。
-- `ExecStart`：`/usr/bin/node` 改成 `command -v node` 的结果；nvm / fnm 安装的 node
-  通常不在 `/usr/bin`。`.env` 必须位于 `WorkingDirectory`。
-- `User` / `Group`：正式部署取消注释并改成实际用户。若保持 root，权限最省事但隔离最差。
-- `.env`：至少包含 `ISSUE_ADMIN_TOKEN`、`SESSION_SECRET`、`HYDWIND_DATA_DIR`、`HOST`、`PORT`，
-  变量含义见 `docs/backend-api.md`。
+直接暴露 Node 的 HTTP 端口会让密码、会话 cookie、`PLUGIN_TOKEN` 和
+`ISSUE_ADMIN_TOKEN` 以明文经过公网。上线前至少完成：
 
-```ini
-#User=hydwind
-#Group=hydwind
-```
+1. 有域名：用 `deploy/Caddyfile` 或 `deploy/nginx.conf.example` 终止 TLS；
+2. 反代必须覆盖 `X-Forwarded-For`（`$remote_addr`，不要追加）和
+   `X-Forwarded-Proto`，并透传真实 `Host`；
+3. 构建时设置 `HYDWIND_SITE_URL=https://hydwind.example.com npm run build`；
+   canonical 与该域名会自动进入 `security.allowedDomains`，不用再手改源码；
+4. `HOST=127.0.0.1`，不要再把 4321 映射到公网；
+5. 上线后轮换所有曾经走过 HTTP 的令牌。
 
-数据目录（默认 `./data`）必须对运行用户可写，否则议题和账号无法保存：
+只走 IP、暂时没有域名时，至少把 Node 放在反代后面并用自签证书验证流程；
+没有 TLS 就不要把它当成正式环境。
+
+## 5. 插件写重启请求
+
+插件以 Minecraft 服务端用户运行，需要能创建 `/run/hydwind/restart-request`：
 
 ```bash
+sudo usermod -aG hydwind minecraft
+```
+
+`RuntimeDirectoryMode=0770` 让 `hydwind` 组可写。不要在 `/run/hydwind` 里放
+其他敏感文件；重启脚本只会删除固定路径，并用健康检查确认服务真的起来了。
+
+## 6. 备份与恢复
+
+`hydwind-backup.timer` 每天把 `data/` 打包到 `/var/backups/hydwind/`，保留 14 天，
+文件 0600。先创建备份目录（属主为服务用户）：
+
+```bash
+sudo install -d -o hydwind -g hydwind -m 0700 /var/backups/hydwind
+```
+
+正式环境还应把备份同步到另一台机器/对象存储：
+
+```bash
+# 示例：同步到备份机
+rsync -a --delete /var/backups/hydwind/ backup-host:/srv/backups/hydwind/
+```
+
+恢复：
+
+```bash
+sudo systemctl stop hydwind-web.service
+sudo tar -xzf /var/backups/hydwind/hydwind-<stamp>.tar.gz -C /opt/hydwind-web/data
 sudo chown -R hydwind:hydwind /opt/hydwind-web/data
+sudo chmod 700 /opt/hydwind-web/data && sudo chmod 600 /opt/hydwind-web/data/*.json
+sudo systemctl start hydwind-web.service
+curl -fsS http://127.0.0.1:4321/api/health?ready=1
 ```
 
-## 3. `/run/hydwind` 权限（插件写重启请求）
+## 7. 健康检查
 
-插件以 Minecraft 服务端的用户运行，必须能创建 `/run/hydwind/restart-request`：
+- `GET /api/health`：liveness，插件与 systemd 探活；
+- `GET /api/health?ready=1`：额外检查 data 目录可写、三个 JSON 可解析，异常返回 503。
 
-```bash
-# 以插件用户身份验证
-touch /run/hydwind/restart-request && rm /run/hydwind/restart-request
-```
+## 8. 常见故障
 
-`hydwind-web.service` 通过 `RuntimeDirectory=hydwind` 创建该目录，属主是服务的
-`User:Group`（未设置时是 `root:root`），模式 `0775`。要让插件用户能写，任选一种：
-
-1. **推荐**：给主服务设置 `User` / `Group`，把插件运行用户加入同一个组
-   （例如 `sudo usermod -aG hydwind minecraft`）。目录保持 `0775`。
-2. 不用 `RuntimeDirectory`，改用 tmpfiles.d，明确属组：
-
-   ```bash
-   # /etc/tmpfiles.d/hydwind.conf
-   d /run/hydwind 0775 hydwind hydwind -
-   ```
-
-   然后 `sudo systemd-tmpfiles --create`，并确保插件用户属于 `hydwind` 组。
-3. 临时验证可用 `RuntimeDirectoryMode=0777`，不建议长期使用。
-
-`/run` 是 tmpfs，重启后目录会重新创建；tmpfiles.d 方案会在每次开机时恢复权限。
-
-## 4. 重启触发流程
-
-1. 插件探活失败后，以自身用户创建 `/run/hydwind/restart-request`。
-2. `hydwind-restart.path` 检测到文件存在，启动 `hydwind-restart.service`。
-3. 该 oneshot 服务先执行 `systemctl restart hydwind-web.service`，**重启成功后才**
-   删除请求文件；重启失败则保留文件，让 path 单元再次触发重试。
-4. `Restart=always` + `RestartSec=5` 继续兜底意外退出。
-
-插件的冷却与次数上限在插件侧控制，systemd 只负责执行。
+- **登录 403「请求来源不对」**：反代没有透传真实 Host，或域名没进
+  `security.allowedDomains`。
+- **所有插件请求 401**：网站 `PLUGIN_TOKEN` 与代理环境变量
+  `HYDWIND_PLUGIN_TOKEN` 不一致。
+- **重启请求一直存在**：`journalctl -u hydwind-restart.service` 看 `restart.sh`
+  的健康检查失败原因；文件会保留以便人工处理。
+- **数据像被清空**：检查 `HYDWIND_DATA_DIR` 是否指向了另一个目录；不要在没有
+  备份的情况下改这个变量。

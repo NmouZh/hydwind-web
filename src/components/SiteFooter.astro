@@ -42,7 +42,10 @@ const columns = [
           <div>
             <h2 class="hw-label">{column.title}</h2>
             {column.links.map((link) => (
-              <a href={link.href}>{link.label}</a>
+              <a
+                href={link.href}
+                data-astro-prefetch={link.href === '/people/' ? 'false' : undefined}
+              >{link.label}</a>
             ))}
           </div>
         ))
