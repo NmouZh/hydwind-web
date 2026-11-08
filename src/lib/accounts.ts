@@ -181,6 +181,7 @@ const parseHash = (stored: string): ParsedHash | null => {
     if (!Number.isInteger(n) || !Number.isInteger(r) || !Number.isInteger(p)) return null;
     if (n < 2 || n > MAX_SCRYPT_N || (n & (n - 1)) !== 0) return null;
     if (r < 1 || r > 32 || p < 1 || p > 16) return null;
+    if (!parts[4] || !parts[5]) return null;
     return {
       salt: parts[4],
       hash: parts[5],
@@ -189,7 +190,7 @@ const parseHash = (stored: string): ParsedHash | null => {
   }
 
   // 旧格式 scrypt$salt$hash；参数固定为当年写入时的值。
-  if (parts.length === 3) {
+  if (parts.length === 3 && parts[1] && parts[2]) {
     return {
       salt: parts[1],
       hash: parts[2],
