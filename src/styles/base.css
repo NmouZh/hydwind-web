@@ -18,6 +18,15 @@
   --md-sys-typescale-font: "Rubik", "MiSans", "PingFang SC",
     "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
   --md-sys-typescale-font-display: var(--md-sys-typescale-font);
+  /* 品牌英文只走 Rubik，不跟随中文回退链 */
+  --hw-font-latin: "Rubik", "Segoe UI", system-ui, sans-serif;
+
+  /*
+   * 固定深色插画上的文字。世界图本身不随主题变色，
+   * 所以这里用固定浅色，不能拿会随主题反转的表面色。
+   */
+  --hw-color-on-media: #f4f8ff;
+  --hw-color-on-media-muted: #cfe2fb;
 
   /* 字号梯度：只留四档有存在感的层级，其余都归到正文与标签 */
   --hw-type-hero: clamp(3.2rem, 9.5vw, 6.4rem);

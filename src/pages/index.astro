@@ -52,22 +52,23 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
 >
   <section class="hero" data-hero aria-labelledby="hero-title">
     <!-- 世界插画来自工作区 hydwind-promo 的 WorldLandscape 场景（第一方素材），已转为 webp -->
-    <figure class="hero-world enter">
-      <div class="hero-world-media" data-parallax="0.05">
+    <div class="hero-bg" aria-hidden="true">
+      <div class="hero-bg-media" data-parallax="0.05">
         <img
           src="/images/world/hydwind-world-1920.webp"
           srcset="/images/world/hydwind-world-960.webp 960w, /images/world/hydwind-world-1920.webp 1920w"
           sizes="100vw"
           width="1920"
           height="1080"
-          alt="氢风的方块世界：方形山脊下的湖面、树林和岸边亮着灯的小屋"
+          alt=""
           fetchpriority="high"
           decoding="async"
         />
       </div>
-    </figure>
+      <div class="hero-scrim"></div>
+    </div>
 
-    <div class="hw-shell hero-masthead">
+    <div class="hw-shell hero-inner">
       <div class="hero-main enter">
         <div class="hero-title-row">
           <h1 id="hero-title" class="hero-title" data-split>氢风</h1>
@@ -540,38 +541,64 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
 </script>
 
 <style>
-  /* —— 首屏：满幅世界画面 + 巨型字标 —— */
+  /* —— 首屏：世界插画铺满背景，文字压在底部 —— */
   .hero {
-    padding-bottom: clamp(24px, 3.5vw, 44px);
-  }
-
-  .hero-world {
     position: relative;
-    width: 100%;
-    height: clamp(280px, 44vh, 500px);
-    margin: 0;
+    isolation: isolate;
+    display: grid;
+    align-items: end;
+    min-height: min(calc(100svh - 64px), 860px);
     overflow: hidden;
-    background: var(--md-sys-color-surface-container-high);
+    background: var(--md-sys-color-surface);
+    color: var(--hw-color-on-media);
   }
 
-  .hero-world-media {
+  .hero-bg {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+  }
+
+  .hero-bg-media {
     position: absolute;
     inset: -7% 0;
   }
 
-  .hero-world img {
+  .hero-bg img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    object-position: 50% 46%;
+    object-position: 50% 45%;
   }
 
-  .hero-masthead {
+  .hero-scrim {
+    position: absolute;
+    inset: 0;
+    /* 只在文字可能落下的方向压暗；右侧保留太阳和营地的原始亮度 */
+    background:
+      linear-gradient(
+        to top,
+        color-mix(in srgb, var(--md-sys-color-scrim) 82%, transparent) 0%,
+        color-mix(in srgb, var(--md-sys-color-scrim) 54%, transparent) 42%,
+        color-mix(in srgb, var(--md-sys-color-scrim) 20%, transparent) 76%,
+        color-mix(in srgb, var(--md-sys-color-scrim) 6%, transparent) 100%
+      ),
+      linear-gradient(
+        to right,
+        color-mix(in srgb, var(--md-sys-color-scrim) 38%, transparent) 0%,
+        transparent 64%
+      );
+  }
+
+  .hero-inner {
+    position: relative;
+    z-index: 1;
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(340px, 0.5fr);
-    align-items: start;
-    gap: var(--hw-space-6) clamp(32px, 4vw, 64px);
-    padding-top: clamp(28px, 4vw, 48px);
+    align-items: end;
+    gap: var(--hw-space-6) clamp(32px, 6vw, 96px);
+    padding-block: clamp(48px, 7vh, 88px);
   }
 
   .hero-main {
@@ -589,14 +616,16 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     font-size: clamp(5rem, 17vw, 14rem);
     line-height: 0.86;
     letter-spacing: -0.06em;
-    color: var(--md-sys-color-on-surface);
+    color: var(--hw-color-on-media);
   }
 
   .hero-en {
     margin-top: 0;
-    color: var(--md-sys-color-on-surface-variant);
-    font-size: 0.8125rem;
-    font-weight: 600;
+    /* 与标题同色；14px 的小字在手机上不再降到 muted 色 */
+    color: var(--hw-color-on-media);
+    font-family: var(--hw-font-latin);
+    font-size: 0.875rem;
+    font-weight: 500;
     letter-spacing: 0.42em;
     text-transform: uppercase;
     opacity: 1;
@@ -605,13 +634,21 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
   .hero-lead {
     max-width: 34ch;
     margin-top: var(--hw-space-5);
-    color: var(--md-sys-color-on-surface-variant);
+    color: var(--hw-color-on-media-muted);
     font-size: 1.0625rem;
     line-height: 1.75;
   }
 
   .hero-actions {
     margin-top: var(--hw-space-6);
+  }
+
+  .hero-actions .text-button {
+    color: var(--hw-color-on-media);
+  }
+
+  .hero :focus-visible {
+    outline-color: var(--hw-color-on-media);
   }
 
   .hero-server {
@@ -623,6 +660,7 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
     border: 1px solid var(--md-sys-color-outline-variant);
     border-radius: var(--md-sys-shape-corner-large);
     background: var(--md-sys-color-surface-container-lowest);
+    color: var(--md-sys-color-on-surface);
   }
 
   .server-top {
@@ -1040,17 +1078,41 @@ const description = `${site.name}（Hydwind）是原版与插件生存的 Minecr
   }
 
   @media (max-width: 839px) {
-    .hero-world {
-      height: clamp(240px, 38vh, 400px);
+    /*
+     * 手机：图片只铺在文字区后面，地址卡落到页面底色上，
+     * 避免竖屏把 16:9 的世界图裁成一条窄缝。
+     */
+    .hero {
+      display: block;
+      min-height: 0;
+      overflow: visible;
     }
 
-    .hero-masthead {
-      grid-template-columns: minmax(0, 1fr);
+    .hero-bg {
+      inset: 0 0 auto;
+      height: 600px;
     }
 
-    /* 手机裁掉左侧低信息的水面，保留右侧的太阳、营地与近景树 */
-    .hero-world img {
-      object-position: 60% 50%;
+    .hero-inner {
+      display: block;
+      padding-block: 0;
+    }
+
+    .hero-main {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      min-height: 600px;
+      padding-block: var(--hw-space-7) var(--hw-space-6);
+    }
+
+    .hero-server {
+      margin-top: var(--hw-space-5);
+    }
+
+    /* 竖屏裁掉左侧低信息的水面，保留右侧的太阳、营地与近景树 */
+    .hero-bg img {
+      object-position: 72% 45%;
     }
 
     .facts-head h2 {
