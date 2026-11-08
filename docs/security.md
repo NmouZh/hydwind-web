@@ -60,8 +60,11 @@ db.prepare(`select * from accounts where username = '${username}'`);
 1. **同源**：带 `Origin` 的请求必须和本站同域，跨站 POST 直接 403（插件调用不带 Origin，放行）。
    反代必须透传真实 Host，并在 `astro.config.mjs` 的 `security.allowedDomains` 里登记域名；
    否则 `request.url` 会回落成 localhost，所有浏览器登录都会被判成跨站。
-2. **类型与体积**：登录只收 JSON、上限 1KB；其余写接口由 Node 适配器的 `bodySizeLimit` 统一限制为 1MB；
-3. **限流**：`src/lib/rate-limit.ts` 的进程内滑动窗口，IP 10 次 / 10 分钟、账号 5 次 / 10 分钟，
+2. **类型与体积**：每个写接口有自己的 JSON 类型检查与请求体上限（登录 1KB、注册 2KB、
+   议题 8KB、话题回复 2KB、传记 16KB、评论 4KB），Node 适配器另有 1MB 兜底；
+3. **限流**：`src/lib/rate-limit.ts` 的进程内滑动窗口，按路由分别限额：登录 IP 60 次/10 分钟，
+   失败按账号+IP 5 次/10 分钟（账号跨 IP 的失败只记日志，避免被用来锁死账号），
+   议题 5 次/10 分钟，头像 300 次/分钟，/gate 生成 20 次/分钟且全局 60 次/分钟。
    超出返回 429 并带 `retry-after`。重启即清空，多实例要换 Redis。
    反代后面只有 Host 通过 `allowedDomains` 校验时才会信任 `X-Forwarded-For`。生产必须让 Node
    只监听 `127.0.0.1`，并由反代**覆盖** `X-Forwarded-For: $remote_addr`；否则客户端可以自填

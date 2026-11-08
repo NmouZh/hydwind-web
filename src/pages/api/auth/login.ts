@@ -78,18 +78,24 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
   const ipFailureKey = `login:fail:ip:${accountKey}:${ip}`;
   const accountFailureKey = `login:fail:acct:${accountKey}`;
 
-  // 先查失败额度再算 scrypt：被锁定的账号不应该继续消耗 CPU。
-  const ipFailures = consumeRateLimit(ipFailureKey, FAIL_LIMIT_PER_IP, WINDOW_MS);
-  if (!ipFailures.ok) return tooMany(ipFailures.retryAfterMs);
-  const accountFailures = consumeRateLimit(accountFailureKey, FAIL_LIMIT_PER_ACCOUNT, WINDOW_MS);
-  if (!accountFailures.ok) return tooMany(accountFailures.retryAfterMs);
-
   const account = await verifyLogin(username, password);
   if (!account) {
+    // 失败才计数：正确密码永远不会因为别人的爆破尝试而被锁。
+    // IP 失败太多时返回 429；账号维度只记日志，避免分布式攻击者锁死账号。
+    const ipFailures = consumeRateLimit(ipFailureKey, FAIL_LIMIT_PER_IP, WINDOW_MS);
+    const accountFailures = consumeRateLimit(
+      accountFailureKey,
+      FAIL_LIMIT_PER_ACCOUNT,
+      WINDOW_MS
+    );
     // 审计日志只记账号和 IP，不记密码；统一文案避免账号枚举。
     console.warn(
       `[auth] login failed account=${normalizeUsername(username) || '(invalid)'} ip=${ip}`
     );
+    if (!ipFailures.ok) return tooMany(ipFailures.retryAfterMs);
+    if (!accountFailures.ok) {
+      console.warn(`[auth] account failure burst account=${accountKey}`);
+    }
     return json({ error: '账号或密码不对' }, 401);
   }
 

@@ -33,13 +33,27 @@ hydwind.example.com {
 	handle {
 		root * /opt/hydwind-web/dist/client
 
-		@hashed path /_astro/*
+		# file 匹配器保证文件真的存在才加长缓存；否则不存在的 .js/图片
+		# 会带着 immutable 的 404 被 CDN 缓存一年。
+		@hashed {
+			path /_astro/*
+			file {path}
+		}
 		header @hashed Cache-Control "public, max-age=31536000, immutable"
 
-		@stable path /fonts/* /images/*
+		@stable {
+			path /fonts/* /images/*
+			file {path}
+		}
 		header @stable Cache-Control "public, max-age=604800, stale-while-revalidate=86400"
 
-		try_files {path} {path}/ /404.html
+		try_files {path} {path}/ =404
+		file_server
+	}
+
+	# 保持真实 404 状态码，同时返回站点自己的错误页。
+	handle_errors {
+		rewrite * /404.html
 		file_server
 	}
 }
