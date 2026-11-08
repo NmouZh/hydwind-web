@@ -62,10 +62,15 @@ export default defineConfig({
         "media-src 'self'",
       ],
       styleDirective: {
-        resources: ["'self'", { resource: "'unsafe-inline'", kind: 'attribute' }],
+        resources: [
+          { resource: "'self'", kind: 'element' },
+          { resource: "'unsafe-inline'", kind: 'attribute' },
+        ],
       },
     },
   },
+  // Shiki 给代码块写 inline style，与 CSP 冲突；项目代码块已有统一 CSS，直接关闭。
+  markdown: { syntaxHighlight: false },
   // 站内链接提前抓一遍 HTML：导航点下去先有内容，再谈动效。
   // viewport 策略照顾手机（没有 hover），hover 策略让桌面鼠标扫过就预取。
   prefetch: {

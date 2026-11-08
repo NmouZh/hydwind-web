@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { clientIpKey } from '../../lib/client-ip.ts';
-import { consumeRateLimit } from '../../lib/rate-limit.ts';
+import { clientIpKey } from '../../../lib/client-ip.ts';
+import { consumeRateLimit } from '../../../lib/rate-limit.ts';
 
 /**
  * 在线玩家头像。
