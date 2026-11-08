@@ -60,6 +60,16 @@ jobs:
       - name: Test
         run: npm test
 
+      # 生产启动脚本依赖这个检查；用临时目录和互异的长令牌验证它本身能跑通。
+      - name: Check production env script
+        env:
+          SESSION_SECRET: 'session-secret-0123456789abcdef0123456789'
+          ISSUE_ADMIN_TOKEN: 'admin-token-0123456789abcdef0123456789ab'
+          PLUGIN_TOKEN: 'plugin-token-0123456789abcdef0123456789'
+          HYDWIND_DATA_DIR: ${{ runner.temp }}/hydwind-env-check-data
+          HOST: '127.0.0.1'
+        run: node ./scripts/check-env.mjs
+
       # API + 浏览器冒烟会真实启动 dist/server/entry.mjs，用临时数据目录覆盖
       # 登录、传记编辑与评论。CI 里浏览器必须真实跑起来，不能静默跳过。
       - name: Smoke
