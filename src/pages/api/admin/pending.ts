@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { json } from '../../../lib/api-response.ts';
-import { listIssues } from '../../../lib/issues';
-import { requireAdmin } from '../../../lib/auth';
+import { listIssues } from '../../../lib/issues.ts';
+import { requireAdmin } from '../../../lib/auth.ts';
 
 /**
  * GET /api/admin/pending —— 给 AstrBot 插件轮询用。

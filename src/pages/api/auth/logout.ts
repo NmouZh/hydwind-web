@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { json } from '../../../lib/api-response.ts';
 import { isSameOriginRequest } from '../../../lib/same-origin.ts';
-import { clearSessionCookie } from '../../../lib/session';
+import { clearSessionCookie } from '../../../lib/session.ts';
 
 /** POST /api/auth/logout */
 export const POST: APIRoute = async ({ request, cookies }) => {

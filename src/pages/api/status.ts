@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { getSite } from '../../lib/content';
-import { fetchServerStatus } from '../../lib/server-status';
+import { getSite } from '../../lib/content.ts';
+import { fetchServerStatus } from '../../lib/server-status.ts';
 
 /** GET /api/status → 当前服务器在线状态（带 60s 服务端缓存） */
 export const GET: APIRoute = async () => {

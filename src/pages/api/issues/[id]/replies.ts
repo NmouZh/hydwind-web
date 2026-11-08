@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
-import { addIssueReply, getIssue } from '../../../../lib/issues';
-import { isStaffRequest } from '../../../../lib/auth';
+import { addIssueReply, getIssue } from '../../../../lib/issues.ts';
+import { isStaffRequest } from '../../../../lib/auth.ts';
 import { isJson, json, readJsonObject } from '../../../../lib/api-response.ts';
 import { isSameOriginRequest } from '../../../../lib/same-origin.ts';
 

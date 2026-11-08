@@ -4,9 +4,9 @@
  * 站点本身没有账号系统，议题审核走「群内指令 → 插件 → 管理接口」这条链路。
  * 插件用环境变量 ISSUE_ADMIN_TOKEN 里的共享密钥调用写接口。
  */
-import { findAccount, type Account } from './accounts';
+import { findAccount, type Account } from './accounts.ts';
 import { json } from './api-response.ts';
-import { readSessionFromRequest, type SessionPayload } from './session';
+import { readSessionFromRequest, type SessionPayload } from './session.ts';
 import { timingSafeEqualString } from './timing-safe.ts';
 
 const ADMIN_TOKEN = () => process.env.ISSUE_ADMIN_TOKEN ?? '';

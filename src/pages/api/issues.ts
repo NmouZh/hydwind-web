@@ -1,9 +1,9 @@
 import type { APIRoute } from 'astro';
-import { createIssue, listIssues, validateNewIssue } from '../../lib/issues';
-import { isStaffRequest } from '../../lib/auth';
+import { createIssue, listIssues, validateNewIssue } from '../../lib/issues.ts';
+import { isStaffRequest } from '../../lib/auth.ts';
 import { isJson, json, readJsonObject } from '../../lib/api-response.ts';
 import { clientIpKey } from '../../lib/client-ip.ts';
-import { consumeRateLimit } from '../../lib/rate-limit';
+import { consumeRateLimit } from '../../lib/rate-limit.ts';
 
 const MAX_BODY_BYTES = 8 * 1024;
 

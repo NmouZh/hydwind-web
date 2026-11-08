@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { getAllGuides } from '../lib/content';
+import { getAllGuides } from '../lib/content.ts';
 
 /**
  * 站内「编辑此页」的跳转口。

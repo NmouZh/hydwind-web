@@ -1,6 +1,6 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import type { AstroCookies } from 'astro';
-import { ACCOUNT_ROLES, type AccountRole } from './accounts';
+import { ACCOUNT_ROLES, type AccountRole } from './accounts.ts';
 import { timingSafeEqualString } from './timing-safe.ts';
 
 /**

@@ -10,20 +10,20 @@
  * `lib/person-page.ts`，和 SSR 页面共用一份，避免两边说法不一样。
  */
 
-import { formatBiographyDate, renderBiographyHtml, type BiographyRef } from '../lib/biography-text';
+import { formatBiographyDate, renderBiographyHtml, type BiographyRef } from '../lib/biography-text.ts';
 import {
   MAX_BIO_BODY,
   MAX_BIO_TITLE,
   MAX_COMMENT_BODY,
   MIN_BIO_TITLE,
-} from '../lib/biography-limits';
+} from '../lib/biography-limits.ts';
 import {
   canDeleteCommentForViewer,
   commentAuthorLabel,
   formatCommentTime,
   groupCommentsByDay,
   hasReadableBody,
-} from '../lib/person-page';
+} from '../lib/person-page.ts';
 
 declare global {
   interface Window {

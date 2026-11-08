@@ -1,10 +1,10 @@
 import type { APIRoute } from 'astro';
-import { normalizeUsername, publicAccount, verifyLogin } from '../../../lib/accounts';
+import { normalizeUsername, publicAccount, verifyLogin } from '../../../lib/accounts.ts';
 import { isJson, json } from '../../../lib/api-response.ts';
 import { clientIpKey } from '../../../lib/client-ip.ts';
-import { consumeRateLimit, resetRateLimit } from '../../../lib/rate-limit';
+import { consumeRateLimit, resetRateLimit } from '../../../lib/rate-limit.ts';
 import { isSameOriginRequest } from '../../../lib/same-origin.ts';
-import { createSessionCookie } from '../../../lib/session';
+import { createSessionCookie } from '../../../lib/session.ts';
 
 /**
  * POST /api/auth/login  body: { username, password }
