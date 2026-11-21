@@ -6,7 +6,7 @@ After=network.target
 [Service]
 Type=simple
 
-# 按实际部署调整：改成仓库实际所在目录（.env 放在这里，HYDWIND_DATA_DIR 也相对于它）。
+# 按实际部署调整：改成仓库实际所在目录（.env 放在这里，HYDWIND_API_ORIGIN 也读它）。
 WorkingDirectory=/opt/hydwind-web
 
 # 不要假设运行用户。默认以 root 运行只适合临时验证；正式部署应取消注释并改成实际用户/组。

@@ -1,38 +1,31 @@
 ---
-// /people 需要运行时读取账号与传记数据，因此关闭预渲染。
+// /people 运行时向 hydwind-api 要合并后的列表（静态人物 + 账号 + 传记）；
+// 页面本身只负责展示，不再直接读 accounts / biographies 存储。
 export const prerender = false;
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import Icon from '../../components/Icon.astro';
 import PersonCard from '../../components/PersonCard.astro';
-import { getPublishedPeople } from '../../lib/content';
-import { listAccounts } from '../../lib/accounts';
-import { listGameBiographies } from '../../lib/biographies';
-import {
-  buildPeopleList,
-  filterPeopleList,
-  type StaticPersonInput,
-} from '../../lib/people-list';
+import { apiJson } from '../../lib/api-client';
+import type { PeopleListResponse } from '../../lib/people-api';
+import type { PersonListItem } from '../../lib/people-list';
 
-const [people, accounts, biographies] = await Promise.all([
-  getPublishedPeople(),
-  listAccounts(),
-  listGameBiographies(),
-]);
-
-const staticPeople: StaticPersonInput[] = people.map((person) => ({
-  id: person.id,
-  gameId: person.data.gameId,
-  role: person.data.role,
-  tags: person.data.tags,
-  avatar: person.data.avatar,
-  updated: person.data.updated,
-  hasBody: Boolean(person.body?.trim()),
-}));
-
-const allItems = buildPeopleList({ staticPeople, accounts, biographies });
 const query = Astro.url.searchParams.get('q') ?? '';
-const items = filterPeopleList(allItems, query);
 const hasQuery = query.trim().length > 0;
+
+let items: PersonListItem[] = [];
+let loadFailed = false;
+
+try {
+  const payload = await apiJson<PeopleListResponse>(
+    `/api/people?${new URLSearchParams({ q: query })}`,
+    {},
+    { request: Astro.request, clientAddress: Astro.clientAddress }
+  );
+  items = payload.people;
+} catch {
+  // 后端不可达时给一条可读的失败提示，而不是整页 500。
+  loadFailed = true;
+}
 ---
 
 <BaseLayout
@@ -66,12 +59,17 @@ const hasQuery = query.trim().length > 0;
       <button class="filled-button is-compact" type="submit">搜索</button>
       {hasQuery && <a class="text-button is-compact" href="/people/">清除</a>}
       <span class="people-count" aria-live="polite">
-        {hasQuery ? `找到 ${items.length} 位` : `共 ${allItems.length} 位`}
+        {loadFailed ? '' : hasQuery ? `找到 ${items.length} 位` : `共 ${items.length} 位`}
       </span>
     </form>
 
     {
-      items.length > 0 ? (
+      loadFailed ? (
+        <div class="panel people-empty" role="alert" data-reveal>
+          <h2 class="panel-title">人物列表暂时加载不出来</h2>
+          <p>后端服务可能正在重启，稍等片刻刷新本页即可。</p>
+        </div>
+      ) : items.length > 0 ? (
         <div class="list-rows people-list">
           {items.map((item, index) => (
             <PersonCard item={item} headingLevel={2} delay={80 + index * 60} />

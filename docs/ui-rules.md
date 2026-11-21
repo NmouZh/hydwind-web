@@ -199,7 +199,7 @@ CSS 侧也要有对应的兜底（`.enter` 关动画、`data-reveal` 直接可�
 | 已登录、能改 | `写一篇传记` / `编辑这篇传记`（`filled-button`） | 由 `/api/…/biography` 的 `canEdit` 决定 |
 | 已登录、改不了别人的 | 不给按钮 | `data-bio-note` 说明只有作者本人和站务能改 |
 
-- 正文在构建期就渲染进 HTML（`src/lib/biography-text.ts` 的 `renderBiographyHtml`，浏览器端同一份逻辑），
+- 正文在 SSR 时就渲染进 HTML（`src/lib/biography-text.ts` 的 `renderBiographyHtml`，浏览器端同一份逻辑），
   接口回来只在内容变了时才重画，避免先闪一下空态。
 - 引用他人：候选按钮插入 `@游戏ID`；正文里认得的 `@` 会实时列成可移除的标签，上限 12 位。
 - 一个字都不许隐藏得像彩蛋：入口始终在区块标题右侧，未登录也不藏起来。
@@ -207,9 +207,10 @@ CSS 侧也要有对应的兜底（`.enter` 关动画、`data-reveal` 直接可�
 ## 9. 改完必须验证
 
 ```bash
-npm run build          # 构建
+npm run build                  # 构建
 node scripts/check-build.mjs   # 产物断言（导航、页面、链接、SEO）
-node scripts/smoke.mjs         # 真实浏览器冒烟
+npm test                       # 纯逻辑与 api-client 单测
+node scripts/smoke.mjs         # 可选：hydwind-api 可达时检查 /api/health 反代
 ```
 
 三条都过才算改完。检查脚本里新增的页面、导航项、关键文案，要同步加断言，否则下次改坏没人发现。

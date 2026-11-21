@@ -1,7 +1,7 @@
 /**
  * 传记与评论的长度限制。
  *
- * 服务端校验（`biographies.ts`）和浏览器端预校验（`scripts/person-page.ts`）
+ * 后端校验（hydwind-api）和浏览器端预校验（`scripts/person-page.ts`）
  * 必须用同一组数字，避免前端放行、后端才报错的体验。这个模块不能 import
  * 任何 `node:*` 或存储层代码，浏览器脚本可以直接引用。
  */
