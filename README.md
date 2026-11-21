@@ -54,7 +54,7 @@ Web 只读 `HYDWIND_API_ORIGIN`（默认 `http://127.0.0.1:8787`）、`HOST`、`
 一级导航（`src/lib/nav.ts`）固定五项：首页 / 指南 / 人物 / 议题 / 账号。
 
 - 预渲染静态页：`/`、`/guides/`、`/guides/[slug]`、`/account/`（登录态由浏览器拉 `/api/auth/me` 补水）、`/403`、`/404`
-- SSR 页面：`/people/` 与 `/people/[slug]`（调 `GET /api/people?q=` 与 `GET /api/people/:id`）、`/issues/`、`/gate`（调 `GET /api/gate/codes`，401 显示登录指引）
+- SSR 页面：`/people/` 与 `/people/[slug]`（调 `GET /api/people?q=` 与 `GET /api/people/:slug`）、`/issues/`、`/gate`（调 `GET /api/gate/codes`，401 显示登录指引）
 - 跳转：`/login` → `/account/`；`/edit?page=<slug>` → GitHub 上对应 Markdown
 - `/api/*`：统一由 `src/pages/api/[...path].ts` 反代到 `HYDWIND_API_ORIGIN`，方法 / body / 查询串 / 状态码 / Set-Cookie 原样透传；接口契约见 `hydwind-api` 的 README
 
@@ -96,8 +96,9 @@ Web 只读 `HYDWIND_API_ORIGIN`（默认 `http://127.0.0.1:8787`）、`HOST`、`
 
 ## CI
 
-`.github/workflows/ci.yml` 在 push / PR 到 `main`、`feat/api-proxy` 及手动触发时运行：
-Node 22 上 `npm ci` → `build` → 构建产物检查 → `test` → `smoke`。
+`.github/workflows/ci.yml` 在 push / PR 到 `main`、`feat/api-proxy`、`feat/login-gate`、
+`feat/biography` 及手动触发时运行：Node 22 上 `npm ci` → `build` → 构建产物检查 →
+`test` → `smoke`。
 CI 不启动 `hydwind-api`：构建不执行 SSR 页面，冒烟在后端不可达时自动跳过，
 因此本仓库的检查不依赖跨仓库服务。
 
