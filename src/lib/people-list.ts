@@ -1,14 +1,12 @@
-import { defaultMainTitle, type Biography } from './biographies.ts';
-import { hasReadableBody } from './person-page.ts';
+import { biographyTitle, hasReadableBody } from './person-page.ts';
 
 /**
- * /people 列表的纯逻辑。
+ * /people 列表的纯逻辑与类型。
  *
- * 页面在运行时把两类来源合并成一张列表：
- * - 构建期的静态 curated 人物（src/content/people/*.md）
- * - 注册账号（data/accounts.json）
- *
- * 这里不读文件、不依赖 Astro，方便用 node:test 覆盖合并、排序和搜索。
+ * 合并静态 curated 人物（src/content/people/*.md）与注册账号的动作已经搬到
+ * hydwind-api 的 `GET /api/people`；Web 只消费返回的 PersonListItem。
+ * 这里的合并函数继续保留，作为同一套排序 / 搜索 / 标题回退规则的纯实现与
+ * 测试接缝，不读文件、不依赖 Astro。
  */
 
 /** 列表需要的静态人物字段；页面负责从 content collection 映射过来。 */
@@ -31,10 +29,20 @@ export interface AccountInput {
   createdAt?: string;
 }
 
+/** 列表需要的传记字段；由 hydwind-api 的 /api/people 返回，Web 不再读存储。 */
+export interface BiographyInput {
+  gameId: string;
+  mainTitle?: string;
+  body?: string;
+  createdAt?: string;
+  updatedAt?: string | Date | null;
+  comments?: unknown[];
+}
+
 export interface PeopleListSource {
   staticPeople: StaticPersonInput[];
   accounts: AccountInput[];
-  biographies: Biography[];
+  biographies: BiographyInput[];
 }
 
 export interface PersonListItem {
@@ -66,11 +74,14 @@ const keyOf = (gameId: string): string => gameId.trim().toLowerCase();
 export const accountAvatar = (gameId: string): string =>
   `/api/avatar/${encodeURIComponent(gameId)}`;
 
-const isoOrNull = (value: string | Date | undefined): string | null => {
+const isoOrNull = (value: string | Date | null | undefined): string | null => {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString();
   return value;
 };
+
+const commentCountOf = (biography: BiographyInput | undefined): number =>
+  Array.isArray(biography?.comments) ? biography.comments.length : 0;
 
 const hasText = (value: string | undefined): boolean =>
   typeof value === 'string' && value.trim().length > 0;
@@ -80,7 +91,7 @@ export const buildPeopleList = ({
   accounts,
   biographies,
 }: PeopleListSource): PersonListItem[] => {
-  const biographyByKey = new Map<string, Biography>();
+  const biographyByKey = new Map<string, BiographyInput>();
   for (const biography of biographies) {
     const key = keyOf(biography.gameId);
     if (!biographyByKey.has(key)) biographyByKey.set(key, biography);
@@ -106,9 +117,7 @@ export const buildPeopleList = ({
       slug: person.id,
       gameId,
       nickname: account?.nickname?.trim() ?? '',
-      mainTitle: hasText(biography?.mainTitle)
-        ? biography!.mainTitle.trim()
-        : defaultMainTitle(gameId),
+      mainTitle: biographyTitle(biography, gameId),
       avatar: person.avatar,
       role: person.role,
       tags: [...person.tags],
@@ -117,7 +126,7 @@ export const buildPeopleList = ({
         isoOrNull(biography?.updatedAt) ??
         isoOrNull(person.updated) ??
         isoOrNull(account?.createdAt),
-      commentCount: biography?.comments?.length ?? 0,
+      commentCount: commentCountOf(biography),
       source: 'static',
     });
   }
@@ -133,16 +142,14 @@ export const buildPeopleList = ({
       slug: gameId.toLowerCase(),
       gameId,
       nickname: account.nickname?.trim() ?? '',
-      mainTitle: hasText(biography?.mainTitle)
-        ? biography!.mainTitle.trim()
-        : defaultMainTitle(gameId),
+      mainTitle: biographyTitle(biography, gameId),
       avatar: accountAvatar(gameId),
       role: '',
       tags: [],
       hasBody: hasText(biography?.body),
       updatedAt:
         isoOrNull(biography?.updatedAt) ?? isoOrNull(account.createdAt),
-      commentCount: biography?.comments?.length ?? 0,
+      commentCount: commentCountOf(biography),
       source: 'account',
     });
   }

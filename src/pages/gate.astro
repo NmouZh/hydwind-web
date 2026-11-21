@@ -1,37 +1,67 @@
 ---
-// 进服验证页：必须按请求渲染，每次加载都为当前账号生成一组新码。
+// 进服验证页：必须按请求渲染，每次加载都向后端要一组新码。
 // 未登录访客只看到登录 / 注册指引；码本身不落进任何静态产物。
 export const prerender = false;
 
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Icon from '../components/Icon.astro';
-import { findAccount } from '../lib/accounts';
+import { apiFetch } from '../lib/api-client';
 import { getSite } from '../lib/content';
 import { gateView } from '../lib/gate';
-import { generateLoginCodes, LOGIN_CODE_TTL_MS } from '../lib/login-codes';
-import { readSession } from '../lib/session';
 
-const session = readSession(Astro.cookies);
-const account = session ? await findAccount(session.username) : undefined;
+interface GateCodesPayload {
+  code: string;
+  fallback: string;
+  expiresAt: number;
+  ttlMs?: number;
+}
+
+interface AuthMePayload {
+  account?: { username?: string };
+}
+
+const apiContext = { request: Astro.request, clientAddress: Astro.clientAddress };
 const site = await getSite();
 
 // 登录码和登录态都不该被浏览器或 CDN 缓存。
 Astro.response.headers.set('cache-control', 'no-store');
 
-const loginHref = `/account/?next=${encodeURIComponent('/gate/')}`;
-const ttlMinutes = Math.round(LOGIN_CODE_TTL_MS / 60_000);
+let codes: GateCodesPayload | null = null;
+let accountUsername = '';
+let signedIn = false;
 
-let codes: { code: string; fallback: string; expiresAt: number } | null = null;
+try {
+  const response = await apiFetch('/api/gate/codes', {}, apiContext);
 
-if (account) {
-  try {
-    codes = generateLoginCodes({ username: account.username });
-  } catch {
-    // 候选池被并发请求暂时用尽时，codes 保持 null，页面显示可重试的提示。
+  if (response.status === 401) {
+    // 未登录：显示登录 / QQ 群注册指引。
+    signedIn = false;
+  } else if (response.ok) {
+    signedIn = true;
+    codes = (await response.json()) as GateCodesPayload;
+
+    // 码接口只返回码本身；「账号 · 游戏 ID」那一行从 /api/auth/me 补。
+    try {
+      const me = await apiFetch('/api/auth/me', {}, apiContext);
+      if (me.ok) {
+        const payload = (await me.json()) as AuthMePayload;
+        accountUsername = payload.account?.username ?? '';
+      }
+    } catch {
+      // 名字只用于展示，拿不到不影响码本身。
+    }
+  } else {
+    // 已登录但生成失败（429 限流 / 503 候选池用尽）：显示可重试提示。
+    signedIn = true;
   }
+} catch {
+  // 后端不可达：按「已登录但暂时出错」处理，不能把用户误导回登录页。
+  signedIn = true;
 }
 
-const view = gateView({ signedIn: Boolean(account), hasCodes: Boolean(codes) });
+const view = gateView({ signedIn, hasCodes: Boolean(codes) });
+const loginHref = `/account/?next=${encodeURIComponent('/gate/')}`;
+const ttlMinutes = Math.max(1, Math.round((codes?.ttlMs ?? 5 * 60_000) / 60_000));
 
 const description =
   '氢风（Hydwind）进服验证：登录网站账号后获取一次性登录码，粘贴进游戏对话框即可解除冻结。';
@@ -63,23 +93,25 @@ const description =
                 你的登录码
               </p>
               <p class="gate-binding">
-                账号 {account?.username} · 游戏 ID {account?.username}
+                {accountUsername
+                  ? `账号 ${accountUsername} · 游戏 ID ${accountUsername}`
+                  : '登录码只属于当前登录账号'}
               </p>
             </div>
 
             <p class="gate-code" data-gate-code>
-              {codes.code}
+              {codes?.code}
             </p>
 
             <div class="gate-code-actions">
-              <button class="filled-button" type="button" data-copy={codes.code}>
+              <button class="filled-button" type="button" data-copy={codes?.code}>
                 <Icon name="copy" size={18} />
                 复制颜文字码
               </button>
               <p
                 class="gate-countdown"
                 data-countdown
-                data-expires-at={codes.expiresAt}
+                data-expires-at={codes?.expiresAt}
               >
                 {ttlMinutes} 分钟内有效，只能使用一次
               </p>
@@ -88,11 +120,11 @@ const description =
             <div class="gate-fallback">
               <p class="hw-label">粘不进去？用 ASCII 备用码</p>
               <div class="gate-fallback-row">
-                <code data-gate-fallback>{codes.fallback}</code>
+                <code data-gate-fallback>{codes?.fallback}</code>
                 <button
                   class="outlined-button is-compact"
                   type="button"
-                  data-copy={codes.fallback}
+                  data-copy={codes?.fallback}
                 >
                   <Icon name="copy" size={16} />
                   复制备用码

@@ -40,19 +40,17 @@ journalctl -u hydwind-web.service -f
 - `ExecStart`：`/usr/bin/node` 改成 `command -v node` 的结果；nvm / fnm 安装的 node
   通常不在 `/usr/bin`。`.env` 必须位于 `WorkingDirectory`。
 - `User` / `Group`：正式部署取消注释并改成实际用户。若保持 root，权限最省事但隔离最差。
-- `.env`：至少包含 `ISSUE_ADMIN_TOKEN`、`SESSION_SECRET`、`HYDWIND_DATA_DIR`、`HOST`、`PORT`，
-  变量含义见 `docs/backend-api.md`。
+- `.env`：Web 只需要 `HYDWIND_API_ORIGIN`（默认 `http://127.0.0.1:8787`）、`HOST`、`PORT`，
+  示例见仓库根目录 `.env.example`；令牌、`SESSION_SECRET`、数据目录等配置属于
+  hydwind-api，见它的 README。
 
 ```ini
 #User=hydwind
 #Group=hydwind
 ```
 
-数据目录（默认 `./data`）必须对运行用户可写，否则议题和账号无法保存：
-
-```bash
-sudo chown -R hydwind:hydwind /opt/hydwind-web/data
-```
+Web 本身不写数据；SQLite 与 `HYDWIND_DATA_DIR` 在 hydwind-api 侧，确保它自己的
+运行用户对数据目录可写即可。
 
 ## 3. `/run/hydwind` 权限（插件写重启请求）
 

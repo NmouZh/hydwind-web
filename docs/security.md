@@ -1,80 +1,46 @@
-# 后端安全
+# 安全边界
 
-登录和账号相关的信任边界只有两条：浏览器 → `/api/auth/*`，插件 → `/api/auth/register`。
-这一页写清楚现在靠什么防，以及以后改存储时不能丢的东西。
+账号、会话、传记、评论、议题与登录码的实现已经搬到 [`hydwind-api`](../../hydwind-api)。
+那一侧的输入校验、scrypt、限流、令牌与会话设计以它的文档和源码为准；本文件只写
+Web 这一层仍然负责的安全边界。
 
-## 1. 现在没有 SQL，所以没有 SQL 注入面
+## 1. Web 不再保存敏感数据
 
-账号、议题、传记都存在 `HYDWIND_DATA_DIR` 下的 JSON 文件里（`src/lib/accounts.ts`），
-查询是数组 `find`，不存在字符串拼 SQL。真正要守的是「进库之前的输入」：
+- 仓库与运行目录里没有账号、密码哈希、`biographies.json` 或议题数据；
+- Web 不解析会话 cookie，只把浏览器带来的 `Cookie` 转发给后端；
+- 页面 SSR 用的是服务端内部请求（`HYDWIND_API_ORIGIN`），不是浏览器直连后端；
+  后端默认只需要监听回环地址。
 
-| 字段 | 处理 | 位置 |
-| --- | --- | --- |
-| 账号名 | 白名单 `[A-Za-z0-9_]`，3–16 位，大小写不敏感比较 | `normalizeUsername` / `isValidUsername` |
-| 密码 | 6–200 位，超过 200 直接判失败，不交给 scrypt | `MAX_PASSWORD_LENGTH` |
-| QQ 号 | 去掉首尾空白，截断 64 位 | `normalizePlatformId` |
-| 昵称 | 截断 32 位 | `registerAccount` |
-| 请求体 | 只收 `application/json`，上限 1KB | `api/auth/login.ts` |
+## 2. 反代的信任规则
 
-白名单比黑名单可靠：过滤掉非法字符之后，剩下的内容不可能改变数据文件结构。
+`src/pages/api/[...path].ts` 与页面 SSR 共用 `src/lib/api-client.ts`：
 
-## 2. 以后换成 SQLite / Postgres 时
+- 只允许代理 `/api/` 路径，`HYDWIND_API_ORIGIN` 之外的地址不会进入 `fetch`；
+- 请求头删掉 `Host` 与 `Content-Length`，由 fetch 按目标地址重算；
+- `X-Forwarded-For` 只用 `Astro.clientAddress`，**不采信客户端自带的 XFF**；
+- `X-Forwarded-Host` / `Proto` 用 `Astro.request` 的真实 URL；
+- 响应逐条转发 `Set-Cookie`，不去改写后端的会话策略；
+- 逐跳头与 `content-encoding` / `content-length` 不原样回传，避免响应错位。
 
-只有一个规矩：**任何变量都走占位符，永远不要拼字符串。**
+## 3. 何时信任 X-Forwarded-For
 
-```ts
-// 对
-db.prepare('select * from accounts where username = ?').get(username);
-await pg.query('select * from accounts where username = $1', [username]);
+`Astro.clientAddress` 只有在 Host 通过 `astro.config.mjs` 的 `security.allowedDomains`
+校验后才会采信反代传来的 XFF。换域名时必须同步这份名单，否则真实客户端 IP
+会变成反代地址，后端限流会把所有请求挤进同一个桶。
 
-// 错：哪怕 username 已经过白名单，也不要养成这个习惯
-db.prepare(`select * from accounts where username = '${username}'`);
-```
+后端只信任回环地址发来的 XFF；Web 与后端跨机部署时，要配置后端的
+`TRUSTED_PROXY_CIDRS`。
 
-配套的三件事：
+## 4. 输出与前端
 
-- 表名和列名如果是变量，只能从白名单映射里取，不能直接插值；
-- 数据库账号只给最小权限（读写业务表，不给 DDL）；
-- 排序字段 `order by` 同理，用常量表 map。
+- 传记 Markdown 由 `src/lib/markdown.ts` 先转义再拼标签，链接只放行
+  `http(s):`、`mailto:`、站内绝对路径、锚点与相对路径；
+- 浏览器脚本更新评论 / 传记时用 `textContent` 与同一份渲染函数，不把用户输入
+  当 HTML 整块插入；
+- 前端只做体验校验（格式、必填、长度），**真正的校验以后端为准**。
 
-## 3. 认证
+## 5. 还没做
 
-- 密码用 `scrypt`（N=16384, r=8, p=1），每个账号独立随机盐，格式 `scrypt$salt$hash`；
-- 比较用 `timingSafeEqual`，长度不等直接失败，不做逐字节短路；
-- **账号不存在时也跑一次 scrypt**（假哈希），让「没这个号」和「密码错」耗时接近，
-  否则响应时间就是账号枚举器；
-- 失败一律回 `账号或密码不对`，不区分原因，日志里也不落密码。
-
-## 4. 会话
-
-`hydwind_session` 是 `base64url(payload).HMAC-SHA256` 的签名令牌，服务端无状态：
-
-- `HttpOnly` + `SameSite=Lax` + `Secure`（由请求协议 / `X-Forwarded-Proto` 决定），30 天过期；
-- 签名密钥取 `SESSION_SECRET`，没有就退回 `ISSUE_ADMIN_TOKEN`，都缺时用开发密钥并告警；
-- 校验先比签名再解析 JSON，签名不对直接丢弃；畸形 cookie 解析失败按未登录处理，不打 500；
-- **cookie 里的 role 只用于展示**：站务判定和传记编辑权限每次回查账号文件，降权立即生效，
-  不用等 30 天会话过期。
-
-## 5. 接口层的三道闸
-
-1. **同源**：带 `Origin` 的请求必须和本站同域，跨站 POST 直接 403（插件调用不带 Origin，放行）。
-   反代必须透传真实 Host，并在 `astro.config.mjs` 的 `security.allowedDomains` 里登记域名；
-   否则 `request.url` 会回落成 localhost，所有浏览器登录都会被判成跨站。
-2. **类型与体积**：登录只收 JSON、上限 1KB；其余写接口由 Node 适配器的 `bodySizeLimit` 统一限制为 1MB；
-3. **限流**：`src/lib/rate-limit.ts` 的进程内滑动窗口，IP 10 次 / 10 分钟、账号 5 次 / 10 分钟，
-   超出返回 429 并带 `retry-after`。重启即清空，多实例要换 Redis。
-   反代后面只有 Host 通过 `allowedDomains` 校验时才会信任 `X-Forwarded-For`，否则所有请求会挤进同一个 IP 桶。
-
-## 6. 输出与前端
-
-- 所有用户内容都从 JSON 读出来再渲染，Astro 模板默认转义，前端 JS 一律 `textContent`，
-  不用 `innerHTML` 拼整块 DOM；
-- 站内没有上传入口，没有文件读写接口对外暴露；
-- 前端只做体验校验（格式、必填），**真正的校验一律在服务端再做一遍**。
-
-## 7. 还没做、值得排期
-
-- 登录成功/失败的结构化审计日志（时间、IP、账号，不含密码）；
-- 多实例部署时把限流换成 Redis，并把会话密钥轮换方案写出来；
-- 给 `/api/*` 加一层宽松 CSP 和统一安全响应头的中间件；
-- 密码通过机器人重置后，让旧会话立即失效（账号里加 `sessionVersion`，登录时写进 cookie，鉴权时比对）。
+- 登录成功 / 失败的结构化审计日志；
+- 多实例部署时的分布式限流与会话密钥轮换；
+- 给 `/api/*` 统一加安全响应头与 CSP。

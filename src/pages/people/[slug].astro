@@ -1,6 +1,7 @@
 ---
-// 人物详情页走 SSR：静态人物资料来自内容集合，传记与评论来自运行时的
-// biographies.json；同一个 URL 还要按登录身份决定「能不能编辑 / 删除」。
+// 人物详情页走 SSR：静态人物资料来自内容集合，传记 / 评论 / 登录身份 /
+// 「能不能编辑」由 hydwind-api 的 GET /api/people/:slug 一次聚合返回。
+// Web 不再直接读账号或传记存储。
 export const prerender = false;
 
 import { render } from 'astro:content';
@@ -9,113 +10,120 @@ import ErrorPage from '../../components/ErrorPage.astro';
 import Icon from '../../components/Icon.astro';
 import PlayerAvatar from '../../components/PlayerAvatar.astro';
 import '../../styles/error.css';
-import { findAccount, listAccounts } from '../../lib/accounts';
+import { ApiError, apiJson } from '../../lib/api-client';
 import {
-  canEditBiography,
-  defaultMainTitle,
-  findBiographyByGameId,
-  listComments,
   MAX_BIO_BODY,
   MAX_BIO_TITLE,
   MAX_COMMENT_BODY,
-  resolvePersonBySlug,
-} from '../../lib/biographies';
+} from '../../lib/biography-limits';
 import {
   formatBiographyDate,
   renderBiographyHtml,
   type BiographyRef,
 } from '../../lib/biography-text';
-import { presentComment } from '../../lib/comments';
-import {
-  JOIN_GUIDE_ID,
-  getPublishedPeople,
-} from '../../lib/content';
+import { JOIN_GUIDE_ID, getPublishedPeople } from '../../lib/content';
 import { formatDate } from '../../lib/format';
 import {
   biographyEmptyMessage,
   biographyTitle,
-  canDeleteCommentForAuthor,
   commentAuthorLabel,
   formatCommentTime,
   groupCommentsByDay,
   hasReadableBody,
   type ViewerState,
 } from '../../lib/person-page';
-import { readSession } from '../../lib/session';
+import type {
+  PeopleListResponse,
+  PersonComment,
+  PersonResponse,
+} from '../../lib/people-api';
 
 const slug = Astro.params.slug ?? '';
+const apiContext = { request: Astro.request, clientAddress: Astro.clientAddress };
 
-// 静态人物既有 curated 资料（角色 / 标签 / 头像 / Markdown），也是 slug 解析的
-// 第一优先级；账号只有传记与评论。
-const people = await getPublishedPeople();
-const staticPeople = people.map(({ id, data }) => ({ id, gameId: data.gameId }));
-const resolved = await resolvePersonBySlug(slug, { staticPeople, findAccount });
+let data: PersonResponse | null = null;
+let backendFailed = false;
 
-if (!resolved) Astro.response.status = 404;
+try {
+  data = await apiJson<PersonResponse>(
+    `/api/people/${encodeURIComponent(slug)}`,
+    {},
+    apiContext
+  );
+} catch (error) {
+  // 只有明确的 404 才是「没有这个人」；后端不可达或 5xx 要如实报错。
+  if (!(error instanceof ApiError) || error.status !== 404) backendFailed = true;
+}
 
-const staticPerson = resolved?.personId
-  ? people.find((person) => person.id === resolved.personId)
+Astro.response.status = data ? 200 : backendFailed ? 502 : 404;
+
+const identity = data?.person;
+const personId = identity?.personId;
+const gameId = identity?.gameId ?? '';
+const biography = data?.biography ?? null;
+const viewer = data?.viewer ?? null;
+const comments: PersonComment[] = data?.comments ?? [];
+const canEdit = data?.canEdit ?? false;
+
+// source=static 才有 curated 资料与 Markdown 正文；账号人物完全由运行期传记承载。
+const people = identity?.source === 'static' ? await getPublishedPeople() : [];
+const staticPerson = personId
+  ? people.find((person) => person.id === personId)
   : undefined;
 const renderedContent = staticPerson ? await render(staticPerson) : null;
 const Content = renderedContent?.Content;
 
-const session = resolved ? readSession(Astro.cookies) : null;
-const viewer = session ? await findAccount(session.username) : undefined;
-const gameId = resolved?.gameId ?? '';
-const biography = resolved ? await findBiographyByGameId(gameId) : null;
-
-// 角色以账号文件为准，不信任 cookie 里的旧 role。
-const canEdit = canEditBiography(
-  viewer ? { username: viewer.username, role: viewer.role } : null,
-  gameId
-);
 const viewerState: ViewerState = canEdit ? 'owner' : viewer ? 'viewer' : 'guest';
-
-const mainTitle = resolved ? biographyTitle(biography, gameId) : '';
+const mainTitle = data ? biographyTitle(biography, gameId) : '';
 const body = biography?.body ?? '';
 // 静态人物自带的 Markdown 正文也算「有正文」；否则列表说有内容、
 // 详情页却显示「正文尚未填写」。两条路径共用 hasReadableBody。
 const hasStaticBody = Boolean(staticPerson?.body?.trim());
 const hasBody = hasReadableBody(hasStaticBody, body);
-const emptyMessage = resolved ? biographyEmptyMessage(gameId, viewerState) : '';
+const emptyMessage = data ? biographyEmptyMessage(gameId, viewerState) : '';
 
 /**
- * `@游戏ID` → 人物页链接的映射。静态人物保留 entry id 的地址，
- * 账号使用小写 username（与 slug 解析一致）；都没有就当普通文字。
+ * `@游戏ID` → 人物页链接的映射。
+ *
+ * 账号与静态人物的完整列表来自 GET /api/people，slug 规则由后端统一；
+ * 列表拉不到时退回静态人物、当前人物与评论作者，页面仍然可读。
  */
 const refMap = new Map<string, string>();
+try {
+  const list = await apiJson<PeopleListResponse>('/api/people', {}, apiContext);
+  for (const item of list.people) refMap.set(item.gameId, item.slug);
+} catch {
+  // 提及链接是增强功能，列表不可用不阻塞详情页。
+}
 for (const person of people) refMap.set(person.data.gameId, person.id);
-for (const account of resolved ? await listAccounts() : []) {
-  if (!refMap.has(account.username)) refMap.set(account.username, account.username.toLowerCase());
+if (identity) refMap.set(identity.gameId, identity.slug);
+for (const comment of comments) {
+  if (!refMap.has(comment.authorGameId)) {
+    refMap.set(comment.authorGameId, comment.authorGameId.toLowerCase());
+  }
+}
+if (viewer && !refMap.has(viewer.username)) {
+  refMap.set(viewer.username, viewer.username.toLowerCase());
 }
 const refs: BiographyRef[] = [...refMap].map(([gameId, personId]) => ({ gameId, personId }));
 const bodyHtml = body.trim() ? renderBiographyHtml(body, refs) : '';
 
-const comments = resolved ? await listComments(gameId) : [];
-const presented = await Promise.all(
-  comments.map(async (comment) => ({
-    ...(await presentComment(comment)),
-    canDelete: canDeleteCommentForAuthor(
-      comment.authorUsername,
-      viewer ? { username: viewer.username, role: viewer.role } : null
-    ),
-  }))
-);
-const commentGroups = groupCommentsByDay(presented);
+// 评论的 canDelete 由后端按 authorUsername + 账号角色算好，页面不再自行判断。
+const commentGroups = groupCommentsByDay(comments);
 
 const description = staticPerson
   ? `${staticPerson.data.gameId} 是氢风的${staticPerson.data.role}。查看人物简介、传记与评论。`
   : `${gameId} 的氢风玩家传记，包含自我介绍与玩家评论。`;
-const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页面不存在 · 氢风 Hydwind';
+const pageTitle = data ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页面不存在 · 氢风 Hydwind';
 ---
 
 {
-  resolved ? (
+  data ? (
     <BaseLayout title={pageTitle} description={description} current="people">
       <div
         class="hw-shell page-shell"
         data-person-page
-        data-slug={resolved.slug}
+        data-slug={identity?.slug ?? slug}
         data-game-id={gameId}
         data-viewer={viewer?.username ?? ''}
         data-viewer-admin={viewer?.role === 'admin' ? 'true' : 'false'}
@@ -240,7 +248,7 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
                 />
               </label>
               <span class="field-hint">
-                2–{MAX_BIO_TITLE} 字；留空会恢复为「{defaultMainTitle(gameId)}」。
+                2–{MAX_BIO_TITLE} 字；留空会恢复为「{biographyTitle(null, gameId)}」。
               </span>
               <label class="field">
                 <span>正文（Markdown）</span>
@@ -269,7 +277,7 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
               <p class="hw-eyebrow">评论</p>
               <h2>
                 聊两句
-                <span class="comment-count" data-comment-count>{presented.length}</span>
+                <span class="comment-count" data-comment-count>{comments.length}</span>
               </h2>
             </div>
           </div>
@@ -331,11 +339,25 @@ const pageTitle = resolved ? `${mainTitle} · 人物 · 氢风 Hydwind` : '页�
               </div>
             ))}
           </div>
-          <p class="comment-empty" data-comment-empty hidden={presented.length > 0}>
+          <p class="comment-empty" data-comment-empty hidden={comments.length > 0}>
             还没有评论，来坐第一排。
           </p>
         </section>
       </div>
+    </BaseLayout>
+  ) : backendFailed ? (
+    <BaseLayout
+      title="服务暂时不可用 · 氢风 Hydwind"
+      description="后端服务暂时没有响应，稍后刷新本页即可。"
+      current="home"
+      noindex
+    >
+      <ErrorPage
+        code="502"
+        eyebrow="Bad Gateway"
+        title="后端暂时没有响应。"
+        description="网站还在，但人物数据服务正在重启或不可达。稍等片刻刷新本页即可。"
+      />
     </BaseLayout>
   ) : (
     <BaseLayout

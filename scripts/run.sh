@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 if [ ! -f .env ]; then
-  echo "缺少 .env，请先创建：ISSUE_ADMIN_TOKEN / SESSION_SECRET / HYDWIND_DATA_DIR / HOST / PORT" >&2
+  echo "缺少 .env，请先创建：HYDWIND_API_ORIGIN / HOST / PORT（示例见 .env.example）" >&2
   exit 1
 fi
 

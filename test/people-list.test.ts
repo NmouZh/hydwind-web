@@ -7,10 +7,10 @@ import {
   filterPeopleList,
   sortPeopleByGameId,
   type AccountInput,
+  type BiographyInput,
   type PersonListItem,
   type StaticPersonInput,
 } from '../src/lib/people-list.ts';
-import type { Biography } from '../src/lib/biographies.ts';
 
 /**
  * /people 列表的纯逻辑。
@@ -37,7 +37,7 @@ const accounts: AccountInput[] = [
   { username: 'Nz_173', nickname: '服主本人', createdAt: '2026-09-01T00:00:00.000Z' },
 ];
 
-const biographies: Biography[] = [
+const biographies: BiographyInput[] = [
   {
     gameId: 'Alice',
     mainTitle: '爱丽丝的冒险',
