@@ -3,6 +3,7 @@ import {
   Hct,
   MaterialDynamicColors,
   SchemeVibrant,
+  TonalPalette,
   argbFromHex,
   hexFromArgb,
 } from '@material/material-color-utilities';
@@ -11,6 +12,10 @@ import {
 // 同时把各类 container 收到 tone 90/30，不会出现「亮蓝底 + 深蓝字」的割裂感。
 const seed = process.env.MD3_SEED ?? '#4FA8FF';
 const output = 'src/styles/md3-tokens.css';
+
+// 深色表面刻意近中性（「高级黑」）：中性色盘 chroma 压到 2，表面阶梯只留
+// 一丝冷调；品牌蓝只出现在 primary / secondary / tertiary / error 族与 hero 上。
+const NEUTRAL_CHROMA = 2;
 
 const roles = [
   'primary',
@@ -58,7 +63,23 @@ const kebab = (value) =>
   value.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
 
 const declarations = (isDark) => {
-  const scheme = new SchemeVibrant(Hct.fromInt(argbFromHex(seed)), isDark, 0);
+  const seedHct = Hct.fromInt(argbFromHex(seed));
+  const scheme = new SchemeVibrant(seedHct, isDark, 0);
+
+  // 「高级黑」：深色下把中性色盘的 chroma 从库默认的 10 压到 NEUTRAL_CHROMA，
+  // 色相沿用种子。SchemeVibrant 会把 neutralPalette 的 chroma 硬钉在 10，
+  // 压种子 chroma 不起作用，所以直接换掉 scheme 的两个中性色盘。
+  // 亮色不受影响，保持 SchemeVibrant 原样。
+  if (isDark) {
+    scheme.neutralPalette = TonalPalette.fromHueAndChroma(
+      seedHct.hue,
+      NEUTRAL_CHROMA,
+    );
+    scheme.neutralVariantPalette = TonalPalette.fromHueAndChroma(
+      seedHct.hue,
+      NEUTRAL_CHROMA,
+    );
+  }
 
   return roles
     .map((role) => {

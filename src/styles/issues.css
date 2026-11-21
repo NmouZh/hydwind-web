@@ -331,7 +331,7 @@
   }
 
   .issue-dialog::backdrop {
-    background: rgb(0 0 0 / 0.32);
+    background: color-mix(in srgb, var(--md-sys-color-scrim) 32%, transparent);
   }
 
   .issue-form {

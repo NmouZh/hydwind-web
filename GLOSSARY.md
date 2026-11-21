@@ -79,3 +79,13 @@ _Avoid_: 官方人物、样板人物
 **指南（Wiki guide）**:
 `src/content/guides` 下的 Wiki 页面，一个 Markdown 文件就是一页，文件名即 URL slug。
 _Avoid_: 教程、公告
+
+## 主题
+
+**主题（theme）**:
+站点的配色方案，`<html data-theme>` 二选一：`light` / `dark`，切换由顶栏按钮触发、localStorage 记忆、默认跟随系统偏好。
+_Avoid_: 皮肤、模式
+
+**种子色（seed color）**:
+MD3 配色的唯一源头，一个十六进制色值；亮暗两套 token 全部由它经 `SchemeVibrant` 推导，改品牌色即改它。
+_Avoid_: 品牌色、源色

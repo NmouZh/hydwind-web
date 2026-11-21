@@ -14,9 +14,11 @@
 - 描边统一用 1px `var(--md-sys-color-outline-variant)`，默认不用阴影，hover 才抬起；列表页优先用发丝线分行的 `list-rows`，不铺卡片
 - 动效：`var(--md-sys-motion-duration-*)`、`var(--md-sys-motion-easing-standard)`
 
-禁止在页面里写死 `#rrggbb`、`rgba()`、`px` 圆角、`0.2s` 这类字面值。需要半透明时用 `color-mix(in srgb, var(--token) N%, transparent)`。token 只在 `src/styles/md3-tokens.css` 里定义，由 `scripts/generate-md3-tokens.mjs` 生成，不要手改。
+禁止在页面里写死 `#rrggbb`、`rgba()`、`px` 圆角、`0.2s` 这类字面值。需要半透明时用 `color-mix(in srgb, var(--token) N%, transparent)`。token 只在 `src/styles/md3-tokens.css` 里定义，由 `scripts/generate-md3-tokens.mjs` 生成，不要手改。`scripts/check-build.mjs` 有「页面零字面色」断言，写死颜色会被构建检查拦下。
 
 深浅色都要成立：新增颜色一律引用 token，深色模式由 `data-theme="dark"` 自动切换，页面里不要写 `[data-theme]` 分支（`TopAppBar` 的主题图标除外）。
+
+深色是「高级黑」：生成器把深色中性色盘 chroma 压到 2，表面阶梯近中性黑（`#0e0e0f` → `#353536`），品牌蓝只出现在 primary / secondary / tertiary / error 族与 hero 上。改深色表面成色改的是生成器（`NEUTRAL_CHROMA`），不是手改 token。
 
 ## 2. 页面骨架
 
@@ -121,7 +123,7 @@
 | 纯图标 | `icon-button` + `aria-label` |
 | 标签、状态 | `assist-chip` / `tag-chip` |
 
-按钮只有这一套配色，**任何页面都不许给按钮换底色**（历史写法 `.hero-primary` / `.account-primary` 这类反色覆盖已经删掉）。`hero-plate` 的底色是 primary-container（tone 90 的浅色），filled 按钮叠在上面天然成立；如果发现对比度不够，改的是容器色，不是按钮。
+按钮只有这一套配色，**任何页面都不许给按钮换底色**（历史写法 `.hero-primary` / `.account-primary` 这类反色覆盖已经删掉）。`hero-plate` 的底色是 primary-container：亮色下是 tone 90 浅蓝，深色下是 tone 30 深蓝（全站唯一的品牌色大块，深色表面已近中性黑，这块深蓝是唯一的重心）；filled 按钮叠在上面天然成立。如果发现对比度不够，改的是容器色，不是按钮。
 
 ## 5. 表单
 
@@ -214,3 +216,5 @@ node scripts/smoke.mjs         # 可选：hydwind-api 可达时检查 /api/healt
 ```
 
 三条都过才算改完。检查脚本里新增的页面、导航项、关键文案，要同步加断言，否则下次改坏没人发现。
+
+改配色后还要走查双主题：深浅两套 × 全页面截图，深色底上所有文字对比度必须过 WCAG AA（`hero-plate` 深蓝底上的 filled 按钮是重点核对对象）。

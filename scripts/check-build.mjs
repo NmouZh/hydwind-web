@@ -405,6 +405,42 @@ const main = async () => {
     pass('服务器事实只存在于 site 单例，页面与内容不硬编码');
   }
 
+  // —— 颜色只能来自 MD3 token：页面/组件/样式里不得写死十六进制或 rgb()/rgba() ——
+  // 例外：md3-tokens.css（token 定义本身）与 BaseLayout 的 theme-color meta
+  //（浏览器 meta 需要具体值，随 token 重生成时同步）。
+  const colorSourceDirs = [
+    path.join(root, 'src', 'pages'),
+    path.join(root, 'src', 'components'),
+    path.join(root, 'src', 'styles'),
+    path.join(root, 'src', 'scripts'),
+    path.join(root, 'src', 'lib'),
+  ];
+  const literalColor =
+    /#[0-9a-fA-F]{3,8}\b|\brgba?\(/;
+  let literalColors = 0;
+  for (const dir of colorSourceDirs) {
+    if (!existsSync(dir)) continue;
+    for (const file of await walk(dir)) {
+      if (!/\.(astro|css|ts|mjs)$/.test(file)) continue;
+      const relative = path.relative(root, file);
+      if (relative === 'src/styles/md3-tokens.css') continue;
+      const source = await readFile(file, 'utf8');
+      // 剥掉合法例外：theme-color meta 行与锚点 href="#…"
+      const rest = source
+        .split('\n')
+        .filter((line) => !/theme-color/.test(line))
+        .join('\n')
+        .replaceAll(/href="#[^"]*"/g, '');
+      if (literalColor.test(rest)) {
+        fail(`${relative} 写死了颜色字面量（应引用 --md-sys-color-* token）`);
+        literalColors += 1;
+      }
+    }
+  }
+  if (literalColors === 0) {
+    pass('页面与组件没有字面颜色，全部来自 MD3 token');
+  }
+
   // —— 内容文件确实由内容集合生成，而非页面硬编码 ——
   const contentFiles = [
     'src/content/site/info.md',
